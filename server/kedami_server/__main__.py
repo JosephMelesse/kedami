@@ -4,6 +4,7 @@ import time
 
 import uvicorn
 
+from . import db
 from .app import create_app
 from .config import from_env
 from .storage import seed_sample
@@ -23,6 +24,7 @@ def exit_with_parent() -> None:
 
 def main() -> None:
     settings = from_env()
+    db.init(settings.data_dir)
     seed_sample(settings.data_dir)
     exit_with_parent()
     uvicorn.run(create_app(settings), host="127.0.0.1", port=settings.port, log_level="warning")

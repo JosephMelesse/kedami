@@ -94,7 +94,19 @@ input {
 }
 
 .app-name {
+  padding: 0;
+  border: 0;
+  background: none;
   font-weight: 500;
+  cursor: pointer;
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
 }
 
 .screen-message {

@@ -1,10 +1,23 @@
 // Calls to the local server. The base URL and session token come from the preload.
 import type { Lesson } from './lesson/types'
 
+export type LessonStatus = 'generating' | 'ready' | 'failed'
+
 export interface LessonResponse {
-  lesson: Lesson
-  status: string
+  lesson: Lesson | null
+  status: LessonStatus
   current_stage: number | null
+}
+
+export interface LessonSummary {
+  id: string
+  title: string
+  subject: Lesson['subject']
+  status: LessonStatus
+  current_stage: number | null
+  created: string
+  problems_total: number
+  problems_done: number
 }
 
 export interface PlotSeries {
@@ -21,6 +34,11 @@ async function get<T>(path: string): Promise<T> {
     throw new Error(`${response.status} ${response.statusText}`)
   }
   return response.json() as Promise<T>
+}
+
+export async function listLessons(): Promise<LessonSummary[]> {
+  const body = await get<{ lessons: LessonSummary[] }>('/lessons')
+  return body.lessons
 }
 
 export function getLesson(lessonId: string): Promise<LessonResponse> {

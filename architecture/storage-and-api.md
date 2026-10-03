@@ -19,6 +19,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 | `materials` | id, lesson id, filename, role, force transcription |
 | `progress` | lesson id, block id, part id, status, last response, attempts, hints used, updated |
 
+- Lesson status is one of: generating, ready, failed. Only a ready lesson has lesson JSON to serve.
 - Material role is problem set or reference.
 - Progress status is one of: not started, in progress, correct, marked done.
 - Progress is stored apart from the lesson JSON and keyed by block and part ID.

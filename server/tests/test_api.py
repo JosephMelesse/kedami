@@ -4,6 +4,7 @@ import shutil
 import pytest
 from fastapi.testclient import TestClient
 
+from kedami_server import db
 from kedami_server.app import create_app
 from kedami_server.config import Settings
 from kedami_server.plot import SAMPLES
@@ -16,6 +17,7 @@ AUTH = {"Authorization": f"Bearer {TOKEN}"}
 
 @pytest.fixture
 def data_dir(tmp_path):
+    db.init(tmp_path)
     seed_sample(tmp_path)
     return tmp_path
 
@@ -26,7 +28,7 @@ def client(data_dir):
     return TestClient(create_app(settings))
 
 
-ROUTES = ["/health", "/lessons/sample", "/lessons/sample/blocks/height-plot/points", "/lessons/missing"]
+ROUTES = ["/health", "/lessons", "/lessons/sample", "/lessons/sample/blocks/height-plot/points", "/lessons/missing"]
 
 
 @pytest.mark.parametrize("path", ROUTES)
@@ -122,6 +124,9 @@ def test_seed_does_not_overwrite_existing_lesson(data_dir):
 
 
 def test_seed_is_idempotent(tmp_path):
+    db.init(tmp_path)
     seed_sample(tmp_path)
     seed_sample(tmp_path)
     assert (tmp_path / "lessons" / "sample.json").read_bytes() == SAMPLE_FIXTURE.read_bytes()
+    with db.connect(tmp_path) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM lessons").fetchone()[0] == 1

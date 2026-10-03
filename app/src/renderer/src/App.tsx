@@ -1,15 +1,23 @@
+import { useState } from 'react'
 import { AppHeader } from './AppHeader'
 import { LessonScreen } from './lesson/LessonScreen'
+import { LibraryScreen } from './library/LibraryScreen'
 
-// Until the Library screen exists, the app opens the hand-written sample lesson.
-const SAMPLE_LESSON_ID = 'sample'
+type Screen = { name: 'library' } | { name: 'lesson'; lessonId: string }
 
 export function App() {
+  const [screen, setScreen] = useState<Screen>({ name: 'library' })
+  const openLibrary = () => setScreen({ name: 'library' })
+
   return (
     <>
-      <AppHeader />
+      <AppHeader onHome={openLibrary} />
       <main>
-        <LessonScreen lessonId={SAMPLE_LESSON_ID} />
+        {screen.name === 'library' ? (
+          <LibraryScreen onOpen={(lessonId) => setScreen({ name: 'lesson', lessonId })} />
+        ) : (
+          <LessonScreen lessonId={screen.lessonId} onBack={openLibrary} />
+        )}
       </main>
     </>
   )

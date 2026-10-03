@@ -37,7 +37,7 @@ Dark is the only theme in the MVP. All colors come from these tokens so a light 
 
 | Screen | Contents |
 |---|---|
-| Library | Lessons with status and progress |
+| Library | The start screen. One tile per lesson, oldest first, with status and problem progress, then a New lesson tile that opens Upload |
 | Upload | File drop, role tag and force-transcription toggle per file |
 | Generating | Current pipeline stage |
 | Lesson | Sections and blocks in order, with a progress indicator in the accent color |

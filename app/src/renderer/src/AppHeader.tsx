@@ -1,7 +1,9 @@
-export function AppHeader() {
+export function AppHeader({ onHome }: { onHome: () => void }) {
   return (
     <header className="app-header">
-      <span className="app-name">Kedami</span>
+      <button type="button" className="app-name" onClick={onHome}>
+        Kedami
+      </button>
     </header>
   )
 }

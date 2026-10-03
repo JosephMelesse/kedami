@@ -6,8 +6,10 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from . import db
 from .config import Settings
-from .lesson import PlotBlock
+from .lesson import Lesson, PlotBlock
+from .library import LessonRow, get_lesson_row, list_lessons, problem_ids
 from .plot import sample_points
 from .storage import load_lesson
 
@@ -31,20 +33,47 @@ def create_app(settings: Settings) -> FastAPI:
         allow_headers=["Authorization", "Content-Type"],
     )
 
-    def get_lesson(lesson_id: str):
-        lesson = load_lesson(settings.data_dir, lesson_id)
+    def get_row(lesson_id: str) -> LessonRow:
+        with db.connect(settings.data_dir) as conn:
+            row = get_lesson_row(conn, lesson_id)
+        if row is None:
+            raise HTTPException(404, "lesson not found")
+        return row
+
+    def get_lesson(lesson_id: str) -> Lesson:
+        lesson = load_lesson(settings.data_dir, lesson_id) if get_row(lesson_id).status == "ready" else None
         if lesson is None:
             raise HTTPException(404, "lesson not found")
         return lesson
+
+    def summary(row: LessonRow) -> dict:
+        lesson = load_lesson(settings.data_dir, row.id) if row.status == "ready" else None
+        return {
+            "id": row.id,
+            "title": row.title,
+            "subject": row.subject,
+            "status": row.status,
+            "current_stage": row.current_stage,
+            "created": row.created,
+            "problems_total": len(problem_ids(lesson)) if lesson else 0,
+            "problems_done": 0,
+        }
 
     @app.get("/health")
     def health():
         return {"status": "ok"}
 
+    @app.get("/lessons")
+    def lessons():
+        with db.connect(settings.data_dir) as conn:
+            rows = list_lessons(conn)
+        return {"lessons": [summary(row) for row in rows]}
+
     @app.get("/lessons/{lesson_id}")
     def lesson(lesson_id: str):
-        # Generation status arrives with the pipeline (step 3); a lesson on disk is ready.
-        return {"lesson": get_lesson(lesson_id).model_dump(mode="json"), "status": "ready", "current_stage": None}
+        row = get_row(lesson_id)
+        body = get_lesson(lesson_id).model_dump(mode="json") if row.status == "ready" else None
+        return {"lesson": body, "status": row.status, "current_stage": row.current_stage}
 
     @app.get("/lessons/{lesson_id}/blocks/{block_id}/points")
     def points(lesson_id: str, block_id: str):
