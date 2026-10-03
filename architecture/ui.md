@@ -55,3 +55,7 @@ A simple study and rest timer. It runs entirely in the renderer and has no serve
 - **Alarm:** a short, conventional alarm jingle from a bundled audio file, played once at the end of each phase.
 - **Accuracy:** remaining time is computed from the phase's end timestamp, so it stays correct when the window is in the background.
 - **Persistence:** the two durations are saved locally. A running timer does not survive an app restart.
+- Durations are whole minutes from 1 to 180, editable only while the timer is reset, so a running phase never changes length.
+- If the window sleeps through several phase ends, the timer lands in the right phase and the alarm plays once.
+- The window does not throttle background timers, so the alarm is on time when the app is hidden.
+- The alarm is `app/src/renderer/src/assets/alarm.wav`, a short ascending chime synthesized for this project.

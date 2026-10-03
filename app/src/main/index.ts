@@ -19,7 +19,9 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      // Keep the Pomodoro timer's ticks on time while the window is hidden, so the alarm isn't late.
+      backgroundThrottling: false
     }
   })
 
