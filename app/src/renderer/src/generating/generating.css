@@ -82,3 +82,51 @@
 .form-screen .lesson-header {
   margin-bottom: 0;
 }
+
+.file-drop {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  padding: 32px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  color: var(--text-muted);
+  transition: border-color 150ms ease-out;
+}
+
+.file-drop[data-over='true'] {
+  border-color: var(--accent);
+}
+
+.file-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.file-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-row select {
+  padding: 8px;
+}
+
+.rerun-dialog {
+  max-width: 520px;
+}

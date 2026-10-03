@@ -4,6 +4,7 @@ System prompts are fixed strings and the course material comes first in every re
 so the shared prefix is cached across a lesson's calls.
 """
 
+import base64
 import json
 from typing import TYPE_CHECKING
 
@@ -41,6 +42,39 @@ def _with_feedback(text: str, feedback: str | None) -> dict:
             f"{feedback}\n\nReply again with the problem fixed."
         )
     return {"type": "text", "text": text}
+
+
+# Stage 1: ingestion
+
+TEXT_CHECK_SYSTEM = """You check text extracted from the text layer of PDF pages of course material. For each page,
+decide whether the text is clean: a student could read every problem and formula from it alone. It is not clean if
+math is garbled or flattened (exponents, subscripts, fractions, roots, or symbols lost or run together, such as
+"x2" for x squared), characters are replaced by boxes or wrong symbols, words are split or merged, or text is out of
+order. When unsure, say it is not clean. Rule on every page you are given."""
+
+
+def text_check_request(file: str, pages: list[tuple[int, str]]) -> dict:
+    data = [{"page": number, "text": text} for number, text in pages]
+    return {
+        "type": "text",
+        "text": f"Rule on each page extracted from {file}:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}",
+    }
+
+
+TRANSCRIBE_SYSTEM = f"""You transcribe one page of course material from an image into Markdown with LaTeX.
+
+Copy the page exactly: every problem number, part label, word, number, unit, and symbol, in reading order. Do not
+solve, summarize, correct, or comment. Describe a figure in one line as [Figure: ...] with any labels and values it
+shows. If the page is blank, return an empty string.
+
+{MARKDOWN}"""
+
+
+def transcribe_request(file: str, page: int, png: bytes) -> list[dict]:
+    return [
+        {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": base64.b64encode(png).decode()}},
+        {"type": "text", "text": f"Transcribe page {page} of {file}."},
+    ]
 
 
 # Stage 2: extraction

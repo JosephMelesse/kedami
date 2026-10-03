@@ -333,3 +333,19 @@ textarea.text-input {
 .plot-parameter input {
   accent-color: var(--text-muted);
 }
+
+.lesson-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.notice {
+  max-width: 712px;
+  margin: 24px auto 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-muted);
+}

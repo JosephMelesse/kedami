@@ -7,7 +7,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 | Item | Location |
 |---|---|
 | Original files | `materials/{lesson_id}/` |
-| Stage outputs | `work/{lesson_id}/` (page routes, normalized text, extraction, plan) |
+| Stage outputs | `work/{lesson_id}/`: `pages.json` (routes and text per page), `normalized/`, `extraction.json`, `plan.json`, `outline.json`, `section-{n}.json`, `verification-{n}.json` |
 | Lessons | `lessons/{lesson_id}.json` |
 | Index and progress | SQLite database |
 
@@ -31,10 +31,10 @@ All routes require the session token.
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/lessons` | Upload files with roles and toggles; starts the pipeline. Until build step 5 it takes JSON: subject, problem set text, reference text |
+| POST | `/lessons` | Multipart upload: `subject`, and per file `files`, `roles`, `force`; starts the pipeline |
 | GET | `/lessons` | List lessons with status and progress |
-| GET | `/lessons/{id}` | Lesson JSON plus generation status and current stage |
-| POST | `/lessons/{id}/rerun` | Rerun from a given stage, with updated file toggles |
+| GET | `/lessons/{id}` | Lesson JSON plus generation status, current stage, error, materials, and the stages a rerun can start from |
+| POST | `/lessons/{id}/rerun` | Rerun from a given stage, with force transcription per material ID |
 | GET | `/lessons/{id}/blocks/{block_id}/points` | Sampled points for a static plot |
 | POST | `/lessons/{id}/blocks/{block_id}/check` | Check a response for a part; records progress and returns the new state |
 | POST | `/lessons/{id}/blocks/{block_id}/hint` | Record hints revealed for a part or checkpoint; returns the new state |

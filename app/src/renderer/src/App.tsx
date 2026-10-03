@@ -31,7 +31,9 @@ export function App() {
         {screen.name === 'generating' && (
           <GeneratingScreen key={screen.lessonId} lessonId={screen.lessonId} onReady={openLesson} onBack={openLibrary} />
         )}
-        {screen.name === 'lesson' && <LessonScreen lessonId={screen.lessonId} onBack={openLibrary} />}
+        {screen.name === 'lesson' && (
+          <LessonScreen lessonId={screen.lessonId} onBack={openLibrary} onRerun={openGenerating} />
+        )}
       </main>
     </>
   )

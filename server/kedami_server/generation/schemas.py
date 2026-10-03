@@ -12,6 +12,22 @@ from pydantic import Field, PrivateAttr, TypeAdapter, ValidationError, model_val
 from ..ids import slugify
 from ..lesson import MAX_HINTS, Answer, Model, PlotFunction, PlotParameter, Range
 
+# Stage 1: ingestion
+
+
+class PageCheck(Model):
+    page: int
+    clean: bool
+
+
+class TextChecks(Model):
+    pages: list[PageCheck]
+
+
+class Transcription(Model):
+    markdown: str = Field(description="The page as Markdown with LaTeX. Empty if the page is blank.")
+
+
 # Stage 2: extraction
 
 

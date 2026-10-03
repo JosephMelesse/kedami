@@ -39,8 +39,8 @@ Dark is the only theme in the MVP. All colors come from these tokens so a light 
 |---|---|
 | Library | The start screen. One tile per lesson, oldest first, with status and problem progress, then a New lesson tile that opens Upload |
 | Upload | File drop, role tag and force-transcription toggle per file |
-| Generating | Current pipeline stage |
-| Lesson | Sections and blocks in order, with a progress indicator in the accent color |
+| Generating | Current pipeline stage; a failed lesson shows the reason and a Rerun button |
+| Lesson | Sections and blocks in order, with a progress indicator in the accent color. A Rerun button opens a dialog with the start stage and force-transcription toggles; a failed rerun shows its reason above the lesson |
 
 The app header is visible on every screen and holds the Pomodoro timer.
 

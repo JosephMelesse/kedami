@@ -5,7 +5,7 @@ import uuid
 from dataclasses import asdict
 from typing import Annotated, Any, Literal
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
@@ -15,10 +15,22 @@ from .checking import InvalidResponse, check
 from .config import Settings
 from .generation import pipeline
 from .lesson import Lesson, PlotBlock
-from .library import LessonRow, add_material, create_generating, get_lesson_row, list_lessons, problem_ids
+from .generation.sources import SourceError
+from .library import (
+    LessonRow,
+    add_material,
+    create_generating,
+    get_lesson_row,
+    list_lessons,
+    list_materials,
+    problem_ids,
+    set_force,
+    start_run,
+)
 from .plot import sample_points
 from .storage import load_lesson
 from .targets import Target, find_target
+from .uploads import Upload, check_uploads, save_uploads
 
 
 class Body(BaseModel):
@@ -35,15 +47,10 @@ class HintRequest(Body):
     count: StrictInt
 
 
-MAX_PASTE = 200_000
-
-
-class NewLessonRequest(Body):
-    """Step 3 takes pasted text; file upload replaces it in step 5."""
-
-    subject: Literal["math", "physics"]
-    problem_set: Annotated[str, Field(min_length=1, max_length=MAX_PASTE, pattern=r"\S")]
-    reference: Annotated[str, Field(max_length=MAX_PASTE)] = ""
+class RerunRequest(Body):
+    stage: Annotated[StrictInt, Field(ge=1, le=4)]
+    # Force transcription per material, keyed by material ID.
+    force: dict[str, StrictBool] = {}
 
 
 class MarkDoneRequest(Body):
@@ -128,25 +135,68 @@ def create_app(settings: Settings, start_generation=pipeline.start) -> FastAPI:
         return {"lessons": [summary(row) for row in rows]}
 
     @app.post("/lessons", status_code=201)
-    def new_lesson(body: NewLessonRequest):
+    def new_lesson(
+        subject: Annotated[Literal["math", "physics"], Form()],
+        files: Annotated[list[UploadFile], File()],
+        roles: Annotated[list[str], Form()],
+        force: Annotated[list[bool], Form()],
+    ):
+        if not len(files) == len(roles) == len(force):
+            raise HTTPException(422, "Each file needs a role and a force transcription setting.")
+        uploads = [Upload(f.filename or "file", f.file.read(), r, x) for f, r, x in zip(files, roles, force)]
+        try:
+            check_uploads(uploads)
+        except SourceError as error:
+            raise HTTPException(422, str(error)) from error
+
         lesson_id = str(uuid.uuid4())
-        source = pipeline.materials_dir(settings.data_dir, lesson_id)
-        source.mkdir(parents=True)
-        (source / pipeline.PROBLEM_SET_FILE).write_text(body.problem_set)
+        saved = save_uploads(pipeline.materials_dir(settings.data_dir, lesson_id), uploads)
         with db.connect(settings.data_dir) as conn:
-            create_generating(conn, lesson_id, body.subject, schema_version=1)
-            add_material(conn, lesson_id, pipeline.PROBLEM_SET_FILE, "problem_set")
-            if body.reference.strip():
-                (source / pipeline.REFERENCE_FILE).write_text(body.reference)
-                add_material(conn, lesson_id, pipeline.REFERENCE_FILE, "reference")
-        start_generation(settings.data_dir, lesson_id, body.subject)
+            create_generating(conn, lesson_id, subject, schema_version=1)
+            for file in saved:
+                add_material(conn, lesson_id, file.filename, file.role, file.force_transcription)
+        start_generation(settings.data_dir, lesson_id, subject, 1)
+        return {"id": lesson_id}
+
+    @app.post("/lessons/{lesson_id}/rerun")
+    def rerun(lesson_id: str, body: RerunRequest):
+        row = get_row(lesson_id)
+        if row.status == "generating":
+            raise HTTPException(409, "This lesson is already generating.")
+        with db.connect(settings.data_dir) as conn:
+            materials = {str(m.id): m for m in list_materials(conn, lesson_id)}
+        unknown = sorted(body.force.keys() - materials.keys())
+        if unknown:
+            raise HTTPException(422, f"Unknown files: {', '.join(unknown)}")
+        changed = {key: value for key, value in body.force.items() if materials[key].force_transcription != value}
+        if changed and body.stage != 1:
+            raise HTTPException(422, "Changing force transcription needs a rerun from stage 1.")
+        if body.stage not in pipeline.available_stages(settings.data_dir, lesson_id, bool(materials)):
+            raise HTTPException(409, f"This lesson can't be rerun from stage {body.stage}.")
+        with db.connect(settings.data_dir) as conn:
+            for key, value in changed.items():
+                set_force(conn, int(key), value)
+            start_run(conn, lesson_id)
+        start_generation(settings.data_dir, lesson_id, row.subject, body.stage)
         return {"id": lesson_id}
 
     @app.get("/lessons/{lesson_id}")
     def lesson(lesson_id: str):
         row = get_row(lesson_id)
         body = get_lesson(lesson_id).model_dump(mode="json") if row.status == "ready" else None
-        return {"lesson": body, "status": row.status, "current_stage": row.current_stage, "error": row.error}
+        with db.connect(settings.data_dir) as conn:
+            materials = list_materials(conn, lesson_id)
+        return {
+            "lesson": body,
+            "status": row.status,
+            "current_stage": row.current_stage,
+            "error": row.error,
+            "materials": [
+                {"id": m.id, "filename": m.filename, "role": m.role, "force_transcription": m.force_transcription}
+                for m in materials
+            ],
+            "rerun_stages": pipeline.available_stages(settings.data_dir, lesson_id, bool(materials)),
+        }
 
     @app.get("/lessons/{lesson_id}/blocks/{block_id}/points")
     def points(lesson_id: str, block_id: str):

@@ -37,7 +37,7 @@ Anthropic is the only provider.
 | Role | Model | Used for |
 |---|---|---|
 | Generate | `claude-sonnet-5-5` at high effort | Extraction, planning, lesson sections, hints, simulations |
-| Transcribe | Claude, vision-capable | Turning flagged pages into Markdown with LaTeX |
+| Transcribe | `claude-opus-5-5` at medium effort | Turning flagged pages into Markdown with LaTeX |
 | Second solve | `claude-opus-5-5` at high effort | Independent solution for verification |
 | Small checks | `claude-haiku-4-5` | Scoring extracted page text, hint leak check |
 

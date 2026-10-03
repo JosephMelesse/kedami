@@ -10,7 +10,9 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any
 
-from .lesson import Lesson, ProblemBlock
+from .checking import InvalidResponse, check
+from .lesson import Lesson, ProblemBlock, SelfCheckAnswer
+from .targets import find_target
 
 NOT_STARTED = "not_started"
 IN_PROGRESS = "in_progress"
@@ -78,6 +80,47 @@ def problems_done(lesson: Lesson, records: list[Record]) -> int:
         for block in section.blocks
         if isinstance(block, ProblemBlock)
     )
+
+
+def carried_over(record: Record, lesson: Lesson) -> Record | None:
+    """The record after a rerun replaced the lesson, or None to delete it.
+
+    - Checkpoint progress resets, and progress for parts that no longer exist is deleted.
+    - Parts that were marked done stay marked done.
+    - A saved response is rechecked against the new stored answer. A self check's result
+      is the student's own judgment, so it stands while the answer is still a self check.
+    - Hints used is capped at the new number of hints.
+    """
+    if record.part_id is None:
+        return None
+    target = find_target(lesson, record.block_id, record.part_id)
+    if target is None:
+        return None
+    record = replace(record, hints_used=min(record.hints_used, len(target.hints)))
+    if record.status == MARKED_DONE:
+        return record
+    if record.last_response is None:
+        return replace(record, status=IN_PROGRESS if record.hints_used else NOT_STARTED)
+    if isinstance(target.answer, SelfCheckAnswer) and record.status in (CORRECT, IN_PROGRESS):
+        return record
+    try:
+        correct = check(target.answer, record.last_response)
+    except InvalidResponse:
+        # The old response doesn't fit the new answer's form, so it can't be right.
+        correct = False
+    return replace(record, status=CORRECT if correct else IN_PROGRESS)
+
+
+def carry_over(conn: sqlite3.Connection, lesson_id: str, lesson: Lesson) -> None:
+    for record in load_all(conn, lesson_id):
+        updated = carried_over(record, lesson)
+        if updated is None:
+            conn.execute(
+                "DELETE FROM progress WHERE lesson_id = ? AND block_id = ? AND part_id = ?",
+                (lesson_id, record.block_id, record.part_id or ""),
+            )
+        elif updated != record:
+            save(conn, lesson_id, updated)
 
 
 # Storage

@@ -1,14 +1,9 @@
 import { useEffect, useState } from 'react'
 import { getLesson, type LessonResponse } from '../api'
+import { RerunDialog } from './RerunDialog'
+import { STAGES } from './stages'
 
 const POLL_MS = 2000
-
-// Stages 2 to 4 from architecture/pipeline.md, as the student sees them.
-const STAGES = [
-  { stage: 2, label: 'Reading the problem set' },
-  { stage: 3, label: 'Planning the sections' },
-  { stage: 4, label: 'Writing and checking the sections' }
-]
 
 interface GeneratingProps {
   lessonId: string
@@ -19,6 +14,9 @@ interface GeneratingProps {
 export function GeneratingScreen({ lessonId, onReady, onBack }: GeneratingProps) {
   const [status, setStatus] = useState<LessonResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [rerunning, setRerunning] = useState(false)
+  // Bumped after a rerun starts, to resume polling.
+  const [run, setRun] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -39,7 +37,7 @@ export function GeneratingScreen({ lessonId, onReady, onBack }: GeneratingProps)
       cancelled = true
       clearTimeout(timer)
     }
-  }, [lessonId, onReady])
+  }, [lessonId, onReady, run])
 
   return (
     <>
@@ -49,13 +47,31 @@ export function GeneratingScreen({ lessonId, onReady, onBack }: GeneratingProps)
         </button>
       </nav>
       <div className="form-screen">
-        <GeneratingView status={status} error={error} />
+        <GeneratingView status={status} error={error} onRerun={() => setRerunning(true)} />
       </div>
+      {rerunning && status && (
+        <RerunDialog
+          lessonId={lessonId}
+          status={status}
+          onCancel={() => setRerunning(false)}
+          onStarted={() => {
+            setRerunning(false)
+            setStatus(null)
+            setRun(run + 1)
+          }}
+        />
+      )}
     </>
   )
 }
 
-export function GeneratingView({ status, error }: { status: LessonResponse | null; error: string | null }) {
+interface GeneratingViewProps {
+  status: LessonResponse | null
+  error: string | null
+  onRerun?: () => void
+}
+
+export function GeneratingView({ status, error, onRerun }: GeneratingViewProps) {
   if (error) return <p className="muted">Could not check on the lesson: {error}</p>
   if (!status) return <p className="muted">Checking on the lesson</p>
 
@@ -80,6 +96,13 @@ export function GeneratingView({ status, error }: { status: LessonResponse | nul
           )
         })}
       </ol>
+      {failed && status.rerun_stages.length > 0 && onRerun && (
+        <div>
+          <button type="button" className="button button-primary" onClick={onRerun}>
+            Rerun
+          </button>
+        </div>
+      )}
     </>
   )
 }

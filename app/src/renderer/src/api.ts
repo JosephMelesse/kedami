@@ -3,11 +3,29 @@ import type { Lesson } from './lesson/types'
 
 export type LessonStatus = 'generating' | 'ready' | 'failed'
 
+export type MaterialRole = 'problem_set' | 'reference'
+
+export interface Material {
+  id: number
+  filename: string
+  role: MaterialRole
+  force_transcription: boolean
+}
+
 export interface LessonResponse {
   lesson: Lesson | null
   status: LessonStatus
   current_stage: number | null
   error: string | null
+  materials: Material[]
+  /** Stages a rerun can start from. Empty if the lesson can't be rerun. */
+  rerun_stages: number[]
+}
+
+export interface NewFile {
+  file: File
+  role: MaterialRole
+  force: boolean
 }
 
 export interface LessonSummary {
@@ -60,13 +78,15 @@ export class ApiError extends Error {
 
 async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
   const { baseUrl, token } = await window.kedami.serverConnection()
+  // A FormData body sets its own multipart content type, with the boundary.
+  const form = body instanceof FormData
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
       Authorization: `Bearer ${token}`,
-      ...(body === undefined ? {} : { 'Content-Type': 'application/json' })
+      ...(body === undefined || form ? {} : { 'Content-Type': 'application/json' })
     },
-    body: body === undefined ? undefined : JSON.stringify(body)
+    body: body === undefined ? undefined : form ? body : JSON.stringify(body)
   })
   if (!response.ok) {
     const detail = await response.json().then((json) => json.detail, () => null)
@@ -83,9 +103,20 @@ export async function listLessons(): Promise<LessonSummary[]> {
   return body.lessons
 }
 
-export async function createLesson(subject: Lesson['subject'], problemSet: string, reference: string): Promise<string> {
-  const body = await request<{ id: string }>('POST', '/lessons', { subject, problem_set: problemSet, reference })
+export async function createLesson(subject: Lesson['subject'], files: NewFile[]): Promise<string> {
+  const form = new FormData()
+  form.append('subject', subject)
+  for (const { file, role, force } of files) {
+    form.append('files', file, file.name)
+    form.append('roles', role)
+    form.append('force', String(force))
+  }
+  const body = await request<{ id: string }>('POST', '/lessons', form)
   return body.id
+}
+
+export async function rerunLesson(lessonId: string, stage: number, force: Record<number, boolean>): Promise<void> {
+  await request('POST', `${lessonPath(lessonId)}/rerun`, { stage, force })
 }
 
 export function getLesson(lessonId: string): Promise<LessonResponse> {

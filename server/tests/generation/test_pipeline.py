@@ -21,9 +21,9 @@ from kedami_server.generation.schemas import (
 from kedami_server.lesson import Lesson
 from kedami_server.model import ModelError
 
+from .conftest import AUTH, upload
 from .factories import extraction, plan
 
-AUTH = {"Authorization": "Bearer t"}
 NUMERIC = {"kind": "numeric", "value": 8.66, "rel_tolerance": 0.01, "unit": "m/s"}
 
 
@@ -91,27 +91,8 @@ def happy_script(overrides=None):
     return script
 
 
-@pytest.fixture
-def data_dir(tmp_path):
-    db.init(tmp_path)
-    return tmp_path
-
-
-@pytest.fixture
-def started(data_dir):
-    """Create a lesson through the API without running generation."""
-    runs = []
-    client = TestClient(create_app(Settings(0, "t", data_dir, ()), start_generation=lambda *args: runs.append(args)))
-
-    def create(problem_set="PS1\n1. A ball...", reference="Notes on projectiles.", subject="physics"):
-        response = client.post("/lessons", json={"subject": subject, "problem_set": problem_set, "reference": reference}, headers=AUTH)
-        return response
-
-    return client, create, runs
-
-
-def run(data_dir, lesson_id, fake):
-    pipeline.run(data_dir, lesson_id, "physics", call=fake)
+def run(data_dir, lesson_id, fake, start_stage=1):
+    pipeline.run(data_dir, lesson_id, "physics", start_stage, call=fake)
 
 
 def lesson_status(client, lesson_id):
@@ -126,37 +107,17 @@ def test_new_lesson_saves_materials_and_starts_generation(started, data_dir):
     response = create()
     assert response.status_code == 201
     lesson_id = response.json()["id"]
-    assert runs == [(data_dir, lesson_id, "physics")]
+    assert runs == [(data_dir, lesson_id, "physics", 1)]
     assert (data_dir / "materials" / lesson_id / "problem-set.md").read_text() == "PS1\n1. A ball..."
     assert (data_dir / "materials" / lesson_id / "reference.md").read_text() == "Notes on projectiles."
-    with db.connect(data_dir) as conn:
-        roles = [r["role"] for r in conn.execute("SELECT role FROM materials WHERE lesson_id = ?", (lesson_id,))]
-    assert roles == ["problem_set", "reference"]
-    assert lesson_status(client, lesson_id) == {"lesson": None, "status": "generating", "current_stage": None, "error": None}
+    status = lesson_status(client, lesson_id)
+    assert (status["lesson"], status["status"], status["current_stage"], status["error"]) == (None, "generating", None, None)
+    assert [(m["filename"], m["role"], m["force_transcription"]) for m in status["materials"]] == [
+        ("problem-set.md", "problem_set", False),
+        ("reference.md", "reference", False),
+    ]
+    assert status["rerun_stages"] == [1]
     assert client.get("/lessons", headers=AUTH).json()["lessons"][-1]["title"] == "New lesson"
-
-
-def test_reference_material_is_optional(started, data_dir):
-    _, create, _ = started
-    lesson_id = create(reference="  ").json()["id"]
-    assert not (data_dir / "materials" / lesson_id / "reference.md").exists()
-
-
-@pytest.mark.parametrize(
-    "body",
-    [
-        {"subject": "physics", "problem_set": ""},
-        {"subject": "physics", "problem_set": "   \n "},
-        {"subject": "chemistry", "problem_set": "1. x"},
-        {"subject": "physics"},
-        {"subject": "physics", "problem_set": "x" * 200_001},
-        {"subject": "physics", "problem_set": "1. x", "extra": 1},
-    ],
-)
-def test_new_lesson_validation(started, body):
-    client, _, runs = started
-    assert client.post("/lessons", json=body, headers=AUTH).status_code == 422
-    assert runs == []
 
 
 # Running the pipeline
@@ -188,11 +149,17 @@ def test_happy_path_produces_a_ready_lesson(started, data_dir):
 
     work = data_dir / "work" / lesson_id
     assert sorted(p.name for p in work.iterdir()) == [
-        "extraction.json", "plan.json", "section-1.json", "section-2.json", "verification-1.json", "verification-2.json",
+        "extraction.json", "normalized", "outline.json", "pages.json", "plan.json",
+        "section-1.json", "section-2.json", "verification-1.json", "verification-2.json",
     ]
+    pages = json.loads((work / "pages.json").read_text())
+    assert [(p["file"], p["route"], p["reason"]) for p in pages] == [
+        ("problem-set.md", "keep", "text file"), ("reference.md", "keep", "text file"),
+    ]
+    assert (work / "normalized" / "problem-set.md").read_text() == "[problem-set.md, page 1]\n\nPS1\n1. A ball..."
     records = json.loads((work / "verification-1.json").read_text())
     assert [(r["target"], r["verified"]) for r in records] == [("vectors-block-2", True), ("ps1-1/a", True), ("ps1-1/b", False)]
-    assert json.loads((work / "plan.json").read_text())["sections"][1]["problems"] == ["PS1 #2"]
+    assert json.loads((work / "outline.json").read_text())["sections"][1]["problems"] == ["PS1 #2"]
 
 
 def test_requests_use_the_generate_role_and_open_with_the_cached_material(started, data_dir):
@@ -269,7 +236,7 @@ def test_interrupted_generation_is_marked_failed(started, data_dir):
     from kedami_server import library
 
     with db.connect(data_dir) as conn:
-        library.fail_interrupted(conn)
+        library.fail_interrupted(conn, lambda _id: False)
     status = lesson_status(client, lesson_id)
     assert status["status"] == "failed" and "interrupted" in status["error"]
 

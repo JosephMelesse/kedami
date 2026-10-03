@@ -1,43 +1,41 @@
-"""Stages 2 to 4: from course text to a lesson. See architecture/pipeline.md.
+"""Stages 1 to 4: from uploaded files to a lesson. See architecture/pipeline.md.
 
-Each stage writes its output under work/{lesson_id}/. A stage whose reply is rejected
-(a schema or rule violation) is retried with the reason; a failed section is retried alone.
+Each stage writes its output under work/{lesson_id}/, so a rerun can start at any stage
+whose inputs are on disk. A stage whose reply is rejected (a schema or rule violation)
+is retried with the reason; a failed section is retried alone.
 """
 
 import json
 import logging
+import shutil
 import threading
 from collections.abc import Callable
 from dataclasses import asdict
 from pathlib import Path
-from typing import TypeVar
 
 from pydantic import BaseModel, ValidationError
 
-from .. import db, library
+from .. import db, library, progress
 from ..lesson import Section
 from ..model import ModelError, call_model
 from ..storage import lessons_dir
 from . import prompts
-from .assemble import SectionError, assemble_lesson, assemble_section
+from .assemble import assemble_lesson, assemble_section
 from .hints import add_hints
-from .plan import PlanError, SectionPlan, place_problems
+from .ingest import Material, Normalized, ingest
+from .plan import SectionPlan, place_problems
+from .retry import GenerationError, retrying
 from .schemas import Extraction, Plan, SectionDraft
 from .verify import verify_section
 
 log = logging.getLogger(__name__)
 
-ATTEMPTS = 3
-MAX_FEEDBACK = 4000
+STAGES = (1, 2, 3, 4)
+NORMALIZED = "normalized"
 PROBLEM_SET_FILE = "problem-set.md"
 REFERENCE_FILE = "reference.md"
 
-T = TypeVar("T")
 Call = Callable[..., BaseModel]
-
-
-class GenerationError(Exception):
-    pass
 
 
 def materials_dir(data_dir: Path, lesson_id: str) -> Path:
@@ -48,65 +46,106 @@ def work_dir(data_dir: Path, lesson_id: str) -> Path:
     return data_dir / "work" / lesson_id
 
 
-def start(data_dir: Path, lesson_id: str, subject: str) -> threading.Thread:
-    thread = threading.Thread(target=run, args=(data_dir, lesson_id, subject), daemon=True, name=f"lesson-{lesson_id}")
+def lesson_path(data_dir: Path, lesson_id: str) -> Path:
+    return lessons_dir(data_dir) / f"{lesson_id}.json"
+
+
+def start(data_dir: Path, lesson_id: str, subject: str, start_stage: int = 1) -> threading.Thread:
+    thread = threading.Thread(
+        target=run, args=(data_dir, lesson_id, subject, start_stage), daemon=True, name=f"lesson-{lesson_id}"
+    )
     thread.start()
     return thread
 
 
-def run(data_dir: Path, lesson_id: str, subject: str, call: Call = call_model) -> None:
-    """Generate the lesson and record the outcome in the index. Never raises."""
+def available_stages(data_dir: Path, lesson_id: str, has_materials: bool) -> list[int]:
+    """Stages a rerun can start from. Stage 1 needs the uploaded files; stage k needs the
+    saved outputs of stages 1 to k-1."""
+    work = work_dir(data_dir, lesson_id)
+    outputs = [
+        (work / NORMALIZED / PROBLEM_SET_FILE).exists(),
+        _load(work / "extraction.json", Extraction) is not None,
+        _load(work / "plan.json", Plan) is not None,
+    ]
+    return [stage for stage in STAGES if (has_materials if stage == 1 else all(outputs[: stage - 1]))]
+
+
+def run(data_dir: Path, lesson_id: str, subject: str, start_stage: int = 1, call: Call = call_model) -> None:
+    """Generate the lesson and record the outcome in the index. Never raises.
+
+    If a previous version of the lesson exists, a failure leaves it in place.
+    """
+    had_lesson = lesson_path(data_dir, lesson_id).exists()
+
+    def fail(message: str) -> None:
+        if had_lesson:
+            _record(data_dir, lambda conn: library.set_rerun_failed(conn, lesson_id, message))
+        else:
+            _record(data_dir, lambda conn: library.set_failed(conn, lesson_id, message))
+
     try:
-        _generate(data_dir, lesson_id, subject, call)
+        _generate(data_dir, lesson_id, subject, start_stage, call, rerun=had_lesson)
     except (GenerationError, ModelError) as error:
-        _record(data_dir, lambda conn: library.set_failed(conn, lesson_id, str(error)))
+        fail(str(error))
     except Exception as error:
         log.exception("lesson %s failed", lesson_id)
-        _record(data_dir, lambda conn: library.set_failed(conn, lesson_id, f"Unexpected error: {error}"))
+        fail(f"Unexpected error: {error}")
 
 
-def _generate(data_dir: Path, lesson_id: str, subject: str, call: Call) -> None:
-    source = materials_dir(data_dir, lesson_id)
-    problem_set = (source / PROBLEM_SET_FILE).read_text()
-    reference_path = source / REFERENCE_FILE
-    reference = reference_path.read_text() if reference_path.exists() else ""
-    context = prompts.materials(subject, problem_set, reference)
+def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, call: Call, rerun: bool) -> None:
     work = work_dir(data_dir, lesson_id)
     work.mkdir(parents=True, exist_ok=True)
+    _clear_from(work, start_stage)
+    with db.connect(data_dir) as conn:
+        materials = library.list_materials(conn, lesson_id)
 
-    _set_stage(data_dir, lesson_id, 2)
-    extraction = _retrying(
-        "Extraction",
-        lambda feedback: call(
-            "generate", system=prompts.EXTRACT_SYSTEM, prompt=context + [prompts.extract_request(feedback)], output=Extraction
-        ),
-    )
-    _write(work / "extraction.json", extraction)
+    if start_stage <= 1:
+        _set_stage(data_dir, lesson_id, 1)
+        source = [Material(m.filename, m.role, m.force_transcription) for m in materials]
+        normalized, pages = ingest(materials_dir(data_dir, lesson_id), source, call)
+        (work / NORMALIZED).mkdir(exist_ok=True)
+        (work / NORMALIZED / PROBLEM_SET_FILE).write_text(normalized.problem_set)
+        (work / NORMALIZED / REFERENCE_FILE).write_text(normalized.reference)
+        _write_json(work / "pages.json", [asdict(p) for p in pages])
+    else:
+        normalized = Normalized(
+            (work / NORMALIZED / PROBLEM_SET_FILE).read_text(), (work / NORMALIZED / REFERENCE_FILE).read_text()
+        )
+    if not normalized.problem_set.strip():
+        raise GenerationError("No text could be read from the problem set.")
+    context = prompts.materials(subject, normalized.problem_set, normalized.reference)
 
-    _set_stage(data_dir, lesson_id, 3)
+    if start_stage <= 2:
+        _set_stage(data_dir, lesson_id, 2)
+        extraction = retrying(
+            "Extraction",
+            lambda feedback: call(
+                "generate",
+                system=prompts.EXTRACT_SYSTEM,
+                prompt=context + [prompts.extract_request(feedback)],
+                output=Extraction,
+            ),
+        )
+        _write(work / "extraction.json", extraction)
+    else:
+        extraction = _load(work / "extraction.json", Extraction)
 
-    def plan_attempt(feedback: str | None) -> tuple[Plan, list[SectionPlan]]:
-        plan = call("generate", system=prompts.PLAN_SYSTEM, prompt=context + [prompts.plan_request(extraction, feedback)], output=Plan)
-        return plan, place_problems(plan, extraction)
+    if start_stage <= 3:
+        _set_stage(data_dir, lesson_id, 3)
 
-    plan, outline = _retrying("Planning", plan_attempt)
-    _write_json(
-        work / "plan.json",
-        {
-            "title": plan.title,
-            "sections": [
-                {
-                    "id": s.id,
-                    "title": s.title,
-                    "goal": s.goal,
-                    "concepts": [c.id for c in s.concepts],
-                    "problems": [p.source_ref for p in s.problems],
-                }
-                for s in outline
-            ],
-        },
-    )
-    _record(data_dir, lambda conn: library.set_title(conn, lesson_id, plan.title))
+        def plan_attempt(feedback: str | None) -> tuple[Plan, list[SectionPlan]]:
+            plan = call(
+                "generate", system=prompts.PLAN_SYSTEM, prompt=context + [prompts.plan_request(extraction, feedback)], output=Plan
+            )
+            return plan, place_problems(plan, extraction)
+
+        plan, outline = retrying("Planning", plan_attempt)
+        _write(work / "plan.json", plan)
+        _write_json(work / "outline.json", _outline_json(plan, outline))
+        _record(data_dir, lambda conn: library.set_title(conn, lesson_id, plan.title))
+    else:
+        plan = _load(work / "plan.json", Plan)
+        outline = place_problems(plan, extraction)
 
     _set_stage(data_dir, lesson_id, 4)
     sections: list[Section] = []
@@ -121,10 +160,10 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, call: Call) -> None:
             )
             return assemble_section(section_plan, draft)
 
-        section = _retrying(f"Section {number} ({section_plan.title})", section_attempt)
-        section = _retrying(f"Hints for section {number}", lambda _feedback, s=section: add_hints(s, context, call))
+        section = retrying(f"Section {number} ({section_plan.title})", section_attempt)
+        section = retrying(f"Hints for section {number}", lambda _feedback, s=section: add_hints(s, context, call))
         try:
-            section, results = _retrying(
+            section, results = retrying(
                 f"Verification for section {number}", lambda _feedback, s=section: verify_section(s, context, call)
             )
             _write_json(work / f"verification-{number}.json", [asdict(r) for r in results])
@@ -134,23 +173,54 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, call: Call) -> None:
         _write(work / f"section-{number}.json", section)
         sections.append(section)
 
-    source_files = [PROBLEM_SET_FILE] + ([REFERENCE_FILE] if reference.strip() else [])
-    lesson = assemble_lesson(lesson_id, plan.title, subject, source_files, sections)
-    target = lessons_dir(data_dir) / f"{lesson_id}.json"
+    lesson = assemble_lesson(lesson_id, plan.title, subject, [m.filename for m in materials], sections)
+    target = lesson_path(data_dir, lesson_id)
     target.parent.mkdir(parents=True, exist_ok=True)
     _write(target, lesson)
-    _record(data_dir, lambda conn: library.set_ready(conn, lesson_id))
+    with db.connect(data_dir) as conn:
+        if rerun:
+            progress.carry_over(conn, lesson_id, lesson)
+        library.set_ready(conn, lesson_id, rerun=rerun)
 
 
-def _retrying(stage: str, attempt: Callable[[str | None], T]) -> T:
-    """Run an attempt, feeding back why the last reply was rejected."""
-    feedback = None
-    for _ in range(ATTEMPTS):
-        try:
-            return attempt(feedback)
-        except (ValidationError, PlanError, SectionError) as error:
-            feedback = str(error)[:MAX_FEEDBACK]
-    raise GenerationError(f"{stage} failed after {ATTEMPTS} attempts. Last problem: {feedback}")
+def _clear_from(work: Path, stage: int) -> None:
+    """Remove outputs of the stages a run will redo, so none are left over from a longer earlier run."""
+    outputs = {
+        1: ["pages.json", NORMALIZED],
+        2: ["extraction.json"],
+        3: ["plan.json", "outline.json"],
+        4: ["section-*.json", "verification-*.json"],
+    }
+    for s in STAGES:
+        if s < stage:
+            continue
+        for pattern in outputs[s]:
+            for path in work.glob(pattern):
+                shutil.rmtree(path) if path.is_dir() else path.unlink()
+
+
+def _outline_json(plan: Plan, outline: list[SectionPlan]) -> dict:
+    return {
+        "title": plan.title,
+        "sections": [
+            {
+                "id": s.id,
+                "title": s.title,
+                "goal": s.goal,
+                "concepts": [c.id for c in s.concepts],
+                "problems": [p.source_ref for p in s.problems],
+            }
+            for s in outline
+        ],
+    }
+
+
+def _load(path: Path, model: type[BaseModel]):
+    """A saved stage output, or None if it is missing or no longer matches its schema."""
+    try:
+        return model.model_validate_json(path.read_text())
+    except (OSError, ValidationError):
+        return None
 
 
 def _set_stage(data_dir: Path, lesson_id: str, stage: int) -> None:
