@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getPlotPoints, type PlotSeries } from '../../api'
+import { Markdown } from '../Markdown'
 import type { PlotBlock, PlotParameter } from '../types'
 import { PlotChart } from './PlotChart'
 import { sampleTree } from './plotTree'
@@ -51,7 +52,9 @@ export function PlotBlockView({ block, lessonId }: { block: PlotBlock; lessonId:
           ))}
         </div>
       )}
-      <figcaption>{block.caption}</figcaption>
+      <figcaption>
+        <Markdown inline>{block.caption}</Markdown>
+      </figcaption>
     </figure>
   )
 }

@@ -1,5 +1,6 @@
 import DOMPurify from 'dompurify'
 import { useMemo } from 'react'
+import { Markdown } from '../Markdown'
 import type { DiagramBlock } from '../types'
 
 // Diagram SVG is model-written, so it is sanitized before it reaches the DOM.
@@ -16,7 +17,9 @@ export function DiagramBlockView({ block }: { block: DiagramBlock }) {
   return (
     <figure className="card">
       <div className="diagram-svg" dangerouslySetInnerHTML={{ __html: html }} />
-      <figcaption>{block.caption}</figcaption>
+      <figcaption>
+        <Markdown inline>{block.caption}</Markdown>
+      </figcaption>
     </figure>
   )
 }

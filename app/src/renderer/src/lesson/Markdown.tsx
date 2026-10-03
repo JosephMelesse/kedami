@@ -1,9 +1,10 @@
-// Markdown with LaTeX. Raw HTML in the source is not rendered.
+// Markdown with LaTeX, plus GitHub-style tables. Raw HTML in the source is not rendered.
 import ReactMarkdown, { type Components, type Options } from 'react-markdown'
 import rehypeKatex from 'rehype-katex'
+import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 
-const remarkPlugins: Options['remarkPlugins'] = [remarkMath]
+const remarkPlugins: Options['remarkPlugins'] = [remarkGfm, remarkMath]
 const rehypePlugins: Options['rehypePlugins'] = [[rehypeKatex, { errorColor: 'var(--text-muted)' }]]
 const inlineComponents: Components = { p: ({ children }) => <>{children}</> }
 

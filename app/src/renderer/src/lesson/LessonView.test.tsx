@@ -161,6 +161,17 @@ describe('LessonView with saved progress', () => {
   })
 })
 
+describe('LessonView captions', () => {
+  it('renders math in plot and diagram captions', () => {
+    const withMath = structuredClone(lesson)
+    const plot = withMath.sections[1].blocks.find((b) => b.type === 'plot')!
+    if (plot.type === 'plot') plot.caption = 'Height as the angle $\\theta$ changes.'
+    const caption = [...render(withMath).querySelectorAll('figcaption')].find((f) => f.textContent?.includes('Height as'))!
+    expect(caption.querySelector('.katex')).not.toBeNull()
+    expect(caption.textContent).not.toContain('$')
+  })
+})
+
 describe('LessonView edge cases', () => {
   it('renders nothing for a simulation block', () => {
     const withSimulation = structuredClone(lesson)
