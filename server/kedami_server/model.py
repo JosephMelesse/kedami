@@ -6,7 +6,9 @@ A key not scoped to a workspace also needs ANTHROPIC_WORKSPACE_ID there.
 """
 
 import copy
+import json
 import os
+import re
 from typing import Any, TypeVar
 
 import anthropic
@@ -18,6 +20,7 @@ from .config import MODEL_ROLES
 T = TypeVar("T", bound=BaseModel)
 
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
+GRAMMAR_TOO_LARGE = "compiled grammar is too large"
 
 _client: anthropic.Anthropic | None = None
 
@@ -43,12 +46,13 @@ def call_model(role: str, *, system: str, prompt: list[dict] | str, output: type
     ValidationError when the reply doesn't satisfy the model's validators.
     """
     config = MODEL_ROLES[role]
+    schema = output_schema(output)
     request: dict[str, Any] = {
         "model": config.model,
         "max_tokens": config.max_tokens,
         "system": system,
         "messages": [{"role": "user", "content": prompt}],
-        "output_config": {"format": {"type": "json_schema", "schema": output_schema(output)}},
+        "output_config": {"format": {"type": "json_schema", "schema": schema}},
     }
     if config.effort:
         request["output_config"]["effort"] = config.effort
@@ -57,23 +61,58 @@ def call_model(role: str, *, system: str, prompt: list[dict] | str, output: type
         request["fallbacks"] = "default"
 
     try:
-        with client().beta.messages.stream(**request) as stream:
-            message = stream.get_final_message()
-    except anthropic.AuthenticationError as error:
-        raise ModelError("The Anthropic API key is missing or invalid. Set ANTHROPIC_API_KEY in server/.env.") from error
-    except anthropic.APIConnectionError as error:
-        raise ModelError("Could not reach the Anthropic API.") from error
-    except anthropic.APIStatusError as error:
-        raise ModelError(f"The Anthropic API returned {error.status_code}: {error.message}") from error
+        message = _send(request)
+    except anthropic.BadRequestError as error:
+        if GRAMMAR_TOO_LARGE not in str(error):
+            raise _model_error(error) from error
+        # The schema is too complex to enforce. Ask for it in the instructions instead;
+        # the reply is still validated below and retried by the caller if it fails.
+        del request["output_config"]["format"]
+        if not request["output_config"]:
+            del request["output_config"]
+        request["system"] = f"{system}\n\n{_schema_instructions(schema)}"
+        try:
+            message = _send(request)
+        except anthropic.AnthropicError as retry_error:
+            raise _model_error(retry_error) from retry_error
     except anthropic.AnthropicError as error:
-        # Includes a missing API key, which the client reports before sending anything.
-        raise ModelError(str(error)) from error
+        raise _model_error(error) from error
 
     if message.stop_reason == "refusal":
         raise ModelError("The model declined this request.")
     if message.stop_reason == "max_tokens":
         raise ModelError("The model's reply was cut off at the token limit.")
-    return output.model_validate_json(_reply_text(message.content))
+    return output.model_validate_json(_strip_fence(_reply_text(message.content)))
+
+
+def _send(request: dict):
+    with client().beta.messages.stream(**request) as stream:
+        return stream.get_final_message()
+
+
+def _model_error(error: anthropic.AnthropicError) -> ModelError:
+    if isinstance(error, anthropic.AuthenticationError):
+        return ModelError("The Anthropic API key is missing or invalid. Set ANTHROPIC_API_KEY in server/.env.")
+    if isinstance(error, anthropic.APIConnectionError):
+        return ModelError("Could not reach the Anthropic API.")
+    if isinstance(error, anthropic.APIStatusError):
+        return ModelError(f"The Anthropic API returned {error.status_code}: {error.message}")
+    # Includes a missing API key, which the client reports before sending anything.
+    return ModelError(str(error))
+
+
+def _schema_instructions(schema: dict) -> str:
+    return (
+        "Reply with only a JSON object, with no other text, that matches this JSON Schema. "
+        "Include every property; use null for a property that does not apply.\n\n"
+        + json.dumps(schema)
+    )
+
+
+def _strip_fence(text: str) -> str:
+    """Drop a Markdown code fence around a JSON reply, if the model added one."""
+    match = re.fullmatch(r"\s*```(?:json)?\s*(.*?)\s*```\s*", text, re.DOTALL)
+    return match.group(1) if match else text
 
 
 def _reply_text(content: list) -> str:
@@ -87,8 +126,10 @@ def output_schema(model: type[BaseModel]) -> dict:
 
     Single-value Literal fields become one-item enums, since the API's schema subset
     has no `const`, and Pydantic's discriminator hints are dropped (each variant's
-    `type` enum already tells them apart). Other unsupported constraints are moved
-    into descriptions by the SDK and enforced here by validating the reply.
+    `type` enum already tells them apart). Every property is required, since optional
+    properties enlarge the compiled grammar; nullable fields carry "not used". Other
+    unsupported constraints are moved into descriptions by the SDK and enforced here by
+    validating the reply.
     """
     return transform_schema(_prepare(copy.deepcopy(model.model_json_schema())))
 
@@ -98,6 +139,8 @@ def _prepare(node: Any) -> Any:
         if "const" in node:
             node["enum"] = [node.pop("const")]
         node.pop("discriminator", None)
+        if isinstance(node.get("properties"), dict):
+            node["required"] = list(node["properties"])
         for value in node.values():
             _prepare(value)
     elif isinstance(node, list):

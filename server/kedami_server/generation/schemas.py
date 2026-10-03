@@ -7,7 +7,7 @@ later call, and sets verified only in the verification pass.
 
 from typing import Annotated, Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, PrivateAttr, TypeAdapter, ValidationError, model_validator
 
 from ..ids import slugify
 from ..lesson import MAX_HINTS, Answer, Model, PlotFunction, PlotParameter, Range
@@ -74,6 +74,12 @@ class Plan(Model):
 
 
 # Stage 4: section content
+#
+# The schema sent to the model is flat: one block object with a `type` and nullable
+# fields, holding one answer object with a `kind`. Nested unions (6 block types, each
+# answer one of 5 kinds) compile to a grammar too large for structured output. Each
+# flat object converts to its typed form on validation, so a malformed reply is
+# rejected with the reason and retried.
 
 
 class ExplanationDraft(Model):
@@ -108,8 +114,8 @@ class CheckpointDraft(Model):
     answer: Answer
 
 
-class PartAnswerDraft(Model):
-    label: str = Field(description="The part label exactly as given.")
+class PartAnswer(Model):
+    label: str
     answer: Answer
 
 
@@ -118,17 +124,112 @@ class ProblemDraft(Model):
 
     type: Literal["problem"]
     source_ref: str
-    parts: list[PartAnswerDraft]
+    parts: list[PartAnswer]
 
 
-SectionBlockDraft = Annotated[
+TypedBlock = Annotated[
     ExplanationDraft | WorkedExampleDraft | PlotDraft | DiagramDraft | CheckpointDraft | ProblemDraft,
     Field(discriminator="type"),
 ]
+_ANSWER = TypeAdapter(Answer)
+_BLOCK = TypeAdapter(TypedBlock)
+
+
+class AnswerDraft(Model):
+    """One answer, flat. Fill the fields for its kind and leave the others null."""
+
+    kind: Literal["numeric", "expression", "self_check", "choice", "multi_choice"]
+    value: float | None = Field(default=None, description="numeric: the answer in the unit given.")
+    rel_tolerance: float | None = Field(default=None, description="numeric: allowed relative error, such as 0.01.")
+    unit: str | None = Field(default=None, description="numeric: the unit shown beside the input, if any.")
+    expression: str | None = Field(default=None, description="expression: the answer in SymPy syntax.")
+    rubric: str | None = Field(default=None, description="self_check: what a full answer includes.")
+    options: list[str] | None = Field(default=None, description="choice and multi_choice: the options.")
+    correct: list[int] | None = Field(
+        default=None, description="choice: the one correct index; multi_choice: every correct index."
+    )
+    _typed: Answer = PrivateAttr()
+
+    @model_validator(mode="after")
+    def convert(self) -> "AnswerDraft":
+        fields: dict = {"kind": self.kind}
+        match self.kind:
+            case "numeric":
+                fields |= {"value": self.value, "unit": self.unit}
+                if self.rel_tolerance is not None:
+                    fields["rel_tolerance"] = self.rel_tolerance
+            case "expression":
+                fields["expression"] = self.expression
+            case "self_check":
+                fields["rubric"] = self.rubric
+            case "choice":
+                if not self.correct or len(self.correct) != 1:
+                    raise ValueError("a choice answer needs exactly one correct index")
+                fields |= {"options": self.options, "correct_index": self.correct[0]}
+            case "multi_choice":
+                fields |= {"options": self.options, "correct_indexes": self.correct}
+        try:
+            self._typed = _ANSWER.validate_python(fields)
+        except ValidationError as error:
+            raise ValueError(f"invalid {self.kind} answer: {error}") from error
+        return self
+
+    @property
+    def typed(self) -> Answer:
+        return self._typed
+
+
+class PartDraft(Model):
+    label: str = Field(description="The part label exactly as given.")
+    answer: AnswerDraft
+
+
+class BlockDraft(Model):
+    """One block, flat. Fill the fields for its type and leave the others null."""
+
+    type: Literal["explanation", "worked_example", "plot", "diagram", "checkpoint", "problem"]
+    body: str | None = Field(default=None, description="explanation")
+    prompt: str | None = Field(default=None, description="worked_example, checkpoint")
+    steps: list[str] | None = Field(default=None, description="worked_example")
+    functions: list[PlotFunction] | None = Field(default=None, description="plot")
+    parameters: list[PlotParameter] | None = Field(default=None, description="plot: sliders, or an empty list")
+    x_domain: list[float] | None = Field(default=None, description="plot: [min, max]")
+    y_domain: list[float] | None = Field(default=None, description="plot: [min, max], or null for automatic")
+    svg: str | None = Field(default=None, description="diagram")
+    caption: str | None = Field(default=None, description="plot, diagram")
+    answer: AnswerDraft | None = Field(default=None, description="checkpoint")
+    source_ref: str | None = Field(default=None, description="problem")
+    parts: list[PartDraft] | None = Field(default=None, description="problem: an answer for every part")
+    _typed: ExplanationDraft | WorkedExampleDraft | PlotDraft | DiagramDraft | CheckpointDraft | ProblemDraft = PrivateAttr()
+
+    @model_validator(mode="after")
+    def convert(self) -> "BlockDraft":
+        names = {
+            "explanation": ("body",),
+            "worked_example": ("prompt", "steps"),
+            "plot": ("functions", "parameters", "x_domain", "y_domain", "caption"),
+            "diagram": ("svg", "caption"),
+            "checkpoint": ("prompt",),
+            "problem": ("source_ref",),
+        }[self.type]
+        fields = {"type": self.type} | {name: getattr(self, name) for name in names if getattr(self, name) is not None}
+        if self.type == "checkpoint" and self.answer is not None:
+            fields["answer"] = self.answer.typed
+        if self.type == "problem" and self.parts is not None:
+            fields["parts"] = [{"label": p.label, "answer": p.answer.typed} for p in self.parts]
+        try:
+            self._typed = _BLOCK.validate_python(fields)
+        except ValidationError as error:
+            raise ValueError(f"invalid {self.type} block: {error}") from error
+        return self
+
+    @property
+    def typed(self) -> ExplanationDraft | WorkedExampleDraft | PlotDraft | DiagramDraft | CheckpointDraft | ProblemDraft:
+        return self._typed
 
 
 class SectionDraft(Model):
-    blocks: Annotated[list[SectionBlockDraft], Field(min_length=1)]
+    blocks: Annotated[list[BlockDraft], Field(min_length=1)]
 
 
 # Hints

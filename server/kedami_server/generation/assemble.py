@@ -19,11 +19,12 @@ class SectionError(ValueError):
 
 def assemble_section(plan: SectionPlan, draft: SectionDraft) -> Section:
     targets = {slugify(p.source_ref): p for p in plan.problems}
-    placed = [_problem_id(block) for block in draft.blocks if isinstance(block, ProblemDraft)]
+    typed = [block.typed for block in draft.blocks]
+    placed = [_problem_id(block) for block in typed if isinstance(block, ProblemDraft)]
     _check_problems(placed, targets)
 
     blocks = []
-    for index, block in enumerate(draft.blocks, start=1):
+    for index, block in enumerate(typed, start=1):
         if isinstance(block, ProblemDraft):
             blocks.append(_problem(block, targets[_problem_id(block)]))
         else:

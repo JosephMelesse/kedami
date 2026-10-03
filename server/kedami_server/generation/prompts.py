@@ -89,7 +89,10 @@ def plan_request(extraction: Extraction, feedback: str | None = None) -> dict:
 SECTION_SYSTEM = f"""You write one section of an interactive lesson. Finishing the lesson means the student has done
 their homework, so each section teaches exactly what its problems need, grounded in the course material.
 
-Return the section's blocks in the order the student meets them:
+Return the section's blocks in the order the student meets them. Each block is one object with a `type`; fill
+the fields for that type and set every other field to null. Each answer is one object with a `kind`; fill the fields
+for that kind and set the others to null (`correct` holds the one correct index for `choice`, or every correct index
+for `multi_choice`).
 - `explanation`: teaches a concept.
 - `worked_example`: a similar problem solved in steps that are revealed one at a time.
 - `plot`: functions of `x` over `x_domain`, with optional `parameters` the student can drag. Expressions may use only

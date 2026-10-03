@@ -150,3 +150,69 @@ def test_workspace_header_comes_from_the_environment(monkeypatch, workspace, exp
     )
     call_model("small_check", system="s", prompt="p", output=Reply)
     assert seen == [expected]
+
+
+def test_schema_too_complex_is_retried_without_enforcement(api):
+    responses = [
+        httpx2.Response(400, json={"type": "error", "error": {"type": "invalid_request_error",
+                        "message": "The compiled grammar is too large, which would cause performance issues."}}),
+        httpx2.Response(200, text=sse("```json\n" + json.dumps(GOOD) + "\n```"), headers={"content-type": "text/event-stream"}),
+    ]
+    requests = []
+
+    def handle(request):
+        requests.append(json.loads(request.content))
+        return responses.pop(0)
+
+    model._client = anthropic.Anthropic(
+        api_key="test", max_retries=0, http_client=anthropic.DefaultHttpxClient(transport=httpx2.MockTransport(handle))
+    )
+    reply = call_model("generate", system="sys", prompt="p", output=Reply)
+    assert reply.answer.value == 2.36
+    first, second = requests
+    assert first["output_config"]["format"]["type"] == "json_schema"
+    assert "format" not in second["output_config"] and second["output_config"]["effort"] == "high"
+    assert second["system"].startswith("sys\n\nReply with only a JSON object")
+    assert '"enum": ["numeric"]' in second["system"]
+
+
+def test_other_bad_requests_are_not_retried(api):
+    api.status = 400
+    with pytest.raises(ModelError, match="returned 400"):
+        call_model("generate", system="s", prompt="p", output=Reply)
+    assert len(api.requests) == 1
+
+
+def test_every_property_is_required_in_the_sent_schema():
+    def objects(node):
+        if isinstance(node, dict):
+            if "properties" in node:
+                yield node
+            for value in node.values():
+                yield from objects(value)
+        elif isinstance(node, list):
+            for item in node:
+                yield from objects(item)
+
+    from kedami_server.generation.schemas import SectionDraft
+
+    for node in objects(output_schema(SectionDraft)):
+        assert set(node["required"]) == set(node["properties"])
+
+
+def test_section_schema_has_no_unions_of_objects():
+    """Nested unions made the API's compiled grammar too large. Only "value or null" is allowed."""
+    from kedami_server.generation.schemas import SectionDraft
+
+    def unions(node):
+        if isinstance(node, dict):
+            if "anyOf" in node:
+                yield node["anyOf"]
+            for value in node.values():
+                yield from unions(value)
+        elif isinstance(node, list):
+            for item in node:
+                yield from unions(item)
+
+    for variants in unions(output_schema(SectionDraft)):
+        assert len(variants) == 2 and {"type": "null"} in variants, variants
