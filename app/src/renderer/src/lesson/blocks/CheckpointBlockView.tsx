@@ -7,7 +7,14 @@ export function CheckpointBlockView({ block }: { block: CheckpointBlock }) {
     <article className="card">
       <span className="eyebrow">Checkpoint</span>
       <Markdown>{block.prompt}</Markdown>
-      <AnswerField answer={block.answer} verified={block.verified} />
+      <AnswerField
+        blockId={block.id}
+        partId={null}
+        name="this checkpoint"
+        answer={block.answer}
+        hints={block.hints}
+        verified={block.verified}
+      />
     </article>
   )
 }

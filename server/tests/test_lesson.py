@@ -244,3 +244,8 @@ def test_plot_domains_must_be_ordered(lesson_data, field, bounds):
     plot(lesson_data)[field] = bounds
     with pytest.raises(ValidationError):
         Lesson.model_validate(lesson_data)
+
+
+def test_fixture_is_written_in_the_served_shape(lesson_data):
+    """The renderer's tests read the fixture directly, so it must match what the server sends."""
+    assert Lesson.model_validate(lesson_data).model_dump(mode="json") == lesson_data

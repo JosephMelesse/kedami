@@ -22,7 +22,8 @@ Everything lives in one app data folder, which main passes to the server at laun
 - Lesson status is one of: generating, ready, failed. Only a ready lesson has lesson JSON to serve.
 - Material role is problem set or reference.
 - Progress status is one of: not started, in progress, correct, marked done.
-- Progress is stored apart from the lesson JSON and keyed by block and part ID.
+- Progress is stored apart from the lesson JSON and keyed by block and part ID. A checkpoint has no part and is stored with an empty part ID.
+- The database is `kedami.db` in the app data folder.
 
 ## API
 
@@ -36,6 +37,7 @@ All routes require the session token.
 | POST | `/lessons/{id}/rerun` | Rerun from a given stage, with updated file toggles |
 | GET | `/lessons/{id}/blocks/{block_id}/points` | Sampled points for a static plot |
 | POST | `/lessons/{id}/blocks/{block_id}/check` | Check a response for a part; records progress and returns the new state |
+| POST | `/lessons/{id}/blocks/{block_id}/hint` | Record hints revealed for a part or checkpoint; returns the new state |
 | POST | `/lessons/{id}/blocks/{block_id}/mark-done` | Mark a part done, or undo it |
 | POST | `/lessons/{id}/blocks/{block_id}/regenerate` | Regenerate a simulation |
 | GET | `/lessons/{id}/progress` | Progress for all blocks and parts |

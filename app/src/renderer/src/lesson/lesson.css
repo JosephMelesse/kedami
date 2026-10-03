@@ -230,3 +230,106 @@ figcaption {
 .diagram-svg {
   color: var(--text);
 }
+
+/* Part states: feedback colors the border and a short label, never the whole card. */
+
+.answer-field[data-state='wrong'] {
+  border-color: var(--retry);
+}
+
+.answer-field[data-state='correct'] {
+  border-color: var(--correct);
+}
+
+.state-label {
+  font-weight: 500;
+}
+
+.state-label-in_progress,
+.state-label-wrong {
+  color: var(--in-progress);
+}
+
+.state-label-correct {
+  color: var(--correct);
+}
+
+.state-label-marked_done {
+  color: var(--text-muted);
+}
+
+.answer-actions {
+  align-items: center;
+  gap: 8px;
+}
+
+.answer-actions .muted {
+  margin-right: auto;
+  font-size: 14px;
+}
+
+.answer-error {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.answer-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+textarea.text-input {
+  resize: vertical;
+  font: inherit;
+}
+
+.hints {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hints li,
+.rubric {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.part-single {
+  display: grid;
+  gap: 16px;
+}
+
+.lesson-progress {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+/* Plot parameters */
+
+.plot-parameters {
+  display: grid;
+  gap: 8px;
+}
+
+.plot-parameter {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  align-items: center;
+  gap: 16px;
+  font-size: 14px;
+}
+
+.plot-parameter input {
+  accent-color: var(--text-muted);
+}

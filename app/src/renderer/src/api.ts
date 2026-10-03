@@ -20,33 +20,107 @@ export interface LessonSummary {
   problems_done: number
 }
 
+export type TreeNode =
+  | { num: number | null }
+  | { sym: string }
+  | { add: TreeNode[] }
+  | { mul: TreeNode[] }
+  | { pow: [TreeNode, TreeNode] }
+  | { fn: string; arg: TreeNode }
+
 export interface PlotSeries {
   label: string
   points: [number, number | null][]
+  tree: TreeNode
 }
 
-async function get<T>(path: string): Promise<T> {
+export type ProgressStatus = 'not_started' | 'in_progress' | 'correct' | 'marked_done'
+
+export interface ProgressRecord {
+  block_id: string
+  part_id: string | null
+  status: ProgressStatus
+  last_response: unknown
+  attempts: number
+  hints_used: number
+  updated: string | null
+}
+
+/** A failed request. The message is the server's explanation, fit to show the student. */
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    message: string
+  ) {
+    super(message)
+  }
+}
+
+async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
   const { baseUrl, token } = await window.kedami.serverConnection()
   const response = await fetch(`${baseUrl}${path}`, {
-    headers: { Authorization: `Bearer ${token}` }
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' })
+    },
+    body: body === undefined ? undefined : JSON.stringify(body)
   })
   if (!response.ok) {
-    throw new Error(`${response.status} ${response.statusText}`)
+    const detail = await response.json().then((json) => json.detail, () => null)
+    throw new ApiError(response.status, typeof detail === 'string' ? detail : `${response.status} ${response.statusText}`)
   }
   return response.json() as Promise<T>
 }
 
+const lessonPath = (lessonId: string) => `/lessons/${encodeURIComponent(lessonId)}`
+const blockPath = (lessonId: string, blockId: string) => `${lessonPath(lessonId)}/blocks/${encodeURIComponent(blockId)}`
+
 export async function listLessons(): Promise<LessonSummary[]> {
-  const body = await get<{ lessons: LessonSummary[] }>('/lessons')
+  const body = await request<{ lessons: LessonSummary[] }>('GET', '/lessons')
   return body.lessons
 }
 
 export function getLesson(lessonId: string): Promise<LessonResponse> {
-  return get(`/lessons/${encodeURIComponent(lessonId)}`)
+  return request('GET', lessonPath(lessonId))
 }
 
 export async function getPlotPoints(lessonId: string, blockId: string): Promise<PlotSeries[]> {
-  const path = `/lessons/${encodeURIComponent(lessonId)}/blocks/${encodeURIComponent(blockId)}/points`
-  const body = await get<{ functions: PlotSeries[] }>(path)
+  const body = await request<{ functions: PlotSeries[] }>('GET', `${blockPath(lessonId, blockId)}/points`)
   return body.functions
+}
+
+export async function getProgress(lessonId: string): Promise<ProgressRecord[]> {
+  const body = await request<{ progress: ProgressRecord[] }>('GET', `${lessonPath(lessonId)}/progress`)
+  return body.progress
+}
+
+export function checkResponse(
+  lessonId: string,
+  blockId: string,
+  partId: string | null,
+  response: unknown
+): Promise<{ correct: boolean; progress: ProgressRecord }> {
+  return request('POST', `${blockPath(lessonId, blockId)}/check`, { part_id: partId, response })
+}
+
+export async function revealHints(
+  lessonId: string,
+  blockId: string,
+  partId: string | null,
+  count: number
+): Promise<ProgressRecord> {
+  const body = await request<{ progress: ProgressRecord }>('POST', `${blockPath(lessonId, blockId)}/hint`, {
+    part_id: partId,
+    count
+  })
+  return body.progress
+}
+
+export async function markDone(lessonId: string, blockId: string, partId: string, done: boolean): Promise<ProgressRecord> {
+  const body = await request<{ progress: ProgressRecord }>('POST', `${blockPath(lessonId, blockId)}/mark-done`, {
+    part_id: partId,
+    done
+  })
+  return body.progress
 }

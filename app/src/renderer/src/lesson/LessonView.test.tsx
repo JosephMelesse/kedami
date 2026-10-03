@@ -1,16 +1,39 @@
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import fixture from '../../../../../server/fixtures/sample-lesson.json'
+import type { ProgressRecord } from '../api'
 import { sanitizeSvg } from './blocks/DiagramBlockView'
 import { LessonView } from './LessonView'
+import { ProgressProvider } from './progress/ProgressContext'
 import type { Lesson } from './types'
 
 const lesson = fixture as unknown as Lesson
 
-function render(value: Lesson): HTMLElement {
+function render(value: Lesson, progress: ProgressRecord[] = []): HTMLElement {
   const root = document.createElement('div')
-  root.innerHTML = renderToString(<LessonView lesson={value} />)
+  root.innerHTML = renderToString(
+    <ProgressProvider lessonId={value.id} initial={progress}>
+      <LessonView lesson={value} />
+    </ProgressProvider>
+  )
   return root
+}
+
+function record(part_id: string, overrides: Partial<ProgressRecord>): ProgressRecord {
+  return {
+    block_id: 'ps3-4',
+    part_id,
+    status: 'in_progress',
+    last_response: null,
+    attempts: 0,
+    hints_used: 0,
+    updated: null,
+    ...overrides
+  }
+}
+
+function field(root: HTMLElement, partIndex: number): HTMLElement {
+  return root.querySelectorAll<HTMLElement>('.part .answer-field')[partIndex]
 }
 
 function text(root: HTMLElement): string {
@@ -57,6 +80,20 @@ describe('LessonView with the sample lesson', () => {
     expect(text(root)).toContain('Show rubric')
   })
 
+  it('starts with no progress, no state labels, and a parameter slider', () => {
+    expect(text(root)).toContain('0 of 2 problems done')
+    expect(root.querySelectorAll('.state-label')).toHaveLength(0)
+    expect(root.querySelectorAll('input[type=range]')).toHaveLength(1)
+  })
+
+  it('offers hints and mark done on problem parts, but no mark done on checkpoints', () => {
+    expect(text(field(root, 0))).toContain('Show hint 1 of 2')
+    expect(text(field(root, 0))).toContain('Mark done')
+    const checkpoint = root.querySelector<HTMLElement>('.card .answer-field')!
+    expect(text(checkpoint)).toContain('Show hint 1 of 2')
+    expect(text(checkpoint)).not.toContain('Mark done')
+  })
+
   it('starts worked examples with no steps revealed', () => {
     expect(root.querySelector('.steps')).toBeNull()
     expect(text(root)).toContain('Show step 1 of 4')
@@ -66,6 +103,61 @@ describe('LessonView with the sample lesson', () => {
     expect(text(root)).not.toContain('32.559')
     expect(text(root)).not.toContain('The horizontal component uses cosine')
     expect(text(root)).not.toContain('complementary angles')
+  })
+})
+
+describe('LessonView with saved progress', () => {
+  const root = render(lesson, [
+    record('a', { status: 'correct', last_response: '2.36', attempts: 2 }),
+    record('b', { last_response: '30', attempts: 1, hints_used: 1 }),
+    record('c', { hints_used: 2 }),
+    record('d', { status: 'marked_done' }),
+    { ...record('5', { status: 'marked_done' }), block_id: 'ps3-5' }
+  ])
+
+  it('labels each state and colors only the answer field border', () => {
+    const states = [0, 1, 2, 3].map((i) => field(root, i).dataset.state)
+    expect(states).toEqual(['correct', 'wrong', 'in_progress', 'marked_done'])
+    const labels = [0, 1, 2, 3].map((i) => field(root, i).querySelector('.state-label')?.textContent)
+    expect(labels).toEqual(['Correct', 'In progress', 'In progress', 'Marked done'])
+  })
+
+  it('counts parts and problems', () => {
+    expect(root.querySelector('.part-count')?.textContent).toBe('2 of 4 parts done')
+    expect(text(root)).toContain('1 of 2 problems done')
+  })
+
+  it('locks a correct part and restores its answer, with no hint or mark done', () => {
+    const input = field(root, 0).querySelector('input')!
+    expect(input.disabled).toBe(true)
+    expect(input.value).toBe('2.36')
+    expect(field(root, 0).querySelector('button')).toBeNull()
+  })
+
+  it('keeps a wrong answer editable with the last response restored', () => {
+    const input = field(root, 1).querySelector('input')!
+    expect(input.disabled).toBe(false)
+    expect(input.value).toBe('30')
+  })
+
+  it('shows revealed hints and offers the next one', () => {
+    expect(field(root, 1).querySelectorAll('.hints li')).toHaveLength(1)
+    expect(text(field(root, 1))).toContain('Show hint 2 of 2')
+    expect(field(root, 2).querySelectorAll('.hints li')).toHaveLength(2)
+    expect(text(field(root, 2))).not.toContain('Show hint')
+  })
+
+  it('offers undo on a marked part', () => {
+    expect(text(field(root, 3))).toContain('Undo mark done')
+    expect(field(root, 3).querySelector('textarea')?.disabled).toBe(true)
+  })
+
+  it('says the lesson is complete when every problem is done', () => {
+    const all = render(lesson, [
+      ...['a', 'b', 'c', 'd'].map((p) => record(p, { status: 'marked_done' })),
+      { ...record('5', { status: 'correct' }), block_id: 'ps3-5' }
+    ])
+    expect(text(all)).toContain('Lesson complete')
   })
 })
 

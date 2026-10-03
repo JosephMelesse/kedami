@@ -3,7 +3,10 @@
   "id": "sample",
   "title": "Projectile motion",
   "subject": "physics",
-  "source_files": ["ps3.pdf", "chapter-4-notes.pdf"],
+  "source_files": [
+    "ps3.pdf",
+    "chapter-4-notes.pdf"
+  ],
   "sections": [
     {
       "id": "velocity-components",
@@ -36,7 +39,12 @@
           "type": "checkpoint",
           "id": "components-check",
           "prompt": "A projectile is launched at $20\\ \\text{m/s}$ at $60^\\circ$ above the horizontal. What is $v_x$?",
-          "answer": { "kind": "numeric", "value": 10, "rel_tolerance": 0.01, "unit": "m/s" },
+          "answer": {
+            "kind": "numeric",
+            "value": 10.0,
+            "rel_tolerance": 0.01,
+            "unit": "m/s"
+          },
           "hints": [
             "The horizontal component uses cosine.",
             "Compute $20 \\cos 60^\\circ$."
@@ -59,12 +67,52 @@
           "type": "plot",
           "id": "height-plot",
           "functions": [
-            { "expression": "15*x - 4.9*x**2", "label": "vy = 15 m/s" },
-            { "expression": "10*x - 4.9*x**2", "label": "vy = 10 m/s" }
+            {
+              "expression": "15*x - 4.9*x**2",
+              "label": "vy = 15 m/s"
+            },
+            {
+              "expression": "10*x - 4.9*x**2",
+              "label": "vy = 10 m/s"
+            }
           ],
-          "x_domain": [0, 3.2],
-          "y_domain": [0, 12],
+          "parameters": [],
+          "x_domain": [
+            0.0,
+            3.2
+          ],
+          "y_domain": [
+            0.0,
+            12.0
+          ],
           "caption": "Height in metres against time in seconds for two launch speeds, with g = 9.8 m/s²."
+        },
+        {
+          "type": "plot",
+          "id": "angle-plot",
+          "functions": [
+            {
+              "expression": "x*tan(a*pi/180) - 9.8*x**2/(2*15**2*cos(a*pi/180)**2)",
+              "label": "path"
+            }
+          ],
+          "parameters": [
+            {
+              "name": "a",
+              "min": 15.0,
+              "max": 75.0,
+              "default": 30.0
+            }
+          ],
+          "x_domain": [
+            0.0,
+            25.0
+          ],
+          "y_domain": [
+            0.0,
+            12.0
+          ],
+          "caption": "Height against horizontal distance, in metres, for a ball launched at 15 m/s. The parameter a is the launch angle in degrees."
         },
         {
           "type": "checkpoint",
@@ -72,18 +120,30 @@
           "prompt": "At the highest point of its path, the vertical velocity of a projectile is:",
           "answer": {
             "kind": "choice",
-            "options": ["Zero", "Equal to $v_0$", "Equal to $v_x$", "At its most negative"],
+            "options": [
+              "Zero",
+              "Equal to $v_0$",
+              "Equal to $v_x$",
+              "At its most negative"
+            ],
             "correct_index": 0
           },
-          "hints": ["The projectile stops rising at that instant."],
+          "hints": [
+            "The projectile stops rising at that instant."
+          ],
           "verified": true
         },
         {
           "type": "checkpoint",
           "id": "height-expression-check",
           "prompt": "Write the height $y(t)$ for a launch with $v_y = 10\\ \\text{m/s}$, using $g = 9.8\\ \\text{m/s}^2$.",
-          "answer": { "kind": "expression", "expression": "10*t - 4.9*t**2" },
-          "hints": ["Substitute into $y(t) = v_y t - \\tfrac{1}{2} g t^2$."],
+          "answer": {
+            "kind": "expression",
+            "expression": "10*t - 4.9*t**2"
+          },
+          "hints": [
+            "Substitute into $y(t) = v_y t - \\tfrac{1}{2} g t^2$."
+          ],
           "verified": false
         },
         {
@@ -96,7 +156,12 @@
               "id": "a",
               "label": "(a)",
               "prompt": "How long is the ball in the air?",
-              "answer": { "kind": "numeric", "value": 2.3613, "rel_tolerance": 0.01, "unit": "s" },
+              "answer": {
+                "kind": "numeric",
+                "value": 2.3613,
+                "rel_tolerance": 0.01,
+                "unit": "s"
+              },
               "hints": [
                 "The ball lands when its height returns to zero.",
                 "Use $T = 2 v_0 \\sin\\theta / g$."
@@ -107,7 +172,12 @@
               "id": "b",
               "label": "(b)",
               "prompt": "How far does it travel horizontally before landing?",
-              "answer": { "kind": "numeric", "value": 32.559, "rel_tolerance": 0.01, "unit": "m" },
+              "answer": {
+                "kind": "numeric",
+                "value": 32.559,
+                "rel_tolerance": 0.01,
+                "unit": "m"
+              },
               "hints": [
                 "Horizontal velocity is constant for the whole flight.",
                 "Multiply $v_x$ by the time of flight from part (a)."
@@ -118,7 +188,10 @@
               "id": "c",
               "label": "(c)",
               "prompt": "Write the maximum height in terms of `v0`, `theta`, and `g`.",
-              "answer": { "kind": "expression", "expression": "v0**2*sin(theta)**2/(2*g)" },
+              "answer": {
+                "kind": "expression",
+                "expression": "v0**2*sin(theta)**2/(2*g)"
+              },
               "hints": [
                 "At the top, the vertical velocity is zero.",
                 "Use $v_y^2 = v_{y0}^2 - 2 g h$ and solve for $h$."
@@ -133,7 +206,10 @@
                 "kind": "self_check",
                 "rubric": "A full answer says the range is $v_0^2 \\sin 2\\theta / g$, and that $\\sin 80^\\circ = \\sin 100^\\circ$, so complementary angles give equal ranges."
               },
-              "hints": ["Write the range in terms of $\\sin 2\\theta$."]
+              "hints": [
+                "Write the range in terms of $\\sin 2\\theta$."
+              ],
+              "verified": false
             }
           ]
         },
@@ -149,10 +225,20 @@
               "prompt": "Ignoring air resistance, which quantities stay constant during a projectile's flight? Select all that apply.",
               "answer": {
                 "kind": "multi_choice",
-                "options": ["Horizontal velocity", "Vertical velocity", "Acceleration", "Speed"],
-                "correct_indexes": [0, 2]
+                "options": [
+                  "Horizontal velocity",
+                  "Vertical velocity",
+                  "Acceleration",
+                  "Speed"
+                ],
+                "correct_indexes": [
+                  0,
+                  2
+                ]
               },
-              "hints": ["Gravity acts only in the vertical direction."],
+              "hints": [
+                "Gravity acts only in the vertical direction."
+              ],
               "verified": true
             }
           ]

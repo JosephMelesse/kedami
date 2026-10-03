@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
-import { getLesson } from '../api'
+import { getLesson, getProgress, type ProgressRecord } from '../api'
 import { LessonView } from './LessonView'
+import { ProgressProvider } from './progress/ProgressContext'
 import type { Lesson } from './types'
 
 type State =
   | { status: 'loading' }
   | { status: 'error'; message: string }
   | { status: 'unavailable'; message: string }
-  | { status: 'ready'; lesson: Lesson }
+  | { status: 'ready'; lesson: Lesson; progress: ProgressRecord[] }
 
 const UNAVAILABLE = {
   generating: 'This lesson is still being generated.',
@@ -25,12 +26,8 @@ export function LessonScreen({ lessonId, onBack }: LessonScreenProps) {
   useEffect(() => {
     let cancelled = false
     setState({ status: 'loading' })
-    getLesson(lessonId)
-      .then((body) => {
-        if (cancelled) return
-        if (body.status === 'ready' && body.lesson) setState({ status: 'ready', lesson: body.lesson })
-        else setState({ status: 'unavailable', message: UNAVAILABLE[body.status === 'failed' ? 'failed' : 'generating'] })
-      })
+    load(lessonId)
+      .then((next) => !cancelled && setState(next))
       .catch((error: Error) => !cancelled && setState({ status: 'error', message: error.message }))
     return () => {
       cancelled = true
@@ -47,7 +44,19 @@ export function LessonScreen({ lessonId, onBack }: LessonScreenProps) {
       {state.status === 'loading' && <p className="screen-message">Loading lesson</p>}
       {state.status === 'error' && <p className="screen-message">Could not load the lesson: {state.message}</p>}
       {state.status === 'unavailable' && <p className="screen-message">{state.message}</p>}
-      {state.status === 'ready' && <LessonView lesson={state.lesson} />}
+      {state.status === 'ready' && (
+        <ProgressProvider key={lessonId} lessonId={lessonId} initial={state.progress}>
+          <LessonView lesson={state.lesson} />
+        </ProgressProvider>
+      )}
     </>
   )
+}
+
+async function load(lessonId: string): Promise<State> {
+  const body = await getLesson(lessonId)
+  if (body.status !== 'ready' || !body.lesson) {
+    return { status: 'unavailable', message: UNAVAILABLE[body.status === 'failed' ? 'failed' : 'generating'] }
+  }
+  return { status: 'ready', lesson: body.lesson, progress: await getProgress(lessonId) }
 }

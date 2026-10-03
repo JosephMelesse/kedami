@@ -78,7 +78,7 @@ KEDAMI_PORT=8765 KEDAMI_TOKEN=dev KEDAMI_DATA_DIR=../data KEDAMI_ALLOWED_ORIGINS
   .venv/bin/python -m kedami_server
 ```
 
-On startup it copies `server/fixtures/sample-lesson.json` to `data/lessons/sample.json` if that file is missing. Delete the copy to pick up fixture edits.
+On startup it copies `server/fixtures/sample-lesson.json` to `data/lessons/sample.json` if that file is missing, and indexes it. Delete the copy to pick up fixture edits. Lessons and progress live in `data/kedami.db`; delete it to reset progress.
 
 ### App (`app/`)
 

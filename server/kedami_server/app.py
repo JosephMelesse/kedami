@@ -1,17 +1,41 @@
 """HTTP API. Every route requires the session token."""
 
 import hmac
+from dataclasses import asdict
+from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, StrictBool, StrictInt
 
-from . import db
+from . import db, progress
+from .checking import InvalidResponse, check
 from .config import Settings
 from .lesson import Lesson, PlotBlock
 from .library import LessonRow, get_lesson_row, list_lessons, problem_ids
 from .plot import sample_points
 from .storage import load_lesson
+from .targets import Target, find_target
+
+
+class Body(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class CheckRequest(Body):
+    part_id: str | None = None
+    response: Any
+
+
+class HintRequest(Body):
+    part_id: str | None = None
+    count: StrictInt
+
+
+class MarkDoneRequest(Body):
+    part_id: str
+    done: StrictBool
 
 
 def create_app(settings: Settings) -> FastAPI:
@@ -46,8 +70,28 @@ def create_app(settings: Settings) -> FastAPI:
             raise HTTPException(404, "lesson not found")
         return lesson
 
+    def get_target(lesson: Lesson, block_id: str, part_id: str | None) -> Target:
+        target = find_target(lesson, block_id, part_id)
+        if target is None:
+            raise HTTPException(404, "no such part or checkpoint")
+        return target
+
+    def update(lesson_id: str, target: Target, transition) -> progress.Record:
+        """Load the record, apply a transition, and save it in one transaction."""
+        with db.connect(settings.data_dir) as conn:
+            conn.execute("BEGIN IMMEDIATE")  # Take the write lock before reading, so updates can't interleave.
+            record = progress.load(conn, lesson_id, target.block_id, target.part_id)
+            try:
+                return progress.save(conn, lesson_id, transition(record))
+            except progress.Conflict as error:
+                raise HTTPException(409, str(error)) from error
+
     def summary(row: LessonRow) -> dict:
         lesson = load_lesson(settings.data_dir, row.id) if row.status == "ready" else None
+        done = 0
+        if lesson:
+            with db.connect(settings.data_dir) as conn:
+                done = progress.problems_done(lesson, progress.load_all(conn, row.id))
         return {
             "id": row.id,
             "title": row.title,
@@ -56,7 +100,7 @@ def create_app(settings: Settings) -> FastAPI:
             "current_stage": row.current_stage,
             "created": row.created,
             "problems_total": len(problem_ids(lesson)) if lesson else 0,
-            "problems_done": 0,
+            "problems_done": done,
         }
 
     @app.get("/health")
@@ -81,5 +125,34 @@ def create_app(settings: Settings) -> FastAPI:
         if not isinstance(block, PlotBlock):
             raise HTTPException(404, "plot block not found")
         return {"functions": sample_points(block)}
+
+    @app.get("/lessons/{lesson_id}/progress")
+    def lesson_progress(lesson_id: str):
+        get_lesson(lesson_id)
+        with db.connect(settings.data_dir) as conn:
+            records = progress.load_all(conn, lesson_id)
+        return {"progress": [asdict(record) for record in records]}
+
+    @app.post("/lessons/{lesson_id}/blocks/{block_id}/check")
+    def check_response(lesson_id: str, block_id: str, body: CheckRequest):
+        target = get_target(get_lesson(lesson_id), block_id, body.part_id)
+        try:
+            correct = check(target.answer, body.response)
+        except InvalidResponse as error:
+            raise HTTPException(422, str(error)) from error
+        record = update(lesson_id, target, lambda r: progress.after_check(r, correct, body.response))
+        return {"correct": correct, "progress": asdict(record)}
+
+    @app.post("/lessons/{lesson_id}/blocks/{block_id}/hint")
+    def reveal_hint(lesson_id: str, block_id: str, body: HintRequest):
+        target = get_target(get_lesson(lesson_id), block_id, body.part_id)
+        record = update(lesson_id, target, lambda r: progress.after_hints(r, body.count, len(target.hints)))
+        return {"progress": asdict(record)}
+
+    @app.post("/lessons/{lesson_id}/blocks/{block_id}/mark-done")
+    def mark_done(lesson_id: str, block_id: str, body: MarkDoneRequest):
+        target = get_target(get_lesson(lesson_id), block_id, body.part_id)
+        record = update(lesson_id, target, lambda r: progress.after_mark_done(r, body.done))
+        return {"progress": asdict(record)}
 
     return app

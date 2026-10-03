@@ -53,7 +53,8 @@ def test_lesson(client):
 
 def test_lesson_response_fills_defaults(client):
     lesson = client.get("/lessons/sample", headers=AUTH).json()["lesson"]
-    part_d = lesson["sections"][1]["blocks"][4]["parts"][3]
+    problem = next(b for b in lesson["sections"][1]["blocks"] if b["id"] == "ps3-4")
+    part_d = problem["parts"][3]
     assert part_d["verified"] is False
 
 
@@ -130,3 +131,42 @@ def test_seed_is_idempotent(tmp_path):
     assert (tmp_path / "lessons" / "sample.json").read_bytes() == SAMPLE_FIXTURE.read_bytes()
     with db.connect(tmp_path) as conn:
         assert conn.execute("SELECT COUNT(*) FROM lessons").fetchone()[0] == 1
+
+
+def evaluate_tree(node, values):
+    """Mirror of the renderer's evaluator, to check trees against SymPy."""
+    import math as m
+
+    if "num" in node:
+        return node["num"]
+    if "sym" in node:
+        return values[node["sym"]]
+    if "add" in node:
+        return sum(evaluate_tree(n, values) for n in node["add"])
+    if "mul" in node:
+        return m.prod(evaluate_tree(n, values) for n in node["mul"])
+    if "pow" in node:
+        return evaluate_tree(node["pow"][0], values) ** evaluate_tree(node["pow"][1], values)
+    return {"abs": abs, "log": m.log}.get(node["fn"], getattr(m, node["fn"], None))(evaluate_tree(node["arg"], values))
+
+
+@pytest.mark.parametrize(
+    "expression",
+    ["a*x", "15*x - 4.9*x**2", "sin(a*x)/x + pi", "x*tan(a*pi/180) - x**2/cos(a)**2", "sqrt(x) + log(x, 2) + abs(x - a)", "E**x"],
+)
+def test_expression_trees_match_sympy(expression):
+    import sympy
+
+    from kedami_server.mathparse import parse_math
+    from kedami_server.plot import expression_tree
+
+    expr = parse_math(expression, {"x", "a"})
+    tree = expression_tree(expr)
+    for x, a in [(0.7, 1.3), (2.5, 0.4)]:
+        expected = float(expr.subs({sympy.Symbol("x"): x, sympy.Symbol("a"): a}))
+        assert evaluate_tree(tree, {"x": x, "a": a}) == pytest.approx(expected)
+
+
+def test_points_include_a_tree(client):
+    functions = client.get("/lessons/sample/blocks/height-plot/points", headers=AUTH).json()["functions"]
+    assert "add" in functions[0]["tree"]

@@ -1,4 +1,4 @@
-"""SQLite database in the app data folder: the lesson index and, from step 2, progress."""
+"""SQLite database in the app data folder: the lesson index and progress."""
 
 import sqlite3
 from collections.abc import Iterator
@@ -15,6 +15,18 @@ CREATE TABLE IF NOT EXISTS lessons (
     schema_version INTEGER NOT NULL,
     revision INTEGER NOT NULL DEFAULT 1,
     created TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS progress (
+    lesson_id TEXT NOT NULL REFERENCES lessons (id) ON DELETE CASCADE,
+    block_id TEXT NOT NULL,
+    part_id TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL CHECK (status IN ('not_started', 'in_progress', 'correct', 'marked_done')),
+    last_response TEXT,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    hints_used INTEGER NOT NULL DEFAULT 0,
+    updated TEXT NOT NULL,
+    PRIMARY KEY (lesson_id, block_id, part_id)
 );
 """
 

@@ -69,5 +69,5 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 - All math strings use SymPy syntax. The restricted parser also accepts `^` for powers and `ln` and `abs` as aliases. It does not accept implicit multiplication such as `2x`.
 - Display math in Markdown puts each `$$` on its own line. `$$...$$` on a single line renders as inline math.
 - The server checks answers and samples points for static plots, so the renderer never parses SymPy.
-- For plots with parameters, the server sends an expression form that the renderer evaluates with a math library, never as code.
+- For plots with parameters, the server sends an expression tree that the renderer evaluates with plain arithmetic and `Math` functions, never as code. Nodes are numbers, names, sums, products, powers, and the whitelisted one-argument functions.
 - The `verified` flag is set only by the server's verification pass, never by the model.
