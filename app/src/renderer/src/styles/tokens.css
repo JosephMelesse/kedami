@@ -1,0 +1,13 @@
+/* Design tokens from architecture/ui.md. Every color in the app comes from here. */
+:root[data-theme="dark"] {
+  --bg: #1A1B22;
+  --surface: #22242C;
+  --surface-raised: #2C2F38;
+  --border: #343743;
+  --text: #E4E6EB;
+  --text-muted: #A0A4AE;
+  --accent: #7AA2F7;
+  --correct: #81C995;
+  --retry: #F28B82;
+  --in-progress: #E5C07B;
+}

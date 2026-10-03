@@ -13,7 +13,11 @@
 1. Main picks a free port and generates a random session token.
 2. Main spawns the server, passing the port, token, and app data folder.
 3. Main polls `/health` until the server is ready, then opens the window.
-4. Main kills the server on quit.
+4. Main kills the server on quit. The server also exits on its own if main dies.
+
+- Main passes the port, token, and data folder to the server as environment variables (`KEDAMI_PORT`, `KEDAMI_TOKEN`, `KEDAMI_DATA_DIR`), never as arguments, which other local users can read.
+- The renderer gets the port and token from main over IPC, for the same reason.
+- The server allows cross-origin requests only from the renderer's own origin.
 
 In development, both processes can be started by hand.
 

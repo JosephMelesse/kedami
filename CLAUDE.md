@@ -55,6 +55,48 @@ Before writing code, read `README.md` and every file in `architecture/`. Those d
 - The API key lives in `server/.env`. Never commit it, log it, or send it to the renderer.
 - Never commit anything under `data/`.
 
+## Most likely to be wrong
+
+The lesson schema and ID derivation (`server/kedami_server/lesson.py`, `ids.py`) and the restricted math parser (`mathparse.py`). Every later step depends on them, so they get tests first and changes to them come with tests.
+
 ## Commands
 
-Add the install, run, and test commands for `app/` and `server/` here as they are created.
+### Server (`server/`)
+
+```bash
+cd server
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python -m pytest
+.venv/bin/python -m kedami_server.export_schema   # after changing lesson models, then run gen:types in app/
+```
+
+The server will not start without `KEDAMI_PORT`, `KEDAMI_TOKEN`, and `KEDAMI_DATA_DIR`. Electron main sets them. To start it by hand:
+
+```bash
+KEDAMI_PORT=8765 KEDAMI_TOKEN=dev KEDAMI_DATA_DIR=../data KEDAMI_ALLOWED_ORIGINS=http://localhost:5173 \
+  .venv/bin/python -m kedami_server
+```
+
+On startup it copies `server/fixtures/sample-lesson.json` to `data/lessons/sample.json` if that file is missing. Delete the copy to pick up fixture edits.
+
+### App (`app/`)
+
+```bash
+cd app
+npm install          # also downloads the Electron binary
+npm run dev          # builds, spawns the server, opens the window, hot reloads the renderer
+npm start            # runs the production build
+npm test
+npm run typecheck
+npm run gen:types    # regenerates src/renderer/src/lesson/types.ts from the server schema
+```
+
+- `npm run dev` expects the server venv at `server/.venv`. Override with `KEDAMI_PYTHON`. The data folder defaults to `data/`; override with `KEDAMI_DATA_DIR`.
+- To use a server started by hand, run `KEDAMI_PORT=8765 KEDAMI_TOKEN=dev npm run dev`.
+- On Ubuntu 24.04 and later, Electron aborts until its sandbox helper is owned by root. Run this once, and again after reinstalling Electron:
+
+```bash
+sudo chown root:root app/node_modules/electron/dist/chrome-sandbox
+sudo chmod 4755 app/node_modules/electron/dist/chrome-sandbox
+```

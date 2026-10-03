@@ -1,0 +1,226 @@
+.lesson {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 48px 24px 96px;
+}
+
+.lesson-header {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 48px;
+}
+
+.lesson-header h1 {
+  font-size: 32px;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.lesson-section {
+  display: grid;
+  gap: 24px;
+  margin-bottom: 64px;
+}
+
+.lesson-section > header {
+  display: grid;
+  gap: 8px;
+}
+
+.lesson-section h2 {
+  font-size: 24px;
+}
+
+.md {
+  display: grid;
+  gap: 16px;
+}
+
+.md-inline {
+  display: inline;
+}
+
+.card {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.eyebrow {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.part-count {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+figcaption {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* Worked examples */
+
+.steps {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 24px;
+}
+
+.steps-control {
+  justify-self: start;
+}
+
+/* Problems */
+
+.part {
+  display: grid;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.part-prompt {
+  display: flex;
+  gap: 8px;
+}
+
+.part-label {
+  flex: none;
+  font-weight: 500;
+}
+
+/* Answers. The answer field's border carries the part state. */
+
+.answer-field {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+
+.answer-field .text-input {
+  background: var(--surface);
+}
+
+.answer-status {
+  display: flex;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.status-label {
+  color: var(--text-muted);
+}
+
+.answer-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.answer-row .text-input {
+  flex: 1;
+}
+
+.unit {
+  color: var(--text-muted);
+}
+
+.options {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.option {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.answer-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Plots and diagrams */
+
+.plot-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.diagram-svg svg {
+  display: block;
+  width: 100%;
+  max-width: 480px;
+  height: auto;
+  margin: 0 auto;
+}
+
+.plot-placeholder {
+  aspect-ratio: 2 / 1;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+}
+
+.plot-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.plot-tick {
+  fill: var(--text-muted);
+  font-size: 12px;
+}
+
+.plot-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.plot-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+
+.plot-legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.diagram-svg {
+  color: var(--text);
+}
