@@ -15,7 +15,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
 
-from .. import db, library, progress
+from .. import db, library, progress, simulation_state
 from ..lesson import Section
 from ..model import ModelError, call_model
 from ..storage import lessons_dir
@@ -26,6 +26,7 @@ from .ingest import Material, Normalized, ingest
 from .plan import SectionPlan, place_problems
 from .retry import GenerationError, retrying
 from .schemas import Extraction, Plan, SectionDraft
+from .simulations import write_code
 from .verify import verify_section
 
 log = logging.getLogger(__name__)
@@ -44,6 +45,17 @@ def materials_dir(data_dir: Path, lesson_id: str) -> Path:
 
 def work_dir(data_dir: Path, lesson_id: str) -> Path:
     return data_dir / "work" / lesson_id
+
+
+def normalized_materials(data_dir: Path, lesson_id: str, subject: str) -> list[dict]:
+    """The cached opening of model requests for a lesson, or nothing if stage 1 output is missing."""
+    folder = work_dir(data_dir, lesson_id) / NORMALIZED
+    if not (folder / PROBLEM_SET_FILE).exists():
+        return []
+    reference = folder / REFERENCE_FILE
+    return prompts.materials(
+        subject, (folder / PROBLEM_SET_FILE).read_text(), reference.read_text() if reference.exists() else ""
+    )
 
 
 def lesson_path(data_dir: Path, lesson_id: str) -> Path:
@@ -161,6 +173,7 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
             return assemble_section(section_plan, draft)
 
         section = retrying(f"Section {number} ({section_plan.title})", section_attempt)
+        section = write_code(section, section_plan.simulation, context, call)
         section = retrying(f"Hints for section {number}", lambda _feedback, s=section: add_hints(s, context, call))
         try:
             section, results = retrying(
@@ -180,6 +193,7 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
     with db.connect(data_dir) as conn:
         if rerun:
             progress.carry_over(conn, lesson_id, lesson)
+            simulation_state.clear(conn, lesson_id)
         library.set_ready(conn, lesson_id, rerun=rerun)
 
 

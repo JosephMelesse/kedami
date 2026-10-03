@@ -1,0 +1,83 @@
+<!doctype html>
+<!--
+  The sandbox for model-written simulation code. It is loaded in an iframe with
+  sandbox="allow-scripts" and no allow-same-origin, so it has an opaque origin: no access
+  to the app's DOM, storage, or server token. Its CSP allows no network at all.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'"
+    />
+    <style>
+      :root {
+        /* Must match the app's color scheme, or Chrome paints the frame opaque white. */
+        color-scheme: dark;
+      }
+      html,
+      body {
+        margin: 0;
+        background: transparent;
+        overflow: hidden;
+      }
+      #root {
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      ;(() => {
+        const HEIGHT = 320
+        const send = (message) => parent.postMessage(message, '*')
+        let started = false
+
+        addEventListener('error', (event) => send({ type: 'error', message: String(event.message || event.error) }))
+        addEventListener('unhandledrejection', (event) => send({ type: 'error', message: String(event.reason) }))
+
+        addEventListener('message', (event) => {
+          if (event.source !== parent || started) return
+          const { type, code, tokens } = event.data || {}
+          if (type !== 'run' || typeof code !== 'string' || !tokens) return
+          started = true
+
+          document.body.style.background = tokens.surface
+          const root = document.getElementById('root')
+          root.style.color = tokens.text
+          root.style.fontFamily = tokens.font
+          const canvas = document.createElement('canvas')
+          root.appendChild(canvas)
+          const scale = window.devicePixelRatio || 1
+          canvas.width = root.clientWidth * scale
+          canvas.height = HEIGHT * scale
+          canvas.style.height = HEIGHT + 'px'
+          canvas.getContext('2d').scale(scale, scale)
+
+          new ResizeObserver(() => send({ type: 'height', height: document.body.scrollHeight })).observe(document.body)
+
+          let isReady = false
+          const ready = () => {
+            if (isReady) return
+            isReady = true
+            send({ type: 'ready', height: document.body.scrollHeight })
+          }
+          try {
+            new Function('root', 'canvas', 'tokens', 'ready', code)(root, canvas, Object.freeze({ ...tokens }), ready)
+          } catch (error) {
+            send({ type: 'error', message: String((error && error.message) || error) })
+          }
+        })
+
+        send({ type: 'loaded' })
+      })()
+    </script>
+  </body>
+</html>

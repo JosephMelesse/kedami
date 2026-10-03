@@ -162,3 +162,21 @@ export async function markDone(lessonId: string, blockId: string, partId: string
   })
   return body.progress
 }
+
+export interface SimulationState {
+  code: string
+  flagged: boolean
+  error: string | null
+}
+
+export function getSimulation(lessonId: string, blockId: string): Promise<SimulationState> {
+  return request('GET', `${blockPath(lessonId, blockId)}/simulation`)
+}
+
+export async function reportSimulation(lessonId: string, blockId: string, ok: boolean, error: string | null): Promise<void> {
+  await request('POST', `${blockPath(lessonId, blockId)}/simulation-status`, { ok, error })
+}
+
+export function regenerateSimulation(lessonId: string, blockId: string): Promise<SimulationState> {
+  return request('POST', `${blockPath(lessonId, blockId)}/regenerate`)
+}

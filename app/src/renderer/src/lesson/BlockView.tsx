@@ -3,6 +3,7 @@ import { DiagramBlockView } from './blocks/DiagramBlockView'
 import { ExplanationBlockView } from './blocks/ExplanationBlockView'
 import { PlotBlockView } from './blocks/PlotBlockView'
 import { ProblemBlockView } from './blocks/ProblemBlockView'
+import { SimulationBlockView } from './blocks/SimulationBlockView'
 import { WorkedExampleBlockView } from './blocks/WorkedExampleBlockView'
 import type { Blocks } from './types'
 
@@ -23,7 +24,6 @@ export function BlockView({ block, lessonId }: { block: Block; lessonId: string 
     case 'problem':
       return <ProblemBlockView block={block} />
     case 'simulation':
-      // Simulations are rendered from build step 6.
-      return null
+      return <SimulationBlockView block={block} lessonId={lessonId} />
   }
 }

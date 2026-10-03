@@ -82,6 +82,11 @@ class PlannedSection(Model):
     title: str
     goal: str = Field(description="One line: what the student can do after this section.")
     concepts: list[str] = Field(description="IDs of the concepts this section introduces, in teaching order.")
+    simulation: str | None = Field(
+        default=None,
+        description="A one-line brief for an interactive simulation, only where one would teach something a static "
+        "plot or diagram can't. Otherwise null.",
+    )
 
 
 class Plan(Model):
@@ -124,6 +129,13 @@ class DiagramDraft(Model):
     caption: str
 
 
+class SimulationDraft(Model):
+    """Marks where the section's simulation goes. Its code is written by a separate call."""
+
+    type: Literal["simulation"]
+    caption: str
+
+
 class CheckpointDraft(Model):
     type: Literal["checkpoint"]
     prompt: str
@@ -144,7 +156,7 @@ class ProblemDraft(Model):
 
 
 TypedBlock = Annotated[
-    ExplanationDraft | WorkedExampleDraft | PlotDraft | DiagramDraft | CheckpointDraft | ProblemDraft,
+    ExplanationDraft | WorkedExampleDraft | PlotDraft | DiagramDraft | SimulationDraft | CheckpointDraft | ProblemDraft,
     Field(discriminator="type"),
 ]
 _ANSWER = TypeAdapter(Answer)
@@ -203,7 +215,7 @@ class PartDraft(Model):
 class BlockDraft(Model):
     """One block, flat. Fill the fields for its type and leave the others null."""
 
-    type: Literal["explanation", "worked_example", "plot", "diagram", "checkpoint", "problem"]
+    type: Literal["explanation", "worked_example", "plot", "diagram", "simulation", "checkpoint", "problem"]
     body: str | None = Field(default=None, description="explanation")
     prompt: str | None = Field(default=None, description="worked_example, checkpoint")
     steps: list[str] | None = Field(default=None, description="worked_example")
@@ -212,11 +224,13 @@ class BlockDraft(Model):
     x_domain: list[float] | None = Field(default=None, description="plot: [min, max]")
     y_domain: list[float] | None = Field(default=None, description="plot: [min, max], or null for automatic")
     svg: str | None = Field(default=None, description="diagram")
-    caption: str | None = Field(default=None, description="plot, diagram")
+    caption: str | None = Field(default=None, description="plot, diagram, simulation")
     answer: AnswerDraft | None = Field(default=None, description="checkpoint")
     source_ref: str | None = Field(default=None, description="problem")
     parts: list[PartDraft] | None = Field(default=None, description="problem: an answer for every part")
-    _typed: ExplanationDraft | WorkedExampleDraft | PlotDraft | DiagramDraft | CheckpointDraft | ProblemDraft = PrivateAttr()
+    _typed: (
+        ExplanationDraft | WorkedExampleDraft | PlotDraft | DiagramDraft | SimulationDraft | CheckpointDraft | ProblemDraft
+    ) = PrivateAttr()
 
     @model_validator(mode="after")
     def convert(self) -> "BlockDraft":
@@ -225,6 +239,7 @@ class BlockDraft(Model):
             "worked_example": ("prompt", "steps"),
             "plot": ("functions", "parameters", "x_domain", "y_domain", "caption"),
             "diagram": ("svg", "caption"),
+            "simulation": ("caption",),
             "checkpoint": ("prompt",),
             "problem": ("source_ref",),
         }[self.type]
@@ -240,7 +255,9 @@ class BlockDraft(Model):
         return self
 
     @property
-    def typed(self) -> ExplanationDraft | WorkedExampleDraft | PlotDraft | DiagramDraft | CheckpointDraft | ProblemDraft:
+    def typed(
+        self,
+    ) -> ExplanationDraft | WorkedExampleDraft | PlotDraft | DiagramDraft | SimulationDraft | CheckpointDraft | ProblemDraft:
         return self._typed
 
 
@@ -294,3 +311,22 @@ class Solution(Model):
 
 class Solutions(Model):
     solutions: list[Solution]
+
+
+# Simulations
+
+MAX_SIMULATION_CODE = 40_000
+
+
+class SimulationCode(Model):
+    code: str = Field(description="The body of the simulation function, in plain JavaScript.")
+
+    @model_validator(mode="after")
+    def usable(self) -> "SimulationCode":
+        if not self.code.strip():
+            raise ValueError("the code is empty")
+        if len(self.code) > MAX_SIMULATION_CODE:
+            raise ValueError(f"the code is longer than {MAX_SIMULATION_CODE} characters")
+        if "ready(" not in self.code:
+            raise ValueError("the code never calls ready()")
+        return self

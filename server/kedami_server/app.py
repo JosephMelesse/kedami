@@ -10,11 +10,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
 
-from . import db, progress
+from . import db, progress, simulation_state
 from .checking import InvalidResponse, check
 from .config import Settings
+from .model import ModelError, call_model
 from .generation import pipeline
-from .lesson import Lesson, PlotBlock
+from .generation.retry import GenerationError
+from .generation.simulations import new_code
+from .lesson import Lesson, PlotBlock, SimulationBlock
 from .generation.sources import SourceError
 from .library import (
     LessonRow,
@@ -53,12 +56,17 @@ class RerunRequest(Body):
     force: dict[str, StrictBool] = {}
 
 
+class SimulationStatusRequest(Body):
+    ok: StrictBool
+    error: Annotated[str, Field(max_length=2000)] | None = None
+
+
 class MarkDoneRequest(Body):
     part_id: str
     done: StrictBool
 
 
-def create_app(settings: Settings, start_generation=pipeline.start) -> FastAPI:
+def create_app(settings: Settings, start_generation=pipeline.start, call=call_model) -> FastAPI:
     app = FastAPI(title="Kedami", docs_url=None, redoc_url=None, openapi_url=None)
     expected = f"Bearer {settings.token}".encode()
 
@@ -233,5 +241,42 @@ def create_app(settings: Settings, start_generation=pipeline.start) -> FastAPI:
         target = get_target(get_lesson(lesson_id), block_id, body.part_id)
         record = update(lesson_id, target, lambda r: progress.after_mark_done(r, body.done))
         return {"progress": asdict(record)}
+
+    def get_simulation(lesson: Lesson, block_id: str) -> SimulationBlock:
+        block = lesson.find_block(block_id)
+        if not isinstance(block, SimulationBlock):
+            raise HTTPException(404, "simulation block not found")
+        return block
+
+    @app.get("/lessons/{lesson_id}/blocks/{block_id}/simulation")
+    def simulation(lesson_id: str, block_id: str):
+        block = get_simulation(get_lesson(lesson_id), block_id)
+        with db.connect(settings.data_dir) as conn:
+            state = simulation_state.load(conn, lesson_id, block_id)
+        return {"code": state.code or block.code, "flagged": state.flagged, "error": state.error}
+
+    @app.post("/lessons/{lesson_id}/blocks/{block_id}/simulation-status")
+    def simulation_status(lesson_id: str, block_id: str, body: SimulationStatusRequest):
+        get_simulation(get_lesson(lesson_id), block_id)
+        with db.connect(settings.data_dir) as conn:
+            simulation_state.set_status(conn, lesson_id, block_id, body.ok, body.error)
+        return {"flagged": not body.ok}
+
+    @app.post("/lessons/{lesson_id}/blocks/{block_id}/regenerate")
+    def regenerate(lesson_id: str, block_id: str):
+        lesson = get_lesson(lesson_id)
+        block = get_simulation(lesson, block_id)
+        section = next(s for s in lesson.sections if any(b.id == block_id for b in s.blocks))
+        with db.connect(settings.data_dir) as conn:
+            state = simulation_state.load(conn, lesson_id, block_id)
+        materials = pipeline.normalized_materials(settings.data_dir, lesson_id, lesson.subject)
+        failure = state.error if state.flagged else None
+        try:
+            code = new_code(section, block, None, materials, call, failure)
+        except (ModelError, GenerationError) as error:
+            raise HTTPException(502, str(error)) from error
+        with db.connect(settings.data_dir) as conn:
+            simulation_state.save_code(conn, lesson_id, block_id, code)
+        return {"code": code, "flagged": False, "error": None}
 
     return app

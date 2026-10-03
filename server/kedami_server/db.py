@@ -18,6 +18,16 @@ CREATE TABLE IF NOT EXISTS lessons (
     error TEXT
 );
 
+CREATE TABLE IF NOT EXISTS simulations (
+    lesson_id TEXT NOT NULL REFERENCES lessons (id) ON DELETE CASCADE,
+    block_id TEXT NOT NULL,
+    code TEXT,
+    flagged INTEGER NOT NULL DEFAULT 0,
+    error TEXT,
+    updated TEXT NOT NULL,
+    PRIMARY KEY (lesson_id, block_id)
+);
+
 CREATE TABLE IF NOT EXISTS materials (
     id INTEGER PRIMARY KEY,
     lesson_id TEXT NOT NULL REFERENCES lessons (id) ON DELETE CASCADE,

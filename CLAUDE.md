@@ -41,7 +41,7 @@ Before writing code, read `README.md` and every file in `architecture/`. Those d
 - Math strings are parsed only with the restricted, whitelisted parser. Never pass model or user input to SymPy's default string parsing or to `eval`.
 
 **Lesson data**
-- Lesson JSON is never edited in place. Only a rerun replaces it.
+- Lesson JSON is never edited in place. Only a rerun replaces it. Regenerated simulation code is stored apart from it.
 - Progress is stored apart from the lesson, keyed by block and part ID.
 - The `verified` flag is set only by the server's verification pass.
 - Problem block IDs derive from the source reference, and part IDs from the part label.

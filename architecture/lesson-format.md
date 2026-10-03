@@ -62,6 +62,10 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 - The frame must report ready within a few seconds with no errors. Otherwise the block is hidden and flagged for regeneration.
 - Simulations are illustrative: they never count toward completion and never supply numbers the student is checked against.
 - Each simulation has a regenerate button.
+- The plan gives a section a one-line simulation brief only where one would teach what a static plot or diagram can't. The section call places one `simulation` block (a caption) exactly when there is a brief, and a separate call writes its code.
+- The code is the body of `function simulation(root, canvas, tokens, ready)`: `root` is a div to build controls in, `canvas` is a 320 px tall canvas already in it, `tokens` holds the color token values and the font, and `ready()` must be called once it works. Code that never calls `ready(` is rejected and retried.
+- The frame is a separate page, `simulation.html`, loaded with `sandbox="allow-scripts"` and no same-origin access. Its CSP allows no network. The ready window is 4 seconds; an error or timeout before ready flags the simulation on the server and shows a one-line notice with the regenerate button in its place.
+- Regenerated code is the one exception to never editing a lesson: it is stored apart from the lesson JSON, in the `simulations` table, and served in place of the JSON's code. A rerun replaces the lesson and clears these rows.
 
 ## Rules
 

@@ -368,3 +368,10 @@ textarea.text-input {
   background: var(--surface);
   color: var(--text-muted);
 }
+
+.simulation-frame {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+}

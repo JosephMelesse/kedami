@@ -18,6 +18,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 | `lessons` | id, title, subject, status, current stage, schema version, revision, created, error |
 | `materials` | id, lesson id, filename, role, force transcription |
 | `progress` | lesson id, block id, part id, status, last response, attempts, hints used, updated |
+| `simulations` | lesson id, block id, regenerated code, flagged, error, updated |
 
 - Lesson status is one of: generating, ready, failed. Only a ready lesson has lesson JSON to serve.
 - Material role is problem set or reference.
@@ -39,6 +40,8 @@ All routes require the session token.
 | POST | `/lessons/{id}/blocks/{block_id}/check` | Check a response for a part; records progress and returns the new state |
 | POST | `/lessons/{id}/blocks/{block_id}/hint` | Record hints revealed for a part or checkpoint; returns the new state |
 | POST | `/lessons/{id}/blocks/{block_id}/mark-done` | Mark a part done, or undo it |
-| POST | `/lessons/{id}/blocks/{block_id}/regenerate` | Regenerate a simulation |
+| GET | `/lessons/{id}/blocks/{block_id}/simulation` | A simulation's current code (regenerated, or from the lesson JSON) and whether it is flagged |
+| POST | `/lessons/{id}/blocks/{block_id}/simulation-status` | Record whether a simulation loaded; a failure flags it |
+| POST | `/lessons/{id}/blocks/{block_id}/regenerate` | Regenerate a simulation; a flagged one's error is passed to the model |
 | GET | `/lessons/{id}/progress` | Progress for all blocks and parts |
 | GET | `/health` | Used by main to detect server readiness |

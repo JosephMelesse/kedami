@@ -10,7 +10,7 @@ from pydantic import ValidationError
 from ..ids import slugify
 from ..lesson import Lesson, Part, ProblemBlock, Section
 from .plan import SectionPlan
-from .schemas import ProblemDraft, SectionDraft
+from .schemas import ProblemDraft, SectionDraft, SimulationDraft
 
 
 class SectionError(ValueError):
@@ -22,11 +22,18 @@ def assemble_section(plan: SectionPlan, draft: SectionDraft) -> Section:
     typed = [block.typed for block in draft.blocks]
     placed = [_problem_id(block) for block in typed if isinstance(block, ProblemDraft)]
     _check_problems(placed, targets)
+    simulations = sum(isinstance(block, SimulationDraft) for block in typed)
+    wanted = 1 if plan.simulation else 0
+    if simulations != wanted:
+        raise SectionError(f"this section needs exactly {wanted} simulation block(s); got {simulations}")
 
     blocks = []
     for index, block in enumerate(typed, start=1):
         if isinstance(block, ProblemDraft):
             blocks.append(_problem(block, targets[_problem_id(block)]))
+        elif isinstance(block, SimulationDraft):
+            # The code is written by a separate call once the section exists.
+            blocks.append({"type": "simulation", "id": f"{plan.id}-block-{index}", "caption": block.caption, "code": ""})
         else:
             blocks.append({**block.model_dump(), "id": f"{plan.id}-block-{index}"})
 

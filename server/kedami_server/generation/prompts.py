@@ -13,6 +13,7 @@ from .plan import SectionPlan
 from .schemas import Extraction
 
 if TYPE_CHECKING:
+    from ..lesson import Section
     from .hints import Target
 
 MATH_SYNTAX = (
@@ -107,7 +108,11 @@ problem needs must be introduced in exactly one section. The server places each 
 last concept it needs is introduced, so the order of concepts decides when each problem comes up. Prefer sections
 that each end with a problem or two over one long section of theory followed by all the problems.
 
-Give the lesson a short title and each section a title and a one-line goal."""
+Give the lesson a short title and each section a title and a one-line goal.
+
+A section may call for one interactive simulation: give a one-line brief in `simulation` only where dragging or
+watching something move would teach what a static plot or diagram can't, such as how components change as a vector
+rotates. Most sections should have none. A simulation is illustrative; it never shows a homework answer."""
 
 
 def plan_request(extraction: Extraction, feedback: str | None = None) -> dict:
@@ -134,6 +139,8 @@ for `multi_choice`).
 - `diagram`: a small static SVG with a `viewBox`. Color everything with `currentColor` (stroke or fill); no `style`
   elements, scripts, images, links, or `foreignObject`.
 - `checkpoint`: a short practice question with its answer.
+- `simulation`: marks where the section's interactive simulation goes, with a `caption` saying what to try. Include
+  one only when `this_section` has a `simulation_brief`, and then exactly one; its code is written separately.
 - `problem`: marks where one of this section's homework problems goes. Give its `source_ref` and an answer for every
   part, using the part labels exactly as given. Do not restate the problem; its text is inserted for you.
 
@@ -157,6 +164,7 @@ def section_request(section: SectionPlan, outline: list[SectionPlan], feedback: 
             "goal": section.goal,
             "concepts": [c.model_dump() for c in section.concepts],
             "homework_problems": [p.model_dump(exclude={"concepts"}) for p in section.problems],
+            "simulation_brief": section.simulation,
         },
     }
     return _with_feedback(f"Write this section:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}", feedback)
@@ -241,3 +249,36 @@ def solve_request(items: list[tuple[str, str, dict]]) -> dict:
         "type": "text",
         "text": f"Solve each of these questions, using the target IDs as given:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}",
     }
+
+
+# Simulations
+
+TOKEN_NAMES = ["bg", "surface", "surfaceRaised", "border", "text", "textMuted", "accent", "correct", "retry", "inProgress"]
+
+SIMULATION_SYSTEM = f"""You write a small interactive simulation for one section of a lesson, as the body of this
+JavaScript function:
+
+    function simulation(root, canvas, tokens, ready) {{ /* your code */ }}
+
+- `root` is an empty <div> about 640 px wide to build in. `canvas` is a <canvas> already inside it, sized to fill
+  the width and 320 px tall, with `canvas.getContext("2d")` scaled for the screen.
+- Add any controls (sliders, buttons, labels) to `root` with plain DOM calls.
+- `tokens` holds the app's colors as CSS color strings: {", ".join(TOKEN_NAMES)}, plus `font`. Use them for every
+  color, including controls: `tokens.text` for text and lines, `tokens.textMuted` for secondary marks and axes,
+  `tokens.accent` only for the one thing the student moves, `tokens.border` for grid lines. The page background is
+  `tokens.surface`.
+- Call `ready()` once the simulation is drawn and working, within a second.
+- Use requestAnimationFrame for animation. No network, imports, libraries, storage, alert, or HTML strings.
+- Keep it short and focused on the brief. Label what is shown, with units. It is illustrative: never show the answer
+  to a homework problem.
+
+Return only the function body."""
+
+
+def simulation_request(section: "Section", caption: str, brief: str | None, failure: str | None = None) -> dict:
+    teaching = [b.body for b in section.blocks if b.type == "explanation"]
+    data = {"section": section.title, "goal": section.goal, "brief": brief, "caption": caption, "teaching": teaching}
+    text = f"Write the simulation for this section:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}"
+    if failure:
+        text += f"\n\nThe last version did not work: {failure}. Write a new, simpler one."
+    return {"type": "text", "text": text}

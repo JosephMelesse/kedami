@@ -24,6 +24,8 @@ class SectionPlan:
     goal: str
     concepts: list[Concept]
     problems: list[ExtractedProblem]
+    # A brief for the section's simulation, if the plan calls for one.
+    simulation: str | None = None
 
 
 def place_problems(plan: Plan, extraction: Extraction) -> list[SectionPlan]:
@@ -60,6 +62,7 @@ def place_problems(plan: Plan, extraction: Extraction) -> list[SectionPlan]:
                 goal=section.goal,
                 concepts=[concepts[c] for c in section.concepts],
                 problems=problems_in[index],
+                simulation=section.simulation,
             )
         )
     return sections

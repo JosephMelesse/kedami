@@ -1,6 +1,7 @@
-import { BrowserWindow, app, dialog, ipcMain } from 'electron'
+import { BrowserWindow, app, dialog, ipcMain, session } from 'electron'
 import { join, resolve } from 'node:path'
 import type { ServerConnection } from '../preload/api'
+import { isAllowedRequest } from './requests'
 import { type ServerHandle, startServer } from './server'
 
 const repoRoot = resolve(app.getAppPath(), '..')
@@ -35,6 +36,9 @@ function createWindow(): void {
 }
 
 async function launch(): Promise<void> {
+  session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
+    callback({ cancel: !isAllowedRequest(details.url) })
+  })
   try {
     server = await startServer({
       serverDir: join(repoRoot, 'server'),
