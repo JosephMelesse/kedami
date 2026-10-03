@@ -200,6 +200,10 @@ export function createFolder(name: string): Promise<Folder> {
   return request('POST', '/folders', { name })
 }
 
+export async function renameFolder(folderId: number, name: string): Promise<void> {
+  await request('POST', `/folders/${folderId}/rename`, { name })
+}
+
 export async function deleteFolder(folderId: number): Promise<void> {
   await request('DELETE', `/folders/${folderId}`)
 }

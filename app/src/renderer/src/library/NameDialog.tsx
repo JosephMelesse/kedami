@@ -3,15 +3,17 @@ import { type FormEvent, useEffect, useRef, useState } from 'react'
 interface NameDialogProps {
   title: string
   confirmLabel: string
+  /** The name the field starts with. */
+  initial?: string
   /** Resolves to an error message to show, or null when done. */
   onSubmit: (name: string) => Promise<string | null>
   onCancel: () => void
 }
 
 /** Asks for a name. Mount it to open it. */
-export function NameDialog({ title, confirmLabel, onSubmit, onCancel }: NameDialogProps) {
+export function NameDialog({ title, confirmLabel, initial = '', onSubmit, onCancel }: NameDialogProps) {
   const ref = useRef<HTMLDialogElement>(null)
-  const [name, setName] = useState('')
+  const [name, setName] = useState(initial)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 

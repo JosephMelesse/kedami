@@ -110,6 +110,28 @@ def test_bad_folder_names(started, body, status):
     assert client.post("/folders", json=body, headers=AUTH).status_code == status
 
 
+def test_rename_folder(started):
+    client, _, _ = started
+    week3 = client.post("/folders", json={"name": "Week 3"}, headers=AUTH).json()["id"]
+    client.post("/folders", json={"name": "Week 4"}, headers=AUTH)
+    rename = lambda name, folder=week3: client.post(f"/folders/{folder}/rename", json={"name": name}, headers=AUTH)
+    assert rename("  Kinematics ").json() == {"id": week3, "name": "Kinematics"}
+    assert [f["name"] for f in folders(client)] == ["Kinematics", "Week 4"]
+    assert rename("KINEMATICS").status_code == 200  # changing only the case of its own name is fine
+    assert rename("week 4").status_code == 409
+    assert rename("  ").status_code == 422
+    assert rename("x", folder=999).status_code == 404
+    assert [f["name"] for f in folders(client)] == ["KINEMATICS", "Week 4"]
+
+
+def test_renaming_keeps_the_folder_lessons(two_lessons):
+    client, (first, _) = two_lessons
+    folder = client.post("/folders", json={"name": "Week 3"}, headers=AUTH).json()["id"]
+    client.post(f"/lessons/{first}/move", json={"folder_id": folder}, headers=AUTH)
+    client.post(f"/folders/{folder}/rename", json={"name": "Kinematics"}, headers=AUTH)
+    assert folders(client) == [{"id": folder, "name": "Kinematics", "lessons": 1}]
+
+
 def test_move_lessons_between_folders_and_home(two_lessons):
     client, (first, second) = two_lessons
     folder = client.post("/folders", json={"name": "Week 3"}, headers=AUTH).json()["id"]

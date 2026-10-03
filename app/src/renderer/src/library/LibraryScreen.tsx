@@ -8,7 +8,8 @@ import {
   type LessonSummary,
   listFolders,
   listLessons,
-  moveLesson
+  moveLesson,
+  renameFolder
 } from '../api'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { FolderTile } from './FolderTile'
@@ -25,6 +26,7 @@ type State =
 type Dialog =
   | { kind: 'new-folder' }
   | { kind: 'delete-lesson'; lesson: LessonSummary }
+  | { kind: 'rename-folder'; folder: Folder }
   | { kind: 'delete-folder'; folder: Folder }
 
 const POLL_MS = 3000
@@ -68,6 +70,18 @@ export function LibraryScreen({ onOpen, onNew }: LibraryProps) {
     await load()
   }
 
+  /** Run a naming action from a dialog; resolves to an error to show in it, or closes it. */
+  const named = async (action: () => Promise<unknown>): Promise<string | null> => {
+    try {
+      await action()
+    } catch (error) {
+      return error instanceof ApiError ? error.message : 'Could not reach the server.'
+    }
+    setDialog(null)
+    await load()
+    return null
+  }
+
   if (state.status === 'loading') return <p className="screen-message">Loading lessons</p>
   if (state.status === 'error') return <p className="screen-message">Could not load lessons: {state.message}</p>
 
@@ -84,6 +98,7 @@ export function LibraryScreen({ onOpen, onNew }: LibraryProps) {
         onOpenFolder={(f) => setFolderId(f.id)}
         onHome={() => setFolderId(null)}
         onNewFolder={() => setDialog({ kind: 'new-folder' })}
+        onRenameFolder={(f) => setDialog({ kind: 'rename-folder', folder: f })}
         onDeleteFolder={(f) => setDialog({ kind: 'delete-folder', folder: f })}
         onMove={(lesson, target) => act(() => moveLesson(lesson.id, target))}
         onDelete={(lesson) => setDialog({ kind: 'delete-lesson', lesson })}
@@ -93,16 +108,16 @@ export function LibraryScreen({ onOpen, onNew }: LibraryProps) {
           title="New folder"
           confirmLabel="Create"
           onCancel={() => setDialog(null)}
-          onSubmit={async (name) => {
-            try {
-              await createFolder(name)
-            } catch (error) {
-              return error instanceof ApiError ? error.message : 'Could not reach the server.'
-            }
-            setDialog(null)
-            await load()
-            return null
-          }}
+          onSubmit={(name) => named(() => createFolder(name))}
+        />
+      )}
+      {dialog?.kind === 'rename-folder' && (
+        <NameDialog
+          title="Rename folder"
+          confirmLabel="Rename"
+          initial={dialog.folder.name}
+          onCancel={() => setDialog(null)}
+          onSubmit={(name) => named(() => renameFolder(dialog.folder.id, name))}
         />
       )}
       {dialog?.kind === 'delete-lesson' && (
@@ -151,6 +166,7 @@ interface LibraryViewProps {
   onOpenFolder: (folder: Folder) => void
   onHome: () => void
   onNewFolder: () => void
+  onRenameFolder: (folder: Folder) => void
   onDeleteFolder: (folder: Folder) => void
   onMove: (lesson: LessonSummary, folderId: number | null) => void
   onDelete: (lesson: LessonSummary) => void
@@ -173,9 +189,14 @@ export function LibraryView(props: LibraryViewProps) {
       <header className="library-header">
         <h1>{folder ? folder.name : 'Lessons'}</h1>
         {folder ? (
-          <button type="button" className="button" onClick={() => props.onDeleteFolder(folder)}>
-            Delete folder
-          </button>
+          <div className="library-actions">
+            <button type="button" className="button" onClick={() => props.onRenameFolder(folder)}>
+              Rename
+            </button>
+            <button type="button" className="button" onClick={() => props.onDeleteFolder(folder)}>
+              Delete folder
+            </button>
+          </div>
         ) : (
           <button type="button" className="button" onClick={props.onNewFolder}>
             New folder

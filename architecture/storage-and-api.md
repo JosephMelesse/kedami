@@ -39,6 +39,7 @@ All routes require the session token.
 | POST | `/lessons/{id}/move` | Move a lesson to a folder, or home with `null` |
 | GET | `/folders` | Folders with their lesson counts |
 | POST | `/folders` | Create a folder |
+| POST | `/folders/{id}/rename` | Rename a folder |
 | DELETE | `/folders/{id}` | Delete a folder; its lessons move home |
 | GET | `/lessons` | List lessons with status and progress |
 | GET | `/lessons/{id}` | Lesson JSON plus generation status, current stage, error, materials, and the stages a rerun can start from |

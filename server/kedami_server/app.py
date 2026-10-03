@@ -327,6 +327,17 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
             except library.FolderExists as error:
                 raise HTTPException(409, str(error)) from error
 
+    @app.post("/folders/{folder_id}/rename")
+    def rename_folder(folder_id: int, body: FolderRequest):
+        with db.connect(settings.data_dir) as conn:
+            if not library.folder_exists(conn, folder_id):
+                raise HTTPException(404, "folder not found")
+            try:
+                library.rename_folder(conn, folder_id, body.name)
+            except library.FolderExists as error:
+                raise HTTPException(409, str(error)) from error
+        return {"id": folder_id, "name": body.name}
+
     @app.delete("/folders/{folder_id}")
     def delete_folder(folder_id: int):
         with db.connect(settings.data_dir) as conn:

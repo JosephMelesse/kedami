@@ -20,6 +20,11 @@
   margin-bottom: 32px;
 }
 
+.library-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .tile-wrap {
   position: relative;
 }

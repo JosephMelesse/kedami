@@ -166,6 +166,13 @@ def list_folders(conn: sqlite3.Connection) -> list[FolderRow]:
     return [FolderRow(**row) for row in rows]
 
 
+def rename_folder(conn: sqlite3.Connection, folder_id: int, name: str) -> None:
+    try:
+        conn.execute("UPDATE folders SET name = ? WHERE id = ?", (name, folder_id))
+    except sqlite3.IntegrityError as error:
+        raise FolderExists(f"A folder named {name!r} already exists.") from error
+
+
 def folder_exists(conn: sqlite3.Connection, folder_id: int) -> bool:
     return conn.execute("SELECT 1 FROM folders WHERE id = ?", (folder_id,)).fetchone() is not None
 

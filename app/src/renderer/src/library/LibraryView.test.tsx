@@ -36,6 +36,7 @@ function render(lessons: LessonSummary[], folders: Folder[] = [], folder: Folder
       onOpenFolder={noop}
       onHome={noop}
       onNewFolder={noop}
+      onRenameFolder={noop}
       onDeleteFolder={noop}
       onMove={noop}
       onDelete={noop}
@@ -67,6 +68,7 @@ describe('LibraryView', () => {
     expect(root.querySelector('h1')?.textContent).toBe('Week 3')
     expect(root.querySelector('.library-nav')?.textContent).toBe('Lessons')
     expect(root.textContent).toContain('Delete folder')
+    expect(root.textContent).toContain('Rename')
     expect(root.textContent).not.toContain('New folder')
   })
 
