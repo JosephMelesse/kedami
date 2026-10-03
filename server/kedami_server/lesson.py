@@ -174,8 +174,11 @@ class DiagramBlock(Model):
 class SimulationBlock(Model):
     type: Literal["simulation"]
     id: Id
-    code: str
+    # Empty until the student asks for the simulation; its code is then stored apart from the lesson.
+    code: str = ""
     caption: str
+    # The plan's one-line brief, which the code is written from.
+    brief: str | None = None
 
 
 class CheckpointBlock(Model):

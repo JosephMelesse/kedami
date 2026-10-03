@@ -32,8 +32,16 @@ def assemble_section(plan: SectionPlan, draft: SectionDraft) -> Section:
         if isinstance(block, ProblemDraft):
             blocks.append(_problem(block, targets[_problem_id(block)]))
         elif isinstance(block, SimulationDraft):
-            # The code is written by a separate call once the section exists.
-            blocks.append({"type": "simulation", "id": f"{plan.id}-block-{index}", "caption": block.caption, "code": ""})
+            # The code is written on request, after the lesson is ready.
+            blocks.append(
+                {
+                    "type": "simulation",
+                    "id": f"{plan.id}-block-{index}",
+                    "caption": block.caption,
+                    "brief": plan.simulation,
+                    "code": "",
+                }
+            )
         else:
             blocks.append({**block.model_dump(), "id": f"{plan.id}-block-{index}"})
 

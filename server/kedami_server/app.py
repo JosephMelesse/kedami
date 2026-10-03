@@ -272,7 +272,7 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         materials = pipeline.normalized_materials(settings.data_dir, lesson_id, lesson.subject)
         failure = state.error if state.flagged else None
         try:
-            code = new_code(section, block, None, materials, call, failure)
+            code = new_code(section, block, block.brief, materials, call, failure)
         except (ModelError, GenerationError) as error:
             raise HTTPException(502, str(error)) from error
         with db.connect(settings.data_dir) as conn:

@@ -175,7 +175,7 @@ describe('LessonView captions', () => {
 describe('LessonView edge cases', () => {
   it('renders a simulation card that loads its code separately', () => {
     const withSimulation = structuredClone(lesson)
-    withSimulation.sections[0].blocks.push({ type: 'simulation', id: 'sim', code: 'SECRET_CODE()', caption: 'Drag $A$.' })
+    withSimulation.sections[0].blocks.push({ type: 'simulation', id: 'sim', code: 'SECRET_CODE()', caption: 'Drag $A$.', brief: null })
     const card = render(withSimulation).querySelector<HTMLElement>('.simulation')!
     expect(card.querySelector('figcaption .katex')).not.toBeNull()
     expect(text(card)).toContain('Loading simulation')

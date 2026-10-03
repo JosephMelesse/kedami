@@ -42,6 +42,6 @@ All routes require the session token.
 | POST | `/lessons/{id}/blocks/{block_id}/mark-done` | Mark a part done, or undo it |
 | GET | `/lessons/{id}/blocks/{block_id}/simulation` | A simulation's current code (regenerated, or from the lesson JSON) and whether it is flagged |
 | POST | `/lessons/{id}/blocks/{block_id}/simulation-status` | Record whether a simulation loaded; a failure flags it |
-| POST | `/lessons/{id}/blocks/{block_id}/regenerate` | Regenerate a simulation; a flagged one's error is passed to the model |
+| POST | `/lessons/{id}/blocks/{block_id}/regenerate` | Write a simulation's code on request, or rewrite it; a flagged one's error is passed to the model |
 | GET | `/lessons/{id}/progress` | Progress for all blocks and parts |
 | GET | `/health` | Used by main to detect server readiness |

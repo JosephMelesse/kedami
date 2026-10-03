@@ -587,19 +587,33 @@
           "type": "string"
         },
         "code": {
+          "default": "",
           "title": "Code",
           "type": "string"
         },
         "caption": {
           "title": "Caption",
           "type": "string"
+        },
+        "brief": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Brief"
         }
       },
       "required": [
         "type",
         "id",
         "code",
-        "caption"
+        "caption",
+        "brief"
       ],
       "title": "SimulationBlock",
       "type": "object"

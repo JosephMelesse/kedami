@@ -50,6 +50,7 @@ export type Type4 = "simulation";
 export type Id6 = string;
 export type Code = string;
 export type Caption2 = string;
+export type Brief = string | null;
 export type Type5 = "checkpoint";
 export type Id7 = string;
 export type Prompt1 = string;
@@ -190,6 +191,7 @@ export interface SimulationBlock {
   id: Id6;
   code: Code;
   caption: Caption2;
+  brief: Brief;
 }
 /**
  * This interface was referenced by `Lesson`'s JSON-Schema

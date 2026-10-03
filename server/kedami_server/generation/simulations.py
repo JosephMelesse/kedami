@@ -1,6 +1,8 @@
-"""Simulation code: written after a section exists, and rewritten on request.
+"""Simulation code, written when the student asks for a simulation and rewritten on request.
 
-Regenerated code is stored apart from the lesson JSON, which is never edited in place.
+Lesson generation only places the block and keeps the plan's brief, so it doesn't wait on
+code nobody may open. The code is stored apart from the lesson JSON, which is never edited
+in place.
 """
 
 from collections.abc import Callable
@@ -9,16 +11,6 @@ from ..lesson import Section, SimulationBlock
 from . import prompts
 from .retry import retrying
 from .schemas import SimulationCode
-
-
-def write_code(section: Section, brief: str | None, materials: list[dict], call: Callable) -> Section:
-    """Fill in the code of each simulation block in the section."""
-    blocks = []
-    for block in section.blocks:
-        if isinstance(block, SimulationBlock):
-            block = block.model_copy(update={"code": new_code(section, block, brief, materials, call)})
-        blocks.append(block)
-    return Section.model_validate(section.model_copy(update={"blocks": blocks}).model_dump())
 
 
 def new_code(

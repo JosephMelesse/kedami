@@ -26,7 +26,6 @@ from .ingest import Material, Normalized, ingest
 from .plan import SectionPlan, place_problems
 from .retry import GenerationError, retrying
 from .schemas import Extraction, Plan, SectionDraft
-from .simulations import write_code
 from .verify import verify_section
 
 log = logging.getLogger(__name__)
@@ -173,7 +172,6 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
             return assemble_section(section_plan, draft)
 
         section = retrying(f"Section {number} ({section_plan.title})", section_attempt)
-        section = write_code(section, section_plan.simulation, context, call)
         section = retrying(f"Hints for section {number}", lambda _feedback, s=section: add_hints(s, context, call))
         try:
             section, results = retrying(

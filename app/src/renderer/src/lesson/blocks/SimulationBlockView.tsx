@@ -7,7 +7,8 @@ import { simulationTokens } from './simulationTokens'
 // A simulation must report ready this soon after its frame loads, with no errors.
 const READY_MS = 4000
 
-type Status = 'loading' | 'running' | 'ready' | 'failed' | 'regenerating'
+// unwritten: the code is written only when the student asks for it.
+type Status = 'loading' | 'unwritten' | 'running' | 'ready' | 'failed' | 'writing'
 
 export function SimulationBlockView({ block, lessonId }: { block: SimulationBlock; lessonId: string }) {
   const [code, setCode] = useState<string | null>(null)
@@ -24,7 +25,7 @@ export function SimulationBlockView({ block, lessonId }: { block: SimulationBloc
         if (cancelled) return
         setCode(state.code)
         setFlagged(state.flagged)
-        setStatus('running')
+        setStatus(state.code ? 'running' : 'unwritten')
       })
       .catch((error: Error) => {
         if (cancelled) return
@@ -48,8 +49,9 @@ export function SimulationBlockView({ block, lessonId }: { block: SimulationBloc
     [lessonId, block.id, flagged]
   )
 
-  const regenerate = async () => {
-    setStatus('regenerating')
+  const write = async () => {
+    const before = status
+    setStatus('writing')
     setMessage(null)
     try {
       const state = await regenerateSimulation(lessonId, block.id)
@@ -59,17 +61,19 @@ export function SimulationBlockView({ block, lessonId }: { block: SimulationBloc
       setStatus('running')
     } catch (error) {
       setMessage(error instanceof ApiError ? error.message : 'Could not reach the server.')
-      setStatus('failed')
+      // A failed first attempt leaves the simulation unwritten, so it can be asked for again.
+      setStatus(before === 'unwritten' ? 'unwritten' : 'failed')
     }
   }
 
-  const showFrame = code !== null && (status === 'running' || status === 'ready')
+  const showFrame = Boolean(code) && (status === 'running' || status === 'ready')
+  const written = Boolean(code)
 
   return (
     <figure className="card simulation">
-      {showFrame && <SimulationFrame key={attempt} code={code} title={block.caption} onDone={finish} />}
+      {showFrame && <SimulationFrame key={attempt} code={code!} title={block.caption} onDone={finish} />}
       {status === 'loading' && <div className="plot-placeholder">Loading simulation</div>}
-      {status === 'regenerating' && <div className="plot-placeholder">Writing a new simulation</div>}
+      {status === 'writing' && <div className="plot-placeholder">Writing the simulation</div>}
       {status === 'failed' && (
         <p className="muted">
           This simulation didn&apos;t load.{message ? ` ${message}` : ''}
@@ -80,10 +84,17 @@ export function SimulationBlockView({ block, lessonId }: { block: SimulationBloc
           <Markdown inline>{block.caption}</Markdown>
         </figcaption>
       )}
+      {status === 'unwritten' && message && <p className="answer-error">{message}</p>}
       <div>
-        <button type="button" className="button" disabled={status === 'regenerating' || status === 'loading'} onClick={regenerate}>
-          Regenerate
-        </button>
+        {status === 'unwritten' || (status === 'writing' && !written) ? (
+          <button type="button" className="button button-primary" disabled={status === 'writing'} onClick={write}>
+            Generate simulation
+          </button>
+        ) : (
+          <button type="button" className="button" disabled={status === 'writing' || status === 'loading'} onClick={write}>
+            Regenerate
+          </button>
+        )}
       </div>
     </figure>
   )
