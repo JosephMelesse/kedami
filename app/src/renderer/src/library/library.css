@@ -34,12 +34,8 @@
   transition: background-color 150ms ease-out;
 }
 
-.tile:hover:not(:disabled) {
+.tile:hover {
   background: var(--surface-raised);
-}
-
-.tile:disabled {
-  cursor: default;
 }
 
 .tile-title {
@@ -61,6 +57,10 @@
   border-style: dashed;
   background: none;
   color: var(--text-muted);
+}
+
+.tile-new:hover {
+  color: var(--text);
 }
 
 .progress-bar {

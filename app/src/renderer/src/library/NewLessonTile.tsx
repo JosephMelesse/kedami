@@ -1,7 +1,6 @@
-// Creating a lesson needs the upload screen and pipeline (build step 3), so the tile is inactive until then.
-export function NewLessonTile() {
+export function NewLessonTile({ onClick }: { onClick: () => void }) {
   return (
-    <button type="button" className="tile tile-new" disabled>
+    <button type="button" className="tile tile-new" onClick={onClick}>
       <span className="tile-title">New lesson</span>
     </button>
   )

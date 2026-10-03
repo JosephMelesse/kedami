@@ -14,7 +14,16 @@ CREATE TABLE IF NOT EXISTS lessons (
     current_stage INTEGER,
     schema_version INTEGER NOT NULL,
     revision INTEGER NOT NULL DEFAULT 1,
-    created TEXT NOT NULL
+    created TEXT NOT NULL,
+    error TEXT
+);
+
+CREATE TABLE IF NOT EXISTS materials (
+    id INTEGER PRIMARY KEY,
+    lesson_id TEXT NOT NULL REFERENCES lessons (id) ON DELETE CASCADE,
+    filename TEXT NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('problem_set', 'reference')),
+    force_transcription INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS progress (
@@ -39,6 +48,19 @@ def init(data_dir: Path) -> None:
     data_dir.mkdir(parents=True, exist_ok=True)
     with connect(data_dir) as conn:
         conn.executescript(SCHEMA)
+        _add_missing_columns(conn)
+
+
+# Columns added after a table was first created. CREATE TABLE IF NOT EXISTS skips existing tables.
+ADDED_COLUMNS = {"lessons": {"error": "TEXT"}}
+
+
+def _add_missing_columns(conn: sqlite3.Connection) -> None:
+    for table, columns in ADDED_COLUMNS.items():
+        existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+        for name, definition in columns.items():
+            if name not in existing:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
 
 
 @contextmanager

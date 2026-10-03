@@ -1,19 +1,21 @@
 """HTTP API. Every route requires the session token."""
 
 import hmac
+import uuid
 from dataclasses import asdict
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, StrictBool, StrictInt
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
 
 from . import db, progress
 from .checking import InvalidResponse, check
 from .config import Settings
+from .generation import pipeline
 from .lesson import Lesson, PlotBlock
-from .library import LessonRow, get_lesson_row, list_lessons, problem_ids
+from .library import LessonRow, add_material, create_generating, get_lesson_row, list_lessons, problem_ids
 from .plot import sample_points
 from .storage import load_lesson
 from .targets import Target, find_target
@@ -33,12 +35,23 @@ class HintRequest(Body):
     count: StrictInt
 
 
+MAX_PASTE = 200_000
+
+
+class NewLessonRequest(Body):
+    """Step 3 takes pasted text; file upload replaces it in step 5."""
+
+    subject: Literal["math", "physics"]
+    problem_set: Annotated[str, Field(min_length=1, max_length=MAX_PASTE, pattern=r"\S")]
+    reference: Annotated[str, Field(max_length=MAX_PASTE)] = ""
+
+
 class MarkDoneRequest(Body):
     part_id: str
     done: StrictBool
 
 
-def create_app(settings: Settings) -> FastAPI:
+def create_app(settings: Settings, start_generation=pipeline.start) -> FastAPI:
     app = FastAPI(title="Kedami", docs_url=None, redoc_url=None, openapi_url=None)
     expected = f"Bearer {settings.token}".encode()
 
@@ -98,6 +111,7 @@ def create_app(settings: Settings) -> FastAPI:
             "subject": row.subject,
             "status": row.status,
             "current_stage": row.current_stage,
+            "error": row.error,
             "created": row.created,
             "problems_total": len(problem_ids(lesson)) if lesson else 0,
             "problems_done": done,
@@ -113,11 +127,26 @@ def create_app(settings: Settings) -> FastAPI:
             rows = list_lessons(conn)
         return {"lessons": [summary(row) for row in rows]}
 
+    @app.post("/lessons", status_code=201)
+    def new_lesson(body: NewLessonRequest):
+        lesson_id = str(uuid.uuid4())
+        source = pipeline.materials_dir(settings.data_dir, lesson_id)
+        source.mkdir(parents=True)
+        (source / pipeline.PROBLEM_SET_FILE).write_text(body.problem_set)
+        with db.connect(settings.data_dir) as conn:
+            create_generating(conn, lesson_id, body.subject, schema_version=1)
+            add_material(conn, lesson_id, pipeline.PROBLEM_SET_FILE, "problem_set")
+            if body.reference.strip():
+                (source / pipeline.REFERENCE_FILE).write_text(body.reference)
+                add_material(conn, lesson_id, pipeline.REFERENCE_FILE, "reference")
+        start_generation(settings.data_dir, lesson_id, body.subject)
+        return {"id": lesson_id}
+
     @app.get("/lessons/{lesson_id}")
     def lesson(lesson_id: str):
         row = get_row(lesson_id)
         body = get_lesson(lesson_id).model_dump(mode="json") if row.status == "ready" else None
-        return {"lesson": body, "status": row.status, "current_stage": row.current_stage}
+        return {"lesson": body, "status": row.status, "current_stage": row.current_stage, "error": row.error}
 
     @app.get("/lessons/{lesson_id}/blocks/{block_id}/points")
     def points(lesson_id: str, block_id: str):

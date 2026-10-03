@@ -19,6 +19,7 @@ class LessonRow:
     schema_version: int
     revision: int
     created: str
+    error: str | None = None
 
 
 def add_ready_lesson(conn: sqlite3.Connection, lesson: Lesson) -> None:
@@ -26,7 +27,50 @@ def add_ready_lesson(conn: sqlite3.Connection, lesson: Lesson) -> None:
     conn.execute(
         "INSERT OR IGNORE INTO lessons (id, title, subject, status, current_stage, schema_version, created)"
         " VALUES (?, ?, ?, 'ready', NULL, ?, ?)",
-        (lesson.id, lesson.title, lesson.subject, lesson.schema_version, datetime.now(UTC).isoformat()),
+        (lesson.id, lesson.title, lesson.subject, lesson.schema_version, _now()),
+    )
+
+
+def _now() -> str:
+    return datetime.now(UTC).isoformat()
+
+
+def create_generating(conn: sqlite3.Connection, lesson_id: str, subject: str, schema_version: int) -> None:
+    """Index a lesson whose generation is starting. The title arrives with the plan."""
+    conn.execute(
+        "INSERT INTO lessons (id, title, subject, status, current_stage, schema_version, created)"
+        " VALUES (?, 'New lesson', ?, 'generating', NULL, ?, ?)",
+        (lesson_id, subject, schema_version, _now()),
+    )
+
+
+def set_stage(conn: sqlite3.Connection, lesson_id: str, stage: int) -> None:
+    conn.execute("UPDATE lessons SET current_stage = ? WHERE id = ?", (stage, lesson_id))
+
+
+def set_title(conn: sqlite3.Connection, lesson_id: str, title: str) -> None:
+    conn.execute("UPDATE lessons SET title = ? WHERE id = ?", (title, lesson_id))
+
+
+def set_ready(conn: sqlite3.Connection, lesson_id: str) -> None:
+    conn.execute("UPDATE lessons SET status = 'ready', current_stage = NULL, error = NULL WHERE id = ?", (lesson_id,))
+
+
+def set_failed(conn: sqlite3.Connection, lesson_id: str, error: str) -> None:
+    conn.execute("UPDATE lessons SET status = 'failed', error = ? WHERE id = ?", (error, lesson_id))
+
+
+def fail_interrupted(conn: sqlite3.Connection) -> None:
+    """Generation runs inside the server process, so a restart ends any run in progress."""
+    conn.execute(
+        "UPDATE lessons SET status = 'failed', error = 'Generation was interrupted when the app closed.'"
+        " WHERE status = 'generating'"
+    )
+
+
+def add_material(conn: sqlite3.Connection, lesson_id: str, filename: str, role: str) -> None:
+    conn.execute(
+        "INSERT INTO materials (lesson_id, filename, role) VALUES (?, ?, ?)", (lesson_id, filename, role)
     )
 
 

@@ -24,3 +24,19 @@ def from_env() -> Settings:
         data_dir=Path(os.environ["KEDAMI_DATA_DIR"]).resolve(),
         allowed_origins=tuple(o for o in origins.split(",") if o),
     )
+
+
+@dataclass(frozen=True)
+class ModelRole:
+    model: str
+    max_tokens: int
+    effort: str | None = None
+    # Re-run a safety-declined request on Anthropic's recommended fallback model.
+    fallbacks: bool = False
+
+
+# Every model call names one of these roles. See architecture/system.md, Model roles.
+MODEL_ROLES = {
+    "generate": ModelRole(model="claude-sonnet-5-5", max_tokens=64000, effort="high", fallbacks=True),
+    "small_check": ModelRole(model="claude-haiku-4-5", max_tokens=4000),
+}

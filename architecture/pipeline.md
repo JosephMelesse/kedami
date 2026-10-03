@@ -12,6 +12,11 @@ Each stage writes its output to disk, so any stage can be rerun alone.
 
 Stages 1 to 4 run as a background job on the server. The renderer polls lesson status and shows the current stage.
 
+- Until stage 1 exists (build step 5), a lesson starts from pasted text: a problem set, optional reference material, and a subject. They are saved as `problem-set.md` and `reference.md` in the lesson's materials folder.
+- A stage whose reply is rejected (schema or rule violation) is retried up to 3 attempts, with the reason fed back. An API error fails the lesson at once; the SDK already retries transient errors.
+- A failed lesson records the reason, which the Generating screen shows.
+- Generation runs inside the server process, so a lesson still generating when the app closes is marked failed on the next start.
+
 ## Upload rules
 
 - At least one file must be tagged as a problem set.
@@ -41,10 +46,14 @@ Stages 1 to 4 run as a background job on the server. The renderer polls lesson s
 - A concept is introduced before any problem that needs it.
 - Each problem appears in the section where its last prerequisite is covered.
 - Every problem appears exactly once.
+- The model orders sections and assigns each needed concept to exactly one of them. The server then places each problem in the section of its last prerequisite, so the rules hold by construction. A problem with no prerequisites goes in the first section, and a section with no concepts and no problems is dropped.
 
 ## Stage 4: generation
 
 - One model call per section. A failed or invalid section is retried alone.
+- The model places each of the section's problems among the teaching blocks and gives their answers by part label. The server inserts the problem and part text verbatim from extraction.
+- Teaching block IDs are `{section_id}-block-{n}`.
+- Hint checks: the cheap check looks for the answer in the hint (a number within tolerance, the expression, or the correct option). Integer answers below 10 are left to the small model, since they appear in ordinary working. A hint the small model doesn't rule on counts as failing.
 - Hints, simulations, and verification run after the section content exists.
 - See `lesson-format.md` for the output and `completion-and-verification.md` for verification.
 

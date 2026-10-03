@@ -51,7 +51,7 @@ def test_lessons_are_listed_oldest_first(client, data_dir):
 def test_lesson_still_generating_has_no_body(client, data_dir):
     add_row(data_dir, "pending", "generating", "2026-01-01T00:00:00+00:00", stage=3)
     body = client.get("/lessons/pending", headers=AUTH).json()
-    assert body == {"lesson": None, "status": "generating", "current_stage": 3}
+    assert body == {"lesson": None, "status": "generating", "current_stage": 3, "error": None}
     lessons = client.get("/lessons", headers=AUTH).json()["lessons"]
     assert next(lesson for lesson in lessons if lesson["id"] == "pending")["problems_total"] == 0
 

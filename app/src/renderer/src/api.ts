@@ -7,6 +7,7 @@ export interface LessonResponse {
   lesson: Lesson | null
   status: LessonStatus
   current_stage: number | null
+  error: string | null
 }
 
 export interface LessonSummary {
@@ -15,6 +16,7 @@ export interface LessonSummary {
   subject: Lesson['subject']
   status: LessonStatus
   current_stage: number | null
+  error: string | null
   created: string
   problems_total: number
   problems_done: number
@@ -79,6 +81,11 @@ const blockPath = (lessonId: string, blockId: string) => `${lessonPath(lessonId)
 export async function listLessons(): Promise<LessonSummary[]> {
   const body = await request<{ lessons: LessonSummary[] }>('GET', '/lessons')
   return body.lessons
+}
+
+export async function createLesson(subject: Lesson['subject'], problemSet: string, reference: string): Promise<string> {
+  const body = await request<{ id: string }>('POST', '/lessons', { subject, problem_set: problemSet, reference })
+  return body.id
 }
 
 export function getLesson(lessonId: string): Promise<LessonResponse> {

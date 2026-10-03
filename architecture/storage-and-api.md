@@ -15,7 +15,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 
 | Table | Key fields |
 |---|---|
-| `lessons` | id, title, subject, status, current stage, schema version, revision, created |
+| `lessons` | id, title, subject, status, current stage, schema version, revision, created, error |
 | `materials` | id, lesson id, filename, role, force transcription |
 | `progress` | lesson id, block id, part id, status, last response, attempts, hints used, updated |
 
@@ -31,7 +31,7 @@ All routes require the session token.
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/lessons` | Upload files with roles and toggles; starts the pipeline |
+| POST | `/lessons` | Upload files with roles and toggles; starts the pipeline. Until build step 5 it takes JSON: subject, problem set text, reference text |
 | GET | `/lessons` | List lessons with status and progress |
 | GET | `/lessons/{id}` | Lesson JSON plus generation status and current stage |
 | POST | `/lessons/{id}/rerun` | Rerun from a given stage, with updated file toggles |

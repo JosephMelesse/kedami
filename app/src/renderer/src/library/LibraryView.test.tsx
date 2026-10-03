@@ -10,6 +10,7 @@ function summary(overrides: Partial<LessonSummary>): LessonSummary {
     subject: 'physics',
     status: 'ready',
     current_stage: null,
+    error: null,
     created: '2026-10-03T00:00:00+00:00',
     problems_total: 2,
     problems_done: 1,
@@ -19,7 +20,7 @@ function summary(overrides: Partial<LessonSummary>): LessonSummary {
 
 function render(lessons: LessonSummary[]): HTMLElement {
   const root = document.createElement('div')
-  root.innerHTML = renderToString(<LibraryView lessons={lessons} onOpen={() => {}} />)
+  root.innerHTML = renderToString(<LibraryView lessons={lessons} onOpen={() => {}} onNew={() => {}} />)
   return root
 }
 
@@ -30,10 +31,11 @@ describe('LibraryView', () => {
     expect(titles).toEqual(['First', 'Second', 'New lesson'])
   })
 
-  it('shows only the new lesson tile when there are no lessons', () => {
-    const tiles = render([]).querySelectorAll('.tile')
+  it('shows only the new lesson tile when there are no lessons, and it is active', () => {
+    const tiles = render([]).querySelectorAll<HTMLButtonElement>('.tile')
     expect(tiles).toHaveLength(1)
     expect(tiles[0].textContent).toBe('New lesson')
+    expect(tiles[0].disabled).toBe(false)
   })
 
   it('shows problem progress on ready lessons', () => {
@@ -42,12 +44,11 @@ describe('LibraryView', () => {
     expect(root.querySelector('.progress-fill')?.getAttribute('style')).toContain('width:50%')
   })
 
-  it('shows status instead of progress, and cannot be opened, while not ready', () => {
+  it('shows status instead of progress while not ready', () => {
     const root = render([summary({ status: 'generating' }), summary({ id: 'f', status: 'failed' })])
     const [generating, failed] = root.querySelectorAll<HTMLButtonElement>('.tile')
     expect(generating.textContent).toContain('Generating')
     expect(failed.textContent).toContain('Generation failed')
-    expect(generating.disabled && failed.disabled).toBe(true)
     expect(root.querySelector('.progress-bar')).toBeNull()
   })
 })

@@ -36,12 +36,13 @@ Anthropic is the only provider.
 
 | Role | Model | Used for |
 |---|---|---|
-| Generate | Claude, Sonnet-class; exact model set in config | Extraction, planning, lesson sections, hints, simulations |
+| Generate | `claude-sonnet-5-5` at high effort | Extraction, planning, lesson sections, hints, simulations |
 | Transcribe | Claude, vision-capable | Turning flagged pages into Markdown with LaTeX |
 | Second solve | Claude | Independent solution for verification |
-| Small checks | Small Claude model | Scoring extracted page text, hint leak check |
+| Small checks | `claude-haiku-4-5` | Scoring extracted page text, hint leak check |
 
-- All calls go through one server function, so models and retry policy are set in one place.
+- All calls go through one server function (`server/kedami_server/model.py`), so models and retry policy are set in one place. Model names live in `MODEL_ROLES` in `server/kedami_server/config.py`.
+- Generate calls opt into server-side refusal fallback (`fallbacks: "default"`), so a declined request is re-run on Anthropic's recommended fallback model instead of failing the lesson.
 - Generation stages request structured output against the JSON Schema exported from the server's lesson models.
 - When a small check is uncertain, the server takes the safer route (for example, transcribe the page).
 

@@ -5,6 +5,7 @@ import './styles/tokens.css'
 import './styles/base.css'
 import './lesson/lesson.css'
 import './library/library.css'
+import './generating/generating.css'
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
