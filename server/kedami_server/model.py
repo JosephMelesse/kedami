@@ -9,6 +9,7 @@ import copy
 import json
 import os
 import re
+import time
 from typing import Any, TypeVar
 
 import anthropic
@@ -21,6 +22,10 @@ T = TypeVar("T", bound=BaseModel)
 
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 GRAMMAR_TOO_LARGE = "compiled grammar is too large"
+# Waits before retrying a temporary failure, in seconds. The SDK retries these only before a
+# stream starts; an overload reported mid-stream arrives as an error event on a 200 response.
+TRANSIENT_WAITS = (5, 15, 45)
+TRANSIENT_TYPES = {"overloaded_error", "api_error", "rate_limit_error"}
 
 _client: anthropic.Anthropic | None = None
 
@@ -86,8 +91,24 @@ def call_model(role: str, *, system: str, prompt: list[dict] | str, output: type
 
 
 def _send(request: dict):
-    with client().beta.messages.stream(**request) as stream:
-        return stream.get_final_message()
+    for wait in (*TRANSIENT_WAITS, None):
+        try:
+            with client().beta.messages.stream(**request) as stream:
+                return stream.get_final_message()
+        except anthropic.AnthropicError as error:
+            if wait is None or not _is_transient(error):
+                raise
+            time.sleep(wait)
+
+
+def _is_transient(error: anthropic.AnthropicError) -> bool:
+    if isinstance(error, anthropic.APIConnectionError):
+        return True
+    if isinstance(error, anthropic.APIStatusError):
+        body = error.body if isinstance(error.body, dict) else {}
+        kind = (body.get("error") or {}).get("type") if isinstance(body.get("error"), dict) else None
+        return error.status_code in (429, 529) or error.status_code >= 500 or kind in TRANSIENT_TYPES
+    return False
 
 
 def _model_error(error: anthropic.AnthropicError) -> ModelError:

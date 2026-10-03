@@ -36,7 +36,8 @@ def sse(text: str, stop_reason: str = "end_turn") -> str:
 @pytest.fixture
 def api(monkeypatch):
     """Route the real SDK client to a fake API that records requests."""
-    state = SimpleNamespace(requests=[], status=200, body=sse(json.dumps(GOOD)))
+    state = SimpleNamespace(requests=[], status=200, body=sse(json.dumps(GOOD)), waits=[])
+    monkeypatch.setattr(model.time, "sleep", state.waits.append)
 
     def handle(request: httpx2.Request) -> httpx2.Response:
         state.requests.append(request)
@@ -216,3 +217,52 @@ def test_section_schema_has_no_unions_of_objects():
 
     for variants in unions(output_schema(SectionDraft)):
         assert len(variants) == 2 and {"type": "null"} in variants, variants
+
+
+def stream_error(kind="overloaded_error"):
+    event = {"type": "error", "error": {"type": kind, "message": "Overloaded"}}
+    return f"event: error\ndata: {json.dumps(event)}\n\n"
+
+
+def scripted(api, bodies):
+    """Reply with each body in turn: an SSE string for a 200, or an int status code."""
+    replies = list(bodies)
+
+    def handle(request):
+        api.requests.append(request)
+        reply = replies.pop(0)
+        if isinstance(reply, int):
+            return httpx2.Response(reply, json={"type": "error", "error": {"type": "x", "message": "nope"}})
+        return httpx2.Response(200, text=reply, headers={"content-type": "text/event-stream"})
+
+    model._client = anthropic.Anthropic(
+        api_key="test", max_retries=0, http_client=anthropic.DefaultHttpxClient(transport=httpx2.MockTransport(handle))
+    )
+
+
+def test_overload_mid_stream_is_retried(api):
+    scripted(api, [stream_error(), sse(json.dumps(GOOD))])
+    assert call_model("generate", system="s", prompt="p", output=Reply).answer.value == 2.36
+    assert len(api.requests) == 2
+    assert api.waits == [5]
+
+
+def test_server_errors_are_retried_with_growing_waits(api):
+    scripted(api, [529, 500, stream_error("api_error"), sse(json.dumps(GOOD))])
+    call_model("generate", system="s", prompt="p", output=Reply)
+    assert api.waits == [5, 15, 45]
+
+
+def test_persistent_overload_fails_after_the_last_wait(api):
+    scripted(api, [stream_error()] * 4)
+    with pytest.raises(ModelError, match="Overloaded"):
+        call_model("generate", system="s", prompt="p", output=Reply)
+    assert len(api.requests) == 4
+
+
+@pytest.mark.parametrize("status", [400, 401, 403, 404])
+def test_client_errors_are_not_retried(api, status):
+    scripted(api, [status])
+    with pytest.raises(ModelError):
+        call_model("generate", system="s", prompt="p", output=Reply)
+    assert len(api.requests) == 1 and api.waits == []

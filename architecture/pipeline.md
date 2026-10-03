@@ -13,7 +13,7 @@ Each stage writes its output to disk, so any stage can be rerun alone.
 Stages 1 to 4 run as a background job on the server. The renderer polls lesson status and shows the current stage.
 
 - Until stage 1 exists (build step 5), a lesson starts from pasted text: a problem set, optional reference material, and a subject. They are saved as `problem-set.md` and `reference.md` in the lesson's materials folder.
-- A stage whose reply is rejected (schema or rule violation) is retried up to 3 attempts, with the reason fed back. An API error fails the lesson at once; the SDK already retries transient errors.
+- A stage whose reply is rejected (schema or rule violation) is retried up to 3 attempts, with the reason fed back. Temporary API failures (overload, rate limit, server errors, dropped connections, including an overload reported mid-stream) are retried after waits of 5, 15, and 45 seconds. Any other API error fails the lesson at once.
 - A failed lesson records the reason, which the Generating screen shows.
 - Generation runs inside the server process, so a lesson still generating when the app closes is marked failed on the next start.
 
