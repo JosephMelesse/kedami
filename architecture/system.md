@@ -1,0 +1,51 @@
+# System
+
+## Processes
+
+| Process | Responsibility | Stack |
+|---|---|---|
+| Electron renderer | UI only: file drop, lesson rendering, answer input, progress, sandboxed simulation frames, Pomodoro timer | TypeScript, React, KaTeX, DOMPurify |
+| Electron main | Window management; spawns and kills the server; passes the port and session token to the renderer | TypeScript |
+| Local server | Ingestion, model calls, verification, answer checking, storage | Python, FastAPI, SymPy, SQLite |
+
+## Launch
+
+1. Main picks a free port and generates a random session token.
+2. Main spawns the server, passing the port, token, and app data folder.
+3. Main polls `/health` until the server is ready, then opens the window.
+4. Main kills the server on quit.
+
+In development, both processes can be started by hand.
+
+## Repository layout
+
+| Path | Contents |
+|---|---|
+| `kedami/architecture/` | These documents |
+| `kedami/app/` | Electron main and renderer |
+| `kedami/data/` | App data folder during development (git-ignored) |
+| `kedami/server/` | FastAPI server |
+
+## Model roles
+
+Anthropic is the only provider.
+
+| Role | Model | Used for |
+|---|---|---|
+| Generate | Claude, Sonnet-class; exact model set in config | Extraction, planning, lesson sections, hints, simulations |
+| Transcribe | Claude, vision-capable | Turning flagged pages into Markdown with LaTeX |
+| Second solve | Claude | Independent solution for verification |
+| Small checks | Small Claude model | Scoring extracted page text, hint leak check |
+
+- All calls go through one server function, so models and retry policy are set in one place.
+- Generation stages request structured output against the JSON Schema exported from the server's lesson models.
+- When a small check is uncertain, the server takes the safer route (for example, transcribe the page).
+
+## Security and privacy
+
+- The server binds to `127.0.0.1` only and rejects requests without the session token.
+- The API key lives in the server's `.env`. The renderer never sees it.
+- The only outbound traffic is to the Anthropic API. Fonts and the alarm sound are bundled.
+- Model-written code runs only inside a sandboxed frame with no network, no Node access, and no access to app data.
+- Diagram SVG is sanitized with DOMPurify before rendering.
+- All expression parsing uses a restricted parser with whitelisted names, for both model output and user input. SymPy's default string parsing evaluates code and must not be used directly.
