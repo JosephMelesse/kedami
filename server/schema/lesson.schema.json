@@ -1,0 +1,693 @@
+{
+  "$defs": {
+    "CheckpointBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "checkpoint",
+          "title": "Type",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "prompt": {
+          "title": "Prompt",
+          "type": "string"
+        },
+        "answer": {
+          "discriminator": {
+            "mapping": {
+              "choice": "#/$defs/ChoiceAnswer",
+              "expression": "#/$defs/ExpressionAnswer",
+              "multi_choice": "#/$defs/MultiChoiceAnswer",
+              "numeric": "#/$defs/NumericAnswer",
+              "self_check": "#/$defs/SelfCheckAnswer"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/NumericAnswer"
+            },
+            {
+              "$ref": "#/$defs/ExpressionAnswer"
+            },
+            {
+              "$ref": "#/$defs/SelfCheckAnswer"
+            },
+            {
+              "$ref": "#/$defs/ChoiceAnswer"
+            },
+            {
+              "$ref": "#/$defs/MultiChoiceAnswer"
+            }
+          ],
+          "title": "Answer"
+        },
+        "hints": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 3,
+          "title": "Hints",
+          "type": "array"
+        },
+        "verified": {
+          "default": false,
+          "title": "Verified",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "prompt",
+        "answer",
+        "hints",
+        "verified"
+      ],
+      "title": "CheckpointBlock",
+      "type": "object"
+    },
+    "ChoiceAnswer": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "choice",
+          "title": "Kind",
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "title": "Options",
+          "type": "array"
+        },
+        "correct_index": {
+          "title": "Correct Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "options",
+        "correct_index"
+      ],
+      "title": "ChoiceAnswer",
+      "type": "object"
+    },
+    "DiagramBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "diagram",
+          "title": "Type",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "svg": {
+          "title": "Svg",
+          "type": "string"
+        },
+        "caption": {
+          "title": "Caption",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "svg",
+        "caption"
+      ],
+      "title": "DiagramBlock",
+      "type": "object"
+    },
+    "ExplanationBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "explanation",
+          "title": "Type",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "body": {
+          "title": "Body",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "body"
+      ],
+      "title": "ExplanationBlock",
+      "type": "object"
+    },
+    "ExpressionAnswer": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "expression",
+          "title": "Kind",
+          "type": "string"
+        },
+        "expression": {
+          "title": "Expression",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "expression"
+      ],
+      "title": "ExpressionAnswer",
+      "type": "object"
+    },
+    "MultiChoiceAnswer": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "multi_choice",
+          "title": "Kind",
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "title": "Options",
+          "type": "array"
+        },
+        "correct_indexes": {
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 1,
+          "title": "Correct Indexes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "options",
+        "correct_indexes"
+      ],
+      "title": "MultiChoiceAnswer",
+      "type": "object"
+    },
+    "NumericAnswer": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "numeric",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        },
+        "rel_tolerance": {
+          "default": 0.01,
+          "exclusiveMinimum": 0,
+          "title": "Rel Tolerance",
+          "type": "number"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        }
+      },
+      "required": [
+        "kind",
+        "value",
+        "rel_tolerance",
+        "unit"
+      ],
+      "title": "NumericAnswer",
+      "type": "object"
+    },
+    "Part": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "prompt": {
+          "title": "Prompt",
+          "type": "string"
+        },
+        "answer": {
+          "discriminator": {
+            "mapping": {
+              "choice": "#/$defs/ChoiceAnswer",
+              "expression": "#/$defs/ExpressionAnswer",
+              "multi_choice": "#/$defs/MultiChoiceAnswer",
+              "numeric": "#/$defs/NumericAnswer",
+              "self_check": "#/$defs/SelfCheckAnswer"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/NumericAnswer"
+            },
+            {
+              "$ref": "#/$defs/ExpressionAnswer"
+            },
+            {
+              "$ref": "#/$defs/SelfCheckAnswer"
+            },
+            {
+              "$ref": "#/$defs/ChoiceAnswer"
+            },
+            {
+              "$ref": "#/$defs/MultiChoiceAnswer"
+            }
+          ],
+          "title": "Answer"
+        },
+        "hints": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 3,
+          "title": "Hints",
+          "type": "array"
+        },
+        "verified": {
+          "default": false,
+          "title": "Verified",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "prompt",
+        "answer",
+        "hints",
+        "verified"
+      ],
+      "title": "Part",
+      "type": "object"
+    },
+    "PlotBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "plot",
+          "title": "Type",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "functions": {
+          "items": {
+            "$ref": "#/$defs/PlotFunction"
+          },
+          "minItems": 1,
+          "title": "Functions",
+          "type": "array"
+        },
+        "parameters": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PlotParameter"
+          },
+          "title": "Parameters",
+          "type": "array"
+        },
+        "x_domain": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "title": "X Domain",
+          "type": "array"
+        },
+        "y_domain": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Y Domain"
+        },
+        "caption": {
+          "title": "Caption",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "functions",
+        "parameters",
+        "x_domain",
+        "y_domain",
+        "caption"
+      ],
+      "title": "PlotBlock",
+      "type": "object"
+    },
+    "PlotFunction": {
+      "additionalProperties": false,
+      "properties": {
+        "expression": {
+          "title": "Expression",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "expression",
+        "label"
+      ],
+      "title": "PlotFunction",
+      "type": "object"
+    },
+    "PlotParameter": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "min": {
+          "title": "Min",
+          "type": "number"
+        },
+        "max": {
+          "title": "Max",
+          "type": "number"
+        },
+        "default": {
+          "type": "number",
+          "title": "Default"
+        }
+      },
+      "required": [
+        "name",
+        "min",
+        "max",
+        "default"
+      ],
+      "title": "PlotParameter",
+      "type": "object"
+    },
+    "ProblemBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "problem",
+          "title": "Type",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "source_ref": {
+          "title": "Source Ref",
+          "type": "string"
+        },
+        "prompt": {
+          "default": "",
+          "title": "Prompt",
+          "type": "string"
+        },
+        "parts": {
+          "items": {
+            "$ref": "#/$defs/Part"
+          },
+          "minItems": 1,
+          "title": "Parts",
+          "type": "array"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "source_ref",
+        "prompt",
+        "parts"
+      ],
+      "title": "ProblemBlock",
+      "type": "object"
+    },
+    "Section": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "goal": {
+          "title": "Goal",
+          "type": "string"
+        },
+        "blocks": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "checkpoint": "#/$defs/CheckpointBlock",
+                "diagram": "#/$defs/DiagramBlock",
+                "explanation": "#/$defs/ExplanationBlock",
+                "plot": "#/$defs/PlotBlock",
+                "problem": "#/$defs/ProblemBlock",
+                "simulation": "#/$defs/SimulationBlock",
+                "worked_example": "#/$defs/WorkedExampleBlock"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ExplanationBlock"
+              },
+              {
+                "$ref": "#/$defs/WorkedExampleBlock"
+              },
+              {
+                "$ref": "#/$defs/PlotBlock"
+              },
+              {
+                "$ref": "#/$defs/DiagramBlock"
+              },
+              {
+                "$ref": "#/$defs/SimulationBlock"
+              },
+              {
+                "$ref": "#/$defs/CheckpointBlock"
+              },
+              {
+                "$ref": "#/$defs/ProblemBlock"
+              }
+            ]
+          },
+          "title": "Blocks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "goal",
+        "blocks"
+      ],
+      "title": "Section",
+      "type": "object"
+    },
+    "SelfCheckAnswer": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "self_check",
+          "title": "Kind",
+          "type": "string"
+        },
+        "rubric": {
+          "title": "Rubric",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "rubric"
+      ],
+      "title": "SelfCheckAnswer",
+      "type": "object"
+    },
+    "SimulationBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "simulation",
+          "title": "Type",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "caption": {
+          "title": "Caption",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "code",
+        "caption"
+      ],
+      "title": "SimulationBlock",
+      "type": "object"
+    },
+    "WorkedExampleBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "worked_example",
+          "title": "Type",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "prompt": {
+          "title": "Prompt",
+          "type": "string"
+        },
+        "steps": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "prompt",
+        "steps"
+      ],
+      "title": "WorkedExampleBlock",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "id": {
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "title": "Id",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "subject": {
+      "enum": [
+        "math",
+        "physics"
+      ],
+      "title": "Subject",
+      "type": "string"
+    },
+    "source_files": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Source Files",
+      "type": "array"
+    },
+    "sections": {
+      "items": {
+        "$ref": "#/$defs/Section"
+      },
+      "minItems": 1,
+      "title": "Sections",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "subject",
+    "source_files",
+    "sections"
+  ],
+  "title": "Lesson",
+  "type": "object"
+}

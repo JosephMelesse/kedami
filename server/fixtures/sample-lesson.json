@@ -1,0 +1,163 @@
+{
+  "schema_version": 1,
+  "id": "sample",
+  "title": "Projectile motion",
+  "subject": "physics",
+  "source_files": ["ps3.pdf", "chapter-4-notes.pdf"],
+  "sections": [
+    {
+      "id": "velocity-components",
+      "title": "Components of velocity",
+      "goal": "Split a launch velocity into horizontal and vertical parts.",
+      "blocks": [
+        {
+          "type": "explanation",
+          "id": "components-intro",
+          "body": "A projectile launched with speed $v_0$ at angle $\\theta$ above the horizontal moves in two independent directions at once.\n\nThe horizontal and vertical components of the launch velocity are\n\n$$\nv_x = v_0 \\cos\\theta, \\qquad v_y = v_0 \\sin\\theta.\n$$\n\nIgnoring air resistance, nothing pushes the projectile sideways, so $v_x$ stays the same for the whole flight. Gravity acts only on the vertical motion."
+        },
+        {
+          "type": "diagram",
+          "id": "components-diagram",
+          "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 320 200\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><line x1=\"40\" y1=\"170\" x2=\"232\" y2=\"60\"/><polygon points=\"240,55 222,58 230,70\" fill=\"currentColor\" stroke=\"none\"/><line x1=\"40\" y1=\"170\" x2=\"240\" y2=\"170\" stroke-dasharray=\"6 6\"/><line x1=\"240\" y1=\"170\" x2=\"240\" y2=\"55\" stroke-dasharray=\"6 6\"/><path d=\"M 90 170 A 50 50 0 0 0 83 145\"/><g fill=\"currentColor\" stroke=\"none\" font-size=\"16\" font-family=\"Inter, sans-serif\"><text x=\"120\" y=\"100\">v0</text><text x=\"98\" y=\"160\">θ</text><text x=\"130\" y=\"192\">vx</text><text x=\"250\" y=\"118\">vy</text></g></svg>",
+          "caption": "The launch velocity and its two components."
+        },
+        {
+          "type": "worked_example",
+          "id": "components-example",
+          "prompt": "A ball is thrown at $15\\ \\text{m/s}$ at $30^\\circ$ above the horizontal. Find $v_x$ and $v_y$.",
+          "steps": [
+            "Identify the givens: $v_0 = 15\\ \\text{m/s}$ and $\\theta = 30^\\circ$.",
+            "Horizontal component: $v_x = 15 \\cos 30^\\circ \\approx 13.0\\ \\text{m/s}$.",
+            "Vertical component: $v_y = 15 \\sin 30^\\circ = 7.5\\ \\text{m/s}$.",
+            "Check: $\\sqrt{13.0^2 + 7.5^2} \\approx 15$, which matches $v_0$."
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "id": "components-check",
+          "prompt": "A projectile is launched at $20\\ \\text{m/s}$ at $60^\\circ$ above the horizontal. What is $v_x$?",
+          "answer": { "kind": "numeric", "value": 10, "rel_tolerance": 0.01, "unit": "m/s" },
+          "hints": [
+            "The horizontal component uses cosine.",
+            "Compute $20 \\cos 60^\\circ$."
+          ],
+          "verified": true
+        }
+      ]
+    },
+    {
+      "id": "motion-under-gravity",
+      "title": "Motion under gravity",
+      "goal": "Describe height over time and find when and where a projectile lands.",
+      "blocks": [
+        {
+          "type": "explanation",
+          "id": "gravity-intro",
+          "body": "With the launch point at the origin, the position after time $t$ is\n\n$$\nx(t) = v_x t, \\qquad y(t) = v_y t - \\tfrac{1}{2} g t^2.\n$$\n\nOn level ground the projectile lands when $y(t) = 0$ again, which gives the time of flight\n\n$$\nT = \\frac{2 v_0 \\sin\\theta}{g}.\n$$\n\nThe highest point is reached halfway through, when the vertical velocity is zero."
+        },
+        {
+          "type": "plot",
+          "id": "height-plot",
+          "functions": [
+            { "expression": "15*x - 4.9*x**2", "label": "vy = 15 m/s" },
+            { "expression": "10*x - 4.9*x**2", "label": "vy = 10 m/s" }
+          ],
+          "x_domain": [0, 3.2],
+          "y_domain": [0, 12],
+          "caption": "Height in metres against time in seconds for two launch speeds, with g = 9.8 m/s²."
+        },
+        {
+          "type": "checkpoint",
+          "id": "apex-check",
+          "prompt": "At the highest point of its path, the vertical velocity of a projectile is:",
+          "answer": {
+            "kind": "choice",
+            "options": ["Zero", "Equal to $v_0$", "Equal to $v_x$", "At its most negative"],
+            "correct_index": 0
+          },
+          "hints": ["The projectile stops rising at that instant."],
+          "verified": true
+        },
+        {
+          "type": "checkpoint",
+          "id": "height-expression-check",
+          "prompt": "Write the height $y(t)$ for a launch with $v_y = 10\\ \\text{m/s}$, using $g = 9.8\\ \\text{m/s}^2$.",
+          "answer": { "kind": "expression", "expression": "10*t - 4.9*t**2" },
+          "hints": ["Substitute into $y(t) = v_y t - \\tfrac{1}{2} g t^2$."],
+          "verified": false
+        },
+        {
+          "type": "problem",
+          "id": "ps3-4",
+          "source_ref": "PS3 #4",
+          "prompt": "A ball is kicked from level ground at $18\\ \\text{m/s}$ at $40^\\circ$ above the horizontal. Take $g = 9.8\\ \\text{m/s}^2$ and ignore air resistance.",
+          "parts": [
+            {
+              "id": "a",
+              "label": "(a)",
+              "prompt": "How long is the ball in the air?",
+              "answer": { "kind": "numeric", "value": 2.3613, "rel_tolerance": 0.01, "unit": "s" },
+              "hints": [
+                "The ball lands when its height returns to zero.",
+                "Use $T = 2 v_0 \\sin\\theta / g$."
+              ],
+              "verified": true
+            },
+            {
+              "id": "b",
+              "label": "(b)",
+              "prompt": "How far does it travel horizontally before landing?",
+              "answer": { "kind": "numeric", "value": 32.559, "rel_tolerance": 0.01, "unit": "m" },
+              "hints": [
+                "Horizontal velocity is constant for the whole flight.",
+                "Multiply $v_x$ by the time of flight from part (a)."
+              ],
+              "verified": true
+            },
+            {
+              "id": "c",
+              "label": "(c)",
+              "prompt": "Write the maximum height in terms of `v0`, `theta`, and `g`.",
+              "answer": { "kind": "expression", "expression": "v0**2*sin(theta)**2/(2*g)" },
+              "hints": [
+                "At the top, the vertical velocity is zero.",
+                "Use $v_y^2 = v_{y0}^2 - 2 g h$ and solve for $h$."
+              ],
+              "verified": false
+            },
+            {
+              "id": "d",
+              "label": "(d)",
+              "prompt": "Without calculating, explain why a launch at $50^\\circ$ with the same speed lands at the same distance.",
+              "answer": {
+                "kind": "self_check",
+                "rubric": "A full answer says the range is $v_0^2 \\sin 2\\theta / g$, and that $\\sin 80^\\circ = \\sin 100^\\circ$, so complementary angles give equal ranges."
+              },
+              "hints": ["Write the range in terms of $\\sin 2\\theta$."]
+            }
+          ]
+        },
+        {
+          "type": "problem",
+          "id": "ps3-5",
+          "source_ref": "PS3 #5",
+          "prompt": "",
+          "parts": [
+            {
+              "id": "5",
+              "label": "5",
+              "prompt": "Ignoring air resistance, which quantities stay constant during a projectile's flight? Select all that apply.",
+              "answer": {
+                "kind": "multi_choice",
+                "options": ["Horizontal velocity", "Vertical velocity", "Acceleration", "Speed"],
+                "correct_indexes": [0, 2]
+              },
+              "hints": ["Gravity acts only in the vertical direction."],
+              "verified": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
