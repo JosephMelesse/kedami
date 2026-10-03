@@ -195,3 +195,8 @@ input {
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
+
+.dialog-form {
+  display: grid;
+  gap: 16px;
+}

@@ -15,7 +15,9 @@ Everything lives in one app data folder, which main passes to the server at laun
 
 | Table | Key fields |
 |---|---|
-| `lessons` | id, title, subject, status, current stage, schema version, revision, created, error |
+| `lessons` | id, title, subject, status, current stage, schema version, revision, created, error, folder id |
+| `folders` | id, name (unique, ignoring case), created |
+| `settings` | key, value (for example, that the sample lesson was added on the first start) |
 | `materials` | id, lesson id, filename, role, force transcription |
 | `progress` | lesson id, block id, part id, status, last response, attempts, hints used, updated |
 | `simulations` | lesson id, block id, regenerated code, flagged, error, updated |
@@ -32,7 +34,12 @@ All routes require the session token.
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/lessons` | Multipart upload: `subject`, and per file `files`, `roles`, `force`; starts the pipeline |
+| POST | `/lessons` | Multipart upload: `subject`, optional `folder`, and per file `files`, `roles`, `force`; starts the pipeline |
+| DELETE | `/lessons/{id}` | Delete a lesson that isn't generating: its JSON, files, stage outputs, progress, and simulations |
+| POST | `/lessons/{id}/move` | Move a lesson to a folder, or home with `null` |
+| GET | `/folders` | Folders with their lesson counts |
+| POST | `/folders` | Create a folder |
+| DELETE | `/folders/{id}` | Delete a folder; its lessons move home |
 | GET | `/lessons` | List lessons with status and progress |
 | GET | `/lessons/{id}` | Lesson JSON plus generation status, current stage, error, materials, and the stages a rerun can start from |
 | POST | `/lessons/{id}/rerun` | Rerun from a given stage, with force transcription per material ID |

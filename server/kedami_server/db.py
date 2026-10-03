@@ -6,6 +6,17 @@ from contextlib import contextmanager
 from pathlib import Path
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS folders (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    created TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS lessons (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
@@ -15,7 +26,8 @@ CREATE TABLE IF NOT EXISTS lessons (
     schema_version INTEGER NOT NULL,
     revision INTEGER NOT NULL DEFAULT 1,
     created TEXT NOT NULL,
-    error TEXT
+    error TEXT,
+    folder_id INTEGER REFERENCES folders (id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS simulations (
@@ -62,7 +74,9 @@ def init(data_dir: Path) -> None:
 
 
 # Columns added after a table was first created. CREATE TABLE IF NOT EXISTS skips existing tables.
-ADDED_COLUMNS = {"lessons": {"error": "TEXT"}}
+ADDED_COLUMNS = {
+    "lessons": {"error": "TEXT", "folder_id": "INTEGER REFERENCES folders (id) ON DELETE SET NULL"},
+}
 
 
 def _add_missing_columns(conn: sqlite3.Connection) -> None:
@@ -84,3 +98,15 @@ def connect(data_dir: Path) -> Iterator[sqlite3.Connection]:
             yield conn
     finally:
         conn.close()
+
+
+def get_setting(conn: sqlite3.Connection, key: str) -> str | None:
+    row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+    return row["value"] if row else None
+
+
+def set_setting(conn: sqlite3.Connection, key: str, value: str) -> None:
+    conn.execute(
+        "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+        (key, value),
+    )

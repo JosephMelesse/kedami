@@ -35,6 +35,8 @@ export interface LessonSummary {
   status: LessonStatus
   current_stage: number | null
   error: string | null
+  /** Null when the lesson is on the home page. */
+  folder_id: number | null
   created: string
   problems_total: number
   problems_done: number
@@ -76,7 +78,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+async function request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown): Promise<T> {
   const { baseUrl, token } = await window.kedami.serverConnection()
   // A FormData body sets its own multipart content type, with the boundary.
   const form = body instanceof FormData
@@ -103,9 +105,10 @@ export async function listLessons(): Promise<LessonSummary[]> {
   return body.lessons
 }
 
-export async function createLesson(subject: Lesson['subject'], files: NewFile[]): Promise<string> {
+export async function createLesson(subject: Lesson['subject'], files: NewFile[], folderId: number | null): Promise<string> {
   const form = new FormData()
   form.append('subject', subject)
+  if (folderId !== null) form.append('folder', String(folderId))
   for (const { file, role, force } of files) {
     form.append('files', file, file.name)
     form.append('roles', role)
@@ -179,4 +182,32 @@ export async function reportSimulation(lessonId: string, blockId: string, ok: bo
 
 export function regenerateSimulation(lessonId: string, blockId: string): Promise<SimulationState> {
   return request('POST', `${blockPath(lessonId, blockId)}/regenerate`)
+}
+
+export interface Folder {
+  id: number
+  name: string
+  /** How many lessons it holds. */
+  lessons: number
+}
+
+export async function listFolders(): Promise<Folder[]> {
+  const body = await request<{ folders: Folder[] }>('GET', '/folders')
+  return body.folders
+}
+
+export function createFolder(name: string): Promise<Folder> {
+  return request('POST', '/folders', { name })
+}
+
+export async function deleteFolder(folderId: number): Promise<void> {
+  await request('DELETE', `/folders/${folderId}`)
+}
+
+export async function moveLesson(lessonId: string, folderId: number | null): Promise<void> {
+  await request('POST', `${lessonPath(lessonId)}/move`, { folder_id: folderId })
+}
+
+export async function deleteLesson(lessonId: string): Promise<void> {
+  await request('DELETE', lessonPath(lessonId))
 }

@@ -8,7 +8,7 @@ from typing import Annotated, Any, Literal
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StringConstraints
 
 from . import db, progress, simulation_state
 from .checking import InvalidResponse, check
@@ -19,6 +19,7 @@ from .generation.retry import GenerationError
 from .generation.simulations import new_code
 from .lesson import Lesson, PlotBlock, SimulationBlock
 from .generation.sources import SourceError
+from . import library
 from .library import (
     LessonRow,
     add_material,
@@ -31,7 +32,7 @@ from .library import (
     start_run,
 )
 from .plot import sample_points
-from .storage import load_lesson
+from .storage import delete_lesson_files, load_lesson
 from .targets import Target, find_target
 from .uploads import Upload, check_uploads, save_uploads
 
@@ -61,6 +62,15 @@ class SimulationStatusRequest(Body):
     error: Annotated[str, Field(max_length=2000)] | None = None
 
 
+class FolderRequest(Body):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+
+
+class MoveRequest(Body):
+    # None moves the lesson to the home page.
+    folder_id: StrictInt | None
+
+
 class MarkDoneRequest(Body):
     part_id: str
     done: StrictBool
@@ -81,7 +91,7 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(settings.allowed_origins),
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "DELETE"],
         allow_headers=["Authorization", "Content-Type"],
     )
 
@@ -127,6 +137,7 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
             "status": row.status,
             "current_stage": row.current_stage,
             "error": row.error,
+            "folder_id": row.folder_id,
             "created": row.created,
             "problems_total": len(problem_ids(lesson)) if lesson else 0,
             "problems_done": done,
@@ -148,10 +159,15 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         files: Annotated[list[UploadFile], File()],
         roles: Annotated[list[str], Form()],
         force: Annotated[list[bool], Form()],
+        folder: Annotated[int | None, Form()] = None,
     ):
         if not len(files) == len(roles) == len(force):
             raise HTTPException(422, "Each file needs a role and a force transcription setting.")
         uploads = [Upload(f.filename or "file", f.file.read(), r, x) for f, r, x in zip(files, roles, force)]
+        if folder is not None:
+            with db.connect(settings.data_dir) as conn:
+                if not library.folder_exists(conn, folder):
+                    raise HTTPException(422, "That folder no longer exists.")
         try:
             check_uploads(uploads)
         except SourceError as error:
@@ -160,7 +176,7 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         lesson_id = str(uuid.uuid4())
         saved = save_uploads(pipeline.materials_dir(settings.data_dir, lesson_id), uploads)
         with db.connect(settings.data_dir) as conn:
-            create_generating(conn, lesson_id, subject, schema_version=1)
+            create_generating(conn, lesson_id, subject, schema_version=1, folder_id=folder)
             for file in saved:
                 add_material(conn, lesson_id, file.filename, file.role, file.force_transcription)
         start_generation(settings.data_dir, lesson_id, subject, 1)
@@ -278,5 +294,45 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         with db.connect(settings.data_dir) as conn:
             simulation_state.save_code(conn, lesson_id, block_id, code)
         return {"code": code, "flagged": False, "error": None}
+
+    @app.delete("/lessons/{lesson_id}")
+    def delete_lesson(lesson_id: str):
+        row = get_row(lesson_id)
+        if row.status == "generating":
+            raise HTTPException(409, "This lesson is still generating; delete it once it finishes.")
+        with db.connect(settings.data_dir) as conn:
+            library.delete_lesson(conn, lesson_id)
+        delete_lesson_files(settings.data_dir, lesson_id)
+        return {"deleted": lesson_id}
+
+    @app.post("/lessons/{lesson_id}/move")
+    def move_lesson(lesson_id: str, body: MoveRequest):
+        get_row(lesson_id)
+        with db.connect(settings.data_dir) as conn:
+            if body.folder_id is not None and not library.folder_exists(conn, body.folder_id):
+                raise HTTPException(404, "folder not found")
+            library.move_lesson(conn, lesson_id, body.folder_id)
+        return {"id": lesson_id, "folder_id": body.folder_id}
+
+    @app.get("/folders")
+    def folders():
+        with db.connect(settings.data_dir) as conn:
+            return {"folders": [asdict(f) for f in library.list_folders(conn)]}
+
+    @app.post("/folders", status_code=201)
+    def create_folder(body: FolderRequest):
+        with db.connect(settings.data_dir) as conn:
+            try:
+                return asdict(library.create_folder(conn, body.name))
+            except library.FolderExists as error:
+                raise HTTPException(409, str(error)) from error
+
+    @app.delete("/folders/{folder_id}")
+    def delete_folder(folder_id: int):
+        with db.connect(settings.data_dir) as conn:
+            if not library.folder_exists(conn, folder_id):
+                raise HTTPException(404, "folder not found")
+            library.delete_folder(conn, folder_id)
+        return {"deleted": folder_id}
 
     return app

@@ -7,7 +7,7 @@ import { LibraryScreen } from './library/LibraryScreen'
 
 type Screen =
   | { name: 'library' }
-  | { name: 'new' }
+  | { name: 'new'; folderId: number | null }
   | { name: 'generating'; lessonId: string }
   | { name: 'lesson'; lessonId: string }
 
@@ -24,10 +24,12 @@ export function App() {
         {screen.name === 'library' && (
           <LibraryScreen
             onOpen={(lesson) => (lesson.status === 'ready' ? openLesson(lesson.id) : openGenerating(lesson.id))}
-            onNew={() => setScreen({ name: 'new' })}
+            onNew={(folderId) => setScreen({ name: 'new', folderId })}
           />
         )}
-        {screen.name === 'new' && <NewLessonScreen onCreated={openGenerating} onBack={openLibrary} />}
+        {screen.name === 'new' && (
+          <NewLessonScreen folderId={screen.folderId} onCreated={openGenerating} onBack={openLibrary} />
+        )}
         {screen.name === 'generating' && (
           <GeneratingScreen key={screen.lessonId} lessonId={screen.lessonId} onReady={openLesson} onBack={openLibrary} />
         )}

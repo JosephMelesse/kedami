@@ -9,11 +9,13 @@ const SUBJECTS: { value: Lesson['subject']; label: string }[] = [
 ]
 
 interface NewLessonProps {
+  /** The folder the lesson starts in, or null for the home page. */
+  folderId: number | null
   onCreated: (lessonId: string) => void
   onBack: () => void
 }
 
-export function NewLessonScreen({ onCreated, onBack }: NewLessonProps) {
+export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps) {
   const [subject, setSubject] = useState<Lesson['subject'] | null>(null)
   const [files, setFiles] = useState<NewFile[]>([])
   const [rejected, setRejected] = useState<string[]>([])
@@ -49,7 +51,7 @@ export function NewLessonScreen({ onCreated, onBack }: NewLessonProps) {
     setPending(true)
     setError(null)
     try {
-      onCreated(await createLesson(subject, files))
+      onCreated(await createLesson(subject, files, folderId))
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not reach the server.')
       setPending(false)

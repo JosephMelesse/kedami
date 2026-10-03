@@ -21,6 +21,7 @@ class LessonRow:
     revision: int
     created: str
     error: str | None = None
+    folder_id: int | None = None
 
 
 def add_ready_lesson(conn: sqlite3.Connection, lesson: Lesson) -> None:
@@ -36,12 +37,14 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def create_generating(conn: sqlite3.Connection, lesson_id: str, subject: str, schema_version: int) -> None:
+def create_generating(
+    conn: sqlite3.Connection, lesson_id: str, subject: str, schema_version: int, folder_id: int | None = None
+) -> None:
     """Index a lesson whose generation is starting. The title arrives with the plan."""
     conn.execute(
-        "INSERT INTO lessons (id, title, subject, status, current_stage, schema_version, created)"
-        " VALUES (?, 'New lesson', ?, 'generating', NULL, ?, ?)",
-        (lesson_id, subject, schema_version, _now()),
+        "INSERT INTO lessons (id, title, subject, status, current_stage, schema_version, created, folder_id)"
+        " VALUES (?, 'New lesson', ?, 'generating', NULL, ?, ?, ?)",
+        (lesson_id, subject, schema_version, _now(), folder_id),
     )
 
 
@@ -126,3 +129,51 @@ def get_lesson_row(conn: sqlite3.Connection, lesson_id: str) -> LessonRow | None
 
 def problem_ids(lesson: Lesson) -> list[str]:
     return [block.id for section in lesson.sections for block in section.blocks if isinstance(block, ProblemBlock)]
+
+
+def delete_lesson(conn: sqlite3.Connection, lesson_id: str) -> None:
+    """Remove the lesson's index row; its progress, materials, and simulation rows go with it."""
+    conn.execute("DELETE FROM lessons WHERE id = ?", (lesson_id,))
+
+
+# Folders: one level, on the home page. A lesson with no folder is on the home page.
+
+
+class FolderExists(ValueError):
+    pass
+
+
+@dataclass(frozen=True)
+class FolderRow:
+    id: int
+    name: str
+    lessons: int
+
+
+def create_folder(conn: sqlite3.Connection, name: str) -> FolderRow:
+    try:
+        cursor = conn.execute("INSERT INTO folders (name, created) VALUES (?, ?)", (name, _now()))
+    except sqlite3.IntegrityError as error:
+        raise FolderExists(f"A folder named {name!r} already exists.") from error
+    return FolderRow(id=cursor.lastrowid, name=name, lessons=0)
+
+
+def list_folders(conn: sqlite3.Connection) -> list[FolderRow]:
+    rows = conn.execute(
+        "SELECT f.id, f.name, COUNT(l.id) AS lessons FROM folders f LEFT JOIN lessons l ON l.folder_id = f.id"
+        " GROUP BY f.id ORDER BY f.name COLLATE NOCASE"
+    ).fetchall()
+    return [FolderRow(**row) for row in rows]
+
+
+def folder_exists(conn: sqlite3.Connection, folder_id: int) -> bool:
+    return conn.execute("SELECT 1 FROM folders WHERE id = ?", (folder_id,)).fetchone() is not None
+
+
+def delete_folder(conn: sqlite3.Connection, folder_id: int) -> None:
+    """Remove the folder; its lessons move back to the home page."""
+    conn.execute("DELETE FROM folders WHERE id = ?", (folder_id,))
+
+
+def move_lesson(conn: sqlite3.Connection, lesson_id: str, folder_id: int | None) -> None:
+    conn.execute("UPDATE lessons SET folder_id = ? WHERE id = ?", (folder_id, lesson_id))

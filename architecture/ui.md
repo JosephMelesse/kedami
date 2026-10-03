@@ -37,7 +37,7 @@ Dark is the only theme in the MVP. All colors come from these tokens so a light 
 
 | Screen | Contents |
 |---|---|
-| Library | The start screen. One tile per lesson, oldest first, with status and problem progress, then a New lesson tile that opens Upload |
+| Library | The start screen. Folder tiles first, then the lessons in no folder, oldest first, with status and problem progress, then a New lesson tile that opens Upload. A New folder button creates a folder. Folders are one level deep; opening one shows its lessons, a Delete folder button (its lessons move back home), and a New lesson tile that creates the lesson in that folder. Each lesson tile has an options menu to move it to a folder or home, or delete it after a confirmation; a generating lesson can't be deleted |
 | Upload | File drop, role tag and force-transcription toggle per file |
 | Generating | Current pipeline stage; a failed lesson shows the reason and a Rerun button |
 | Lesson | Sections and blocks in order, with a progress indicator in the accent color. A Rerun button opens a dialog with the start stage and force-transcription toggles; a failed rerun shows its reason above the lesson |
