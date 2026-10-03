@@ -8,6 +8,7 @@ import json
 import logging
 import threading
 from collections.abc import Callable
+from dataclasses import asdict
 from pathlib import Path
 from typing import TypeVar
 
@@ -22,6 +23,7 @@ from .assemble import SectionError, assemble_lesson, assemble_section
 from .hints import add_hints
 from .plan import PlanError, SectionPlan, place_problems
 from .schemas import Extraction, Plan, SectionDraft
+from .verify import verify_section
 
 log = logging.getLogger(__name__)
 
@@ -121,6 +123,14 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, call: Call) -> None:
 
         section = _retrying(f"Section {number} ({section_plan.title})", section_attempt)
         section = _retrying(f"Hints for section {number}", lambda _feedback, s=section: add_hints(s, context, call))
+        try:
+            section, results = _retrying(
+                f"Verification for section {number}", lambda _feedback, s=section: verify_section(s, context, call)
+            )
+            _write_json(work / f"verification-{number}.json", [asdict(r) for r in results])
+        except GenerationError as error:
+            # Unverified is the safe state, so a verification pass that keeps failing leaves it there.
+            _write_json(work / f"verification-{number}.json", {"error": str(error)})
         _write(work / f"section-{number}.json", section)
         sections.append(section)
 

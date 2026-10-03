@@ -16,6 +16,7 @@ from kedami_server.generation.schemas import (
     HintReplacements,
     Plan,
     SectionDraft,
+    Solutions,
 )
 from kedami_server.lesson import Lesson
 from kedami_server.model import ModelError
@@ -68,6 +69,14 @@ def all_fine(prompt):
     return {"results": [{"target": d["target"], "index": d["index"], "gives_away": False} for d in data]}
 
 
+def solved(**values):
+    return {"solutions": [{"target": t, "value": v, "expression": None, "correct": None} for t, v in values.items()]}
+
+
+SECTION_ONE_SOLVED = solved(**{"vectors-block-2": 10.0, "ps1-1/a": 8.66, "ps1-1/b": 6.0})
+SECTION_TWO_SOLVED = solved(**{"ps1-2/2": 9.2})
+
+
 def happy_script(overrides=None):
     script = {
         Extraction: [extraction()],
@@ -76,6 +85,7 @@ def happy_script(overrides=None):
         HintDraft: [hints_for("vectors-block-2", "ps1-1/a", "ps1-1/b"), hints_for("ps1-2/2")],
         HintJudgements: [all_fine, all_fine],
         HintReplacements: [],
+        Solutions: [SECTION_ONE_SOLVED, SECTION_TWO_SOLVED],
     }
     script.update(overrides or {})
     return script
@@ -167,14 +177,21 @@ def test_happy_path_produces_a_ready_lesson(started, data_dir):
     problem = lesson.find_block("ps1-1")
     assert problem.prompt == "A ball is thrown at $10$ m/s."
     assert [p.hints for p in problem.parts] == [["Think about components.", "Use cosine."]] * 2
-    assert not any(p.verified for p in problem.parts)
+    # The second solve agreed on (a) but not on (b).
+    assert [p.verified for p in problem.parts] == [True, False]
+    assert lesson.find_block("vectors-block-2").verified is True
+    assert lesson.find_block("ps1-2").parts[0].verified is True
     assert lesson.find_block("vectors-block-2").hints == ["Think about components.", "Use cosine."]
 
     summary = client.get("/lessons", headers=AUTH).json()["lessons"][-1]
     assert (summary["title"], summary["problems_total"]) == ("Projectiles", 2)
 
     work = data_dir / "work" / lesson_id
-    assert sorted(p.name for p in work.iterdir()) == ["extraction.json", "plan.json", "section-1.json", "section-2.json"]
+    assert sorted(p.name for p in work.iterdir()) == [
+        "extraction.json", "plan.json", "section-1.json", "section-2.json", "verification-1.json", "verification-2.json",
+    ]
+    records = json.loads((work / "verification-1.json").read_text())
+    assert [(r["target"], r["verified"]) for r in records] == [("vectors-block-2", True), ("ps1-1/a", True), ("ps1-1/b", False)]
     assert json.loads((work / "plan.json").read_text())["sections"][1]["problems"] == ["PS1 #2"]
 
 
@@ -190,6 +207,7 @@ def test_requests_use_the_generate_role_and_open_with_the_cached_material(starte
             assert "PS1\n1. A ball..." in first["text"] and "Notes on projectiles." in first["text"]
             assert first["cache_control"] == {"type": "ephemeral"}
     assert all(call["role"] == "small_check" for call in fake.calls[HintJudgements])
+    assert [call["role"] for call in fake.calls[Solutions]] == ["second_solve", "second_solve"]
 
 
 def test_rejected_section_is_retried_alone_with_the_reason(started, data_dir):
@@ -254,3 +272,27 @@ def test_interrupted_generation_is_marked_failed(started, data_dir):
         library.fail_interrupted(conn)
     status = lesson_status(client, lesson_id)
     assert status["status"] == "failed" and "interrupted" in status["error"]
+
+
+def test_verification_that_keeps_failing_leaves_the_section_unverified(started, data_dir):
+    client, create, _ = started
+    lesson_id = create().json()["id"]
+    malformed = {"solutions": "not a list"}
+    fake = FakeModel(happy_script({Solutions: [malformed, malformed, malformed, SECTION_TWO_SOLVED]}))
+    run(data_dir, lesson_id, fake)
+    status = lesson_status(client, lesson_id)
+    assert status["status"] == "ready"
+    lesson = Lesson.model_validate(status["lesson"])
+    assert not any(p.verified for p in lesson.find_block("ps1-1").parts)
+    assert lesson.find_block("ps1-2").parts[0].verified is True
+    record = json.loads((data_dir / "work" / lesson_id / "verification-1.json").read_text())
+    assert record["error"].startswith("Verification for section 1 failed after 3 attempts")
+
+
+def test_api_error_during_verification_fails_the_lesson(started, data_dir):
+    client, create, _ = started
+    lesson_id = create().json()["id"]
+    fake = FakeModel(happy_script({Solutions: [ModelError("The model declined this request.")]}))
+    run(data_dir, lesson_id, fake)
+    status = lesson_status(client, lesson_id)
+    assert (status["status"], status["error"]) == ("failed", "The model declined this request.")

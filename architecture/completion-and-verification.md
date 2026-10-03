@@ -43,7 +43,10 @@
 
 ## Verifying stored answers
 
-- During stage 4, a second, independent model call solves each part and checkpoint from scratch.
-- If SymPy finds the two results equivalent, the item is marked verified.
+- During stage 4, a second, independent model call solves each part and checkpoint from scratch: one call per section, after its hints.
+- The solver sees the course material and each question with the form its answer takes (a number in a given unit, an expression in given names, or the options). It never sees the stored answer, the hints, or the lesson content.
+- If SymPy finds the two results equivalent, the item is marked verified. Numbers agree within the stored tolerance, expressions by the same equivalence check used for student answers, and choices by the selected indexes.
+- A verification call whose replies stay malformed after its retries leaves the section unverified rather than failing the lesson. An API error still fails the lesson.
+- Each section's results, with both answers, are saved to `work/{lesson_id}/verification-{n}.json`.
 - If not, it shows an "Unverified answer" label. For problem parts, mark done is the way past it.
 - `self_check` answers are not verified.

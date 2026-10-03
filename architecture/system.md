@@ -38,7 +38,7 @@ Anthropic is the only provider.
 |---|---|---|
 | Generate | `claude-sonnet-5-5` at high effort | Extraction, planning, lesson sections, hints, simulations |
 | Transcribe | Claude, vision-capable | Turning flagged pages into Markdown with LaTeX |
-| Second solve | Claude | Independent solution for verification |
+| Second solve | `claude-opus-5-5` at high effort | Independent solution for verification |
 | Small checks | `claude-haiku-4-5` | Scoring extracted page text, hint leak check |
 
 - All calls go through one server function (`server/kedami_server/model.py`), so models and retry policy are set in one place. Model names live in `MODEL_ROLES` in `server/kedami_server/config.py`.

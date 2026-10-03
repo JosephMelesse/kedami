@@ -185,3 +185,25 @@ def judge_request(to_judge: list[tuple[str, int, str]], by_key: dict) -> dict:
         for key, index, hint in to_judge
     ]
     return {"type": "text", "text": f"Rule on each of these hints:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}"}
+
+
+# Verification: an independent second solve
+
+SOLVE_SYSTEM = f"""You solve questions from a course from scratch, working each one out carefully, so your answers can
+be checked against a stored answer key. You are not shown that key.
+
+For each question, give only the final answer in the form requested:
+- number: `value`, in the unit given (or the natural unit of the question if none is given).
+- expression: `expression`, using only the names listed.
+- choice: `correct` with the one correct option's index (0-based).
+- select_all: `correct` with the index of every correct option (0-based).
+Set the other fields to null. A question that builds on an earlier part of the same problem uses your own earlier
+results. {MATH_SYNTAX}"""
+
+
+def solve_request(items: list[tuple[str, str, dict]]) -> dict:
+    data = [{"target": key, "question": question, **form} for key, question, form in items]
+    return {
+        "type": "text",
+        "text": f"Solve each of these questions, using the target IDs as given:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}",
+    }

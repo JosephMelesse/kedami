@@ -262,3 +262,19 @@ class HintJudgement(Model):
 
 class HintJudgements(Model):
     results: list[HintJudgement]
+
+
+# Verification
+
+
+class Solution(Model):
+    """One independently solved answer, flat. Fill the field for the requested format."""
+
+    target: str = Field(description="The target ID exactly as given.")
+    value: float | None = Field(default=None, description="number: the answer in the unit given.")
+    expression: str | None = Field(default=None, description="expression: the answer in SymPy syntax.")
+    correct: list[int] | None = Field(default=None, description="choice: the one correct index; select_all: every correct index.")
+
+
+class Solutions(Model):
+    solutions: list[Solution]

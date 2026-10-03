@@ -122,9 +122,10 @@ def test_every_generation_schema_converts():
         HintReplacements,
         Plan,
         SectionDraft,
+        Solutions,
     )
 
-    for output in (Extraction, Plan, SectionDraft, HintDraft, HintReplacements, HintJudgements):
+    for output in (Extraction, Plan, SectionDraft, HintDraft, HintReplacements, HintJudgements, Solutions):
         schema = json.dumps(output_schema(output))
         assert '"const"' not in schema and '"oneOf"' not in schema and 'discriminator' not in schema, output.__name__
 
@@ -266,3 +267,9 @@ def test_client_errors_are_not_retried(api, status):
     with pytest.raises(ModelError):
         call_model("generate", system="s", prompt="p", output=Reply)
     assert len(api.requests) == 1 and api.waits == []
+
+
+def test_second_solve_request_shape(api):
+    call_model("second_solve", system="s", prompt="p", output=Reply)
+    body = json.loads(api.requests[0].content)
+    assert (body["model"], body["output_config"]["effort"], body["fallbacks"]) == ("claude-opus-5-5", "high", "default")

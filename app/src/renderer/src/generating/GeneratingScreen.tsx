@@ -7,7 +7,7 @@ const POLL_MS = 2000
 const STAGES = [
   { stage: 2, label: 'Reading the problem set' },
   { stage: 3, label: 'Planning the sections' },
-  { stage: 4, label: 'Writing the sections and hints' }
+  { stage: 4, label: 'Writing and checking the sections' }
 ]
 
 interface GeneratingProps {
