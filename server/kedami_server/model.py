@@ -2,9 +2,11 @@
 
 Requests structured output against a Pydantic model's JSON Schema and validates the reply.
 The API key is read by the Anthropic client from ANTHROPIC_API_KEY, loaded from server/.env.
+A key not scoped to a workspace also needs ANTHROPIC_WORKSPACE_ID there.
 """
 
 import copy
+import os
 from typing import Any, TypeVar
 
 import anthropic
@@ -27,7 +29,10 @@ class ModelError(Exception):
 def client() -> anthropic.Anthropic:
     global _client
     if _client is None:
-        _client = anthropic.Anthropic(max_retries=4)
+        # The SDK sends a workspace only for profile and federation logins, not for a plain API key.
+        workspace = os.environ.get("ANTHROPIC_WORKSPACE_ID")
+        headers = {"anthropic-workspace-id": workspace} if workspace else None
+        _client = anthropic.Anthropic(max_retries=4, default_headers=headers)
     return _client
 
 

@@ -126,3 +126,27 @@ def test_every_generation_schema_converts():
     for output in (Extraction, Plan, SectionDraft, HintDraft, HintReplacements, HintJudgements):
         schema = json.dumps(output_schema(output))
         assert '"const"' not in schema and '"oneOf"' not in schema and 'discriminator' not in schema, output.__name__
+
+
+@pytest.mark.parametrize("workspace, expected", [("wrkspc_test", "wrkspc_test"), ("", None), (None, None)])
+def test_workspace_header_comes_from_the_environment(monkeypatch, workspace, expected):
+    seen = []
+
+    def handle(request):
+        seen.append(request.headers.get("anthropic-workspace-id"))
+        return httpx2.Response(200, text=sse(json.dumps(GOOD)), headers={"content-type": "text/event-stream"})
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test")
+    if workspace is None:
+        monkeypatch.delenv("ANTHROPIC_WORKSPACE_ID", raising=False)
+    else:
+        monkeypatch.setenv("ANTHROPIC_WORKSPACE_ID", workspace)
+    monkeypatch.setattr(model, "_client", None)
+    real = anthropic.Anthropic
+    monkeypatch.setattr(
+        anthropic,
+        "Anthropic",
+        lambda **kwargs: real(**kwargs, http_client=anthropic.DefaultHttpxClient(transport=httpx2.MockTransport(handle))),
+    )
+    call_model("small_check", system="s", prompt="p", output=Reply)
+    assert seen == [expected]
