@@ -15,6 +15,8 @@ function createWindow(): void {
     height: 820,
     show: false,
     autoHideMenuBar: true,
+    // ፩ (U+1369, Ethiopic digit one), rendered from Noto Sans Ethiopic in the design token colors.
+    icon: join(app.getAppPath(), 'resources', 'icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,

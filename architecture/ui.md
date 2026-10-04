@@ -32,6 +32,7 @@ Dark is the only theme in the MVP. All colors come from these tokens so a light 
 
 - Inter and KaTeX fonts are bundled with the app.
 - Plots, diagrams, and simulations take their colors from the tokens.
+- The app icon is ፩ (U+1369, Ethiopic digit one) in `--accent` on a `--bg` rounded square, rendered from Noto Sans Ethiopic Medium to `app/resources/icon.png`.
 
 ## Screens
 
