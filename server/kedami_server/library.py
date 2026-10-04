@@ -22,6 +22,12 @@ class LessonRow:
     created: str
     error: str | None = None
     folder_id: int | None = None
+    # The student's name for the lesson. It outlasts reruns, which replace `title` with the plan's.
+    custom_title: str | None = None
+
+    @property
+    def shown_title(self) -> str:
+        return self.custom_title or self.title
 
 
 def add_ready_lesson(conn: sqlite3.Connection, lesson: Lesson) -> None:
@@ -180,6 +186,10 @@ def folder_exists(conn: sqlite3.Connection, folder_id: int) -> bool:
 def delete_folder(conn: sqlite3.Connection, folder_id: int) -> None:
     """Remove the folder; its lessons move back to the home page."""
     conn.execute("DELETE FROM folders WHERE id = ?", (folder_id,))
+
+
+def rename_lesson(conn: sqlite3.Connection, lesson_id: str, title: str) -> None:
+    conn.execute("UPDATE lessons SET custom_title = ? WHERE id = ?", (title, lesson_id))
 
 
 def move_lesson(conn: sqlite3.Connection, lesson_id: str, folder_id: int | None) -> None:

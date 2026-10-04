@@ -4,12 +4,13 @@ import type { Folder, LessonSummary } from '../api'
 interface LessonMenuProps {
   lesson: LessonSummary
   folders: Folder[]
+  onRename: () => void
   onMove: (folderId: number | null) => void
   onDelete: () => void
 }
 
-/** The options button on a lesson tile: move it to another folder or home, or delete it. */
-export function LessonMenu({ lesson, folders, onMove, onDelete }: LessonMenuProps) {
+/** The options button on a lesson tile: rename it, move it to another folder or home, or delete it. */
+export function LessonMenu({ lesson, folders, onRename, onMove, onDelete }: LessonMenuProps) {
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
 
@@ -48,6 +49,9 @@ export function LessonMenu({ lesson, folders, onMove, onDelete }: LessonMenuProp
       </button>
       {open && (
         <div className="menu" role="menu">
+          <button type="button" role="menuitem" onClick={choose(onRename)}>
+            Rename
+          </button>
           {lesson.folder_id !== null && (
             <button type="button" role="menuitem" onClick={choose(() => onMove(null))}>
               Move to Lessons

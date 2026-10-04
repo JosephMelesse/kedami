@@ -9,7 +9,8 @@ import {
   listFolders,
   listLessons,
   moveLesson,
-  renameFolder
+  renameFolder,
+  renameLesson
 } from '../api'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { FolderTile } from './FolderTile'
@@ -25,6 +26,7 @@ type State =
 
 type Dialog =
   | { kind: 'new-folder' }
+  | { kind: 'rename-lesson'; lesson: LessonSummary }
   | { kind: 'delete-lesson'; lesson: LessonSummary }
   | { kind: 'rename-folder'; folder: Folder }
   | { kind: 'delete-folder'; folder: Folder }
@@ -100,6 +102,7 @@ export function LibraryScreen({ onOpen, onNew }: LibraryProps) {
         onNewFolder={() => setDialog({ kind: 'new-folder' })}
         onRenameFolder={(f) => setDialog({ kind: 'rename-folder', folder: f })}
         onDeleteFolder={(f) => setDialog({ kind: 'delete-folder', folder: f })}
+        onRename={(lesson) => setDialog({ kind: 'rename-lesson', lesson })}
         onMove={(lesson, target) => act(() => moveLesson(lesson.id, target))}
         onDelete={(lesson) => setDialog({ kind: 'delete-lesson', lesson })}
       />
@@ -118,6 +121,16 @@ export function LibraryScreen({ onOpen, onNew }: LibraryProps) {
           initial={dialog.folder.name}
           onCancel={() => setDialog(null)}
           onSubmit={(name) => named(() => renameFolder(dialog.folder.id, name))}
+        />
+      )}
+      {dialog?.kind === 'rename-lesson' && (
+        <NameDialog
+          title="Rename lesson"
+          confirmLabel="Rename"
+          initial={dialog.lesson.title}
+          maxLength={120}
+          onCancel={() => setDialog(null)}
+          onSubmit={(name) => named(() => renameLesson(dialog.lesson.id, name))}
         />
       )}
       {dialog?.kind === 'delete-lesson' && (
@@ -168,6 +181,7 @@ interface LibraryViewProps {
   onNewFolder: () => void
   onRenameFolder: (folder: Folder) => void
   onDeleteFolder: (folder: Folder) => void
+  onRename: (lesson: LessonSummary) => void
   onMove: (lesson: LessonSummary, folderId: number | null) => void
   onDelete: (lesson: LessonSummary) => void
 }
@@ -217,6 +231,7 @@ export function LibraryView(props: LibraryViewProps) {
             <LessonMenu
               lesson={lesson}
               folders={folders}
+              onRename={() => props.onRename(lesson)}
               onMove={(target) => props.onMove(lesson, target)}
               onDelete={() => props.onDelete(lesson)}
             />

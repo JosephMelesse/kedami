@@ -5,13 +5,14 @@ interface NameDialogProps {
   confirmLabel: string
   /** The name the field starts with. */
   initial?: string
+  maxLength?: number
   /** Resolves to an error message to show, or null when done. */
   onSubmit: (name: string) => Promise<string | null>
   onCancel: () => void
 }
 
 /** Asks for a name. Mount it to open it. */
-export function NameDialog({ title, confirmLabel, initial = '', onSubmit, onCancel }: NameDialogProps) {
+export function NameDialog({ title, confirmLabel, initial = '', maxLength = 80, onSubmit, onCancel }: NameDialogProps) {
   const ref = useRef<HTMLDialogElement>(null)
   const [name, setName] = useState(initial)
   const [error, setError] = useState<string | null>(null)
@@ -44,7 +45,7 @@ export function NameDialog({ title, confirmLabel, initial = '', onSubmit, onCanc
         <input
           className="text-input"
           aria-label="Name"
-          maxLength={80}
+          maxLength={maxLength}
           value={name}
           onChange={(event) => setName(event.target.value)}
           autoFocus

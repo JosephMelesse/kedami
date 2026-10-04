@@ -72,6 +72,10 @@ class FolderRequest(Body):
     name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
 
 
+class RenameRequest(Body):
+    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+
+
 class MoveRequest(Body):
     # None moves the lesson to the home page.
     folder_id: StrictInt | None
@@ -138,7 +142,7 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
                 done = progress.problems_done(lesson, progress.load_all(conn, row.id))
         return {
             "id": row.id,
-            "title": row.title,
+            "title": row.shown_title,
             "subject": row.subject,
             "status": row.status,
             "current_stage": row.current_stage,
@@ -216,6 +220,9 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
     def lesson(lesson_id: str):
         row = get_row(lesson_id)
         body = get_lesson(lesson_id).model_dump(mode="json") if row.status == "ready" else None
+        if body and row.custom_title:
+            # A renamed lesson is served under its new name; the JSON on disk keeps the plan's.
+            body["title"] = row.custom_title
         with db.connect(settings.data_dir) as conn:
             materials = list_materials(conn, lesson_id)
         return {
@@ -333,6 +340,13 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
             library.delete_lesson(conn, lesson_id)
         delete_lesson_files(settings.data_dir, lesson_id)
         return {"deleted": lesson_id}
+
+    @app.post("/lessons/{lesson_id}/rename")
+    def rename_lesson(lesson_id: str, body: RenameRequest):
+        get_row(lesson_id)
+        with db.connect(settings.data_dir) as conn:
+            library.rename_lesson(conn, lesson_id, body.title)
+        return {"id": lesson_id, "title": body.title}
 
     @app.post("/lessons/{lesson_id}/move")
     def move_lesson(lesson_id: str, body: MoveRequest):

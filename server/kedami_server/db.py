@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS folders (
 CREATE TABLE IF NOT EXISTS lessons (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
+    custom_title TEXT,
     subject TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('generating', 'ready', 'failed')),
     current_stage INTEGER,
@@ -85,7 +86,11 @@ def init(data_dir: Path) -> None:
 
 # Columns added after a table was first created. CREATE TABLE IF NOT EXISTS skips existing tables.
 ADDED_COLUMNS = {
-    "lessons": {"error": "TEXT", "folder_id": "INTEGER REFERENCES folders (id) ON DELETE SET NULL"},
+    "lessons": {
+        "error": "TEXT",
+        "folder_id": "INTEGER REFERENCES folders (id) ON DELETE SET NULL",
+        "custom_title": "TEXT",
+    },
 }
 
 

@@ -38,6 +38,7 @@ function render(lessons: LessonSummary[], folders: Folder[] = [], folder: Folder
       onNewFolder={noop}
       onRenameFolder={noop}
       onDeleteFolder={noop}
+      onRename={noop}
       onMove={noop}
       onDelete={noop}
     />
@@ -106,7 +107,7 @@ describe('LessonMenu', () => {
     const container = document.createElement('div')
     document.body.append(container)
     const root = createRoot(container)
-    await act(async () => root.render(<LessonMenu lesson={lesson} folders={folders} onMove={noop} onDelete={noop} />))
+    await act(async () => root.render(<LessonMenu lesson={lesson} folders={folders} onRename={noop} onMove={noop} onDelete={noop} />))
     await act(async () => container.querySelector<HTMLButtonElement>('.tile-menu-button')!.click())
     const items = [...container.querySelectorAll<HTMLButtonElement>('[role=menuitem]')].map(
       (item) => `${item.textContent}${item.disabled ? ' (disabled)' : ''}`
@@ -118,15 +119,39 @@ describe('LessonMenu', () => {
 
   const folders = [WEEK3, { id: 4, name: 'Week 4', lessons: 0 }]
 
-  it('offers the other folders and delete for a lesson on the home page', async () => {
-    expect(await openMenu(summary({}), folders)).toEqual(['Move to Week 3', 'Move to Week 4', 'Delete lesson'])
+  it('offers rename, the other folders, and delete for a lesson on the home page', async () => {
+    expect(await openMenu(summary({}), folders)).toEqual(['Rename', 'Move to Week 3', 'Move to Week 4', 'Delete lesson'])
   })
 
-  it('offers home and the other folders for a lesson in a folder', async () => {
-    expect(await openMenu(summary({ folder_id: 3 }), folders)).toEqual(['Move to Lessons', 'Move to Week 4', 'Delete lesson'])
+  it('offers rename, home, and the other folders for a lesson in a folder', async () => {
+    expect(await openMenu(summary({ folder_id: 3 }), folders)).toEqual([
+      'Rename',
+      'Move to Lessons',
+      'Move to Week 4',
+      'Delete lesson'
+    ])
   })
 
-  it('does not offer delete while the lesson is generating', async () => {
-    expect(await openMenu(summary({ status: 'generating' }), [])).toEqual(['Delete lesson (disabled)'])
+  it('offers rename but not delete while the lesson is generating', async () => {
+    expect(await openMenu(summary({ status: 'generating' }), [])).toEqual(['Rename', 'Delete lesson (disabled)'])
+  })
+
+  it('closes the menu and asks for a new name on Rename', async () => {
+    const { createRoot } = await import('react-dom/client')
+    const { act } = await import('react')
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+    let renamed = 0
+    const onRename = () => renamed++
+    await act(async () =>
+      root.render(<LessonMenu lesson={summary({})} folders={[]} onRename={onRename} onMove={noop} onDelete={noop} />)
+    )
+    await act(async () => container.querySelector<HTMLButtonElement>('.tile-menu-button')!.click())
+    await act(async () => container.querySelector<HTMLButtonElement>('[role=menuitem]')!.click())
+    expect(renamed).toBe(1)
+    expect(container.querySelector('[role=menu]')).toBeNull()
+    await act(async () => root.unmount())
+    container.remove()
   })
 })

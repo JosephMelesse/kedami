@@ -3,10 +3,12 @@ import sqlite3
 import pytest
 
 from kedami_server import db, simulation_state
+from kedami_server.generation.schemas import Plan
 from kedami_server.progress import Record, save
 from kedami_server.storage import seed_sample
 
 from .conftest import AUTH, upload
+from .factories import plan
 from .test_pipeline import FakeModel, happy_script, run
 
 
@@ -201,5 +203,77 @@ def test_older_database_gains_the_folder_column(tmp_path):
     conn.close()
     db.init(tmp_path)
     with db.connect(tmp_path) as conn:
-        row = conn.execute("SELECT error, folder_id FROM lessons WHERE id = 'old'").fetchone()
-    assert (row["error"], row["folder_id"]) == (None, None)
+        row = conn.execute("SELECT error, folder_id, custom_title FROM lessons WHERE id = 'old'").fetchone()
+    assert (row["error"], row["folder_id"], row["custom_title"]) == (None, None, None)
+
+
+# Renaming lessons
+
+
+def titles(client):
+    return {lesson["id"]: lesson["title"] for lesson in client.get("/lessons", headers=AUTH).json()["lessons"]}
+
+
+def served_title(client, lesson_id):
+    return client.get(f"/lessons/{lesson_id}", headers=AUTH).json()["lesson"]["title"]
+
+
+def rename(client, lesson_id, body):
+    return client.post(f"/lessons/{lesson_id}/rename", json=body, headers=AUTH)
+
+
+def test_rename_shows_everywhere_but_leaves_the_lesson_file_alone(two_lessons, data_dir):
+    client, (renamed, other) = two_lessons
+    before = (data_dir / "lessons" / f"{renamed}.json").read_text()
+    generated = served_title(client, renamed)
+
+    assert rename(client, renamed, {"title": "  Week 3: projectiles  "}).json() == {
+        "id": renamed,
+        "title": "Week 3: projectiles",
+    }
+    assert titles(client) == {renamed: "Week 3: projectiles", other: generated}
+    assert served_title(client, renamed) == "Week 3: projectiles"
+    assert served_title(client, other) == generated
+    assert (data_dir / "lessons" / f"{renamed}.json").read_text() == before
+
+
+def test_renaming_again_replaces_the_name(two_lessons):
+    client, (lesson_id, _) = two_lessons
+    rename(client, lesson_id, {"title": "First"})
+    rename(client, lesson_id, {"title": "Second"})
+    assert served_title(client, lesson_id) == "Second"
+
+
+def test_a_rerun_keeps_the_new_name(two_lessons, data_dir):
+    client, (renamed, other) = two_lessons
+    rename(client, renamed, {"title": "My projectiles"})
+    new_plan = plan(("Vectors", ["vectors"]), ("Flight", ["gravity", "range"]), title="Projectile motion, revised")
+    for lesson_id in (renamed, other):
+        run(data_dir, lesson_id, FakeModel(happy_script({Plan: [new_plan]})), start_stage=3)
+    assert served_title(client, renamed) == "My projectiles"
+    assert titles(client)[renamed] == "My projectiles"
+    # A lesson never renamed takes the new plan's title.
+    assert served_title(client, other) == "Projectile motion, revised"
+    assert titles(client)[other] == "Projectile motion, revised"
+
+
+def test_a_generating_lesson_can_be_renamed(started):
+    client, create, _ = started
+    lesson_id = create().json()["id"]
+    assert titles(client)[lesson_id] == "New lesson"
+    assert rename(client, lesson_id, {"title": "Exam review"}).status_code == 200
+    assert titles(client)[lesson_id] == "Exam review"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [{}, {"title": ""}, {"title": "   "}, {"title": "x" * 121}, {"title": 5}, {"title": "Ok", "extra": 1}],
+)
+def test_bad_names(two_lessons, body):
+    client, (lesson_id, _) = two_lessons
+    assert rename(client, lesson_id, body).status_code == 422
+
+
+def test_rename_unknown_lesson(started):
+    client, _, _ = started
+    assert rename(client, "nope", {"title": "X"}).status_code == 404

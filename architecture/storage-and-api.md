@@ -16,7 +16,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 
 | Table | Key fields |
 |---|---|
-| `lessons` | id, title, subject, status, current stage, schema version, revision, created, error, folder id |
+| `lessons` | id, title, custom title, subject, status, current stage, schema version, revision, created, error, folder id |
 | `folders` | id, name (unique, ignoring case), created |
 | `settings` | key, value (for example, that the sample lesson was added on the first start) |
 | `materials` | id, lesson id, filename, role, force transcription |
@@ -25,6 +25,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 | `solutions` | lesson id, block id, part id, solution JSON, matches stored answer, updated |
 
 - Lesson status is one of: generating, ready, failed. Only a ready lesson has lesson JSON to serve.
+- A lesson's title is the plan's until the student renames it. The custom title is kept in the index and served in place of the lesson JSON's title, which is never edited, and a rerun keeps it.
 - Material role is problem set or reference.
 - Progress status is one of: not started, in progress, correct, marked done.
 - Progress is stored apart from the lesson JSON and keyed by block and part ID. A checkpoint has no part and is stored with an empty part ID.
@@ -38,6 +39,7 @@ All routes require the session token.
 |---|---|---|
 | POST | `/lessons` | Multipart upload: `subject`, optional `folder`, and per file `files`, `roles`, `force`; starts the pipeline |
 | DELETE | `/lessons/{id}` | Delete a lesson that isn't generating: its JSON, files, stage outputs, progress, simulations, and solutions |
+| POST | `/lessons/{id}/rename` | Rename a lesson |
 | POST | `/lessons/{id}/move` | Move a lesson to a folder, or home with `null` |
 | GET | `/folders` | Folders with their lesson counts |
 | POST | `/folders` | Create a folder |

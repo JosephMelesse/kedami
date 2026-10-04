@@ -224,6 +224,10 @@ export async function deleteFolder(folderId: number): Promise<void> {
   await request('DELETE', `/folders/${folderId}`)
 }
 
+export async function renameLesson(lessonId: string, title: string): Promise<void> {
+  await request('POST', `${lessonPath(lessonId)}/rename`, { title })
+}
+
 export async function moveLesson(lessonId: string, folderId: number | null): Promise<void> {
   await request('POST', `${lessonPath(lessonId)}/move`, { folder_id: folderId })
 }
