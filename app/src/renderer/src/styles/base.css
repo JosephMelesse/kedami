@@ -95,11 +95,18 @@ input {
 }
 
 .app-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 0;
   border: 0;
   background: none;
   font-weight: 500;
   cursor: pointer;
+}
+
+.app-name .logo {
+  color: var(--accent);
 }
 
 .link-button {
