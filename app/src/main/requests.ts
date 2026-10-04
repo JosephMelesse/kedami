@@ -1,7 +1,8 @@
 // The renderer, including simulation frames, may only load local resources. The only outbound
 // traffic is the server's calls to the Anthropic API, which don't pass through here.
+import { MUSIC_SCHEME } from './music'
 
-const LOCAL_SCHEMES = new Set(['file:', 'data:', 'blob:', 'devtools:'])
+const LOCAL_SCHEMES = new Set(['file:', 'data:', 'blob:', 'devtools:', `${MUSIC_SCHEME}:`])
 const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost'])
 
 export function isAllowedRequest(url: string): boolean {

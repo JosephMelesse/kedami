@@ -9,6 +9,7 @@
 5. Ingestion with page routing, reruns, and progress carry-over
 6. Simulations
 7. Pomodoro timer
+8. Music player
 
 Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the sequencing. Each later step is independent of the ones after it.
 

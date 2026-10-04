@@ -85,8 +85,11 @@ input {
   position: sticky;
   top: 0;
   z-index: 1;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  /* Equal side columns keep the music player centered. In a narrow window it shrinks first,
+     down to its shortest track name (48px), the gap (8px), and the play button (40px). */
+  grid-template-columns: 1fr minmax(96px, auto) 1fr;
+  gap: 24px;
   align-items: center;
   height: 56px;
   padding: 0 24px;
@@ -95,6 +98,7 @@ input {
 }
 
 .app-name {
+  justify-self: start;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -172,7 +176,59 @@ input {
   gap: 8px;
 }
 
+.music-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 14px;
+}
+
+/* ▶ and ⏸ from one font, so the play/pause symbols match in size. See assets/media-symbols-OFL.txt. */
+@font-face {
+  font-family: 'Media Symbols';
+  src: url('../assets/media-symbols.woff2') format('woff2');
+}
+
+.music-toggle {
+  flex-shrink: 0;
+  width: 40px;
+  padding: 8px 0;
+  font-family: 'Media Symbols', sans-serif;
+}
+
+/* Plain muted text that sizes to the track name; it only lights up when hovered or focused. */
+.music-select {
+  appearance: none;
+  field-sizing: content;
+  min-width: 48px;
+  max-width: 240px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: none;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.music-select:hover,
+.music-select:focus-visible {
+  outline: none;
+  color: var(--text);
+}
+
+.music-select:focus-visible {
+  border-color: var(--border);
+}
+
+.music-select option {
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
 .pomodoro {
+  justify-self: end;
   display: flex;
   align-items: center;
   gap: 16px;

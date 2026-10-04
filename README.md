@@ -25,6 +25,6 @@ See `roadmap.md` for the backlog.
 | `architecture/pipeline.md` | Ingestion through lesson generation, reruns |
 | `architecture/lesson-format.md` | Lesson structure, blocks, answers, hints, simulations |
 | `architecture/completion-and-verification.md` | Part states, mark done, answer checking, verification |
-| `architecture/ui.md` | Design tokens, UI rules, screens, Pomodoro timer |
+| `architecture/ui.md` | Design tokens, UI rules, screens, Pomodoro timer, music player |
 | `architecture/storage-and-api.md` | Files on disk, database tables, server API |
 | `architecture/roadmap.md` | Build order and backlog |

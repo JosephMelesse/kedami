@@ -1,4 +1,5 @@
 import { Logo } from './Logo'
+import { MusicPlayer } from './music/MusicPlayer'
 import { PomodoroTimer } from './pomodoro/PomodoroTimer'
 
 export function AppHeader({ onHome }: { onHome: () => void }) {
@@ -8,6 +9,7 @@ export function AppHeader({ onHome }: { onHome: () => void }) {
         <Logo />
         Kedami
       </button>
+      <MusicPlayer />
       <PomodoroTimer />
     </header>
   )

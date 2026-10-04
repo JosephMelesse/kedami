@@ -31,6 +31,7 @@ Dark is the only theme in the MVP. All colors come from these tokens so a light 
 ## Consistency
 
 - Inter, KaTeX, and JetBrains Mono (for code, with ligatures off so code shows as typed) fonts are bundled with the app.
+- The music player's ▶ and ⏸ come from `app/src/renderer/src/assets/media-symbols.woff2`, a two-glyph subset of Noto Sans Symbols2 (SIL OFL, license alongside it), so both symbols match in size.
 - Python code blocks are highlighted with neutral tokens only: keywords in medium weight, strings and comments in `--text-muted` (comments in italic), on `--surface-raised`.
 - Plots, diagrams, and simulations take their colors from the tokens.
 - The app icon is ፩ (U+1369, Ethiopic digit one) in `--accent` on a `--bg` rounded square, rendered from Noto Sans Ethiopic Medium to `app/resources/icon.png`. The same glyph, as an inline SVG outline in `--accent`, sits before "Kedami" in the app header.
@@ -44,7 +45,7 @@ Dark is the only theme in the MVP. All colors come from these tokens so a light 
 | Generating | Current pipeline stage; a failed lesson shows the reason and a Rerun button |
 | Lesson | Sections and blocks in order, with a progress indicator in the accent color. A Rerun button opens a dialog with the start stage and force-transcription toggles; a failed rerun shows its reason above the lesson |
 
-The app header is visible on every screen and holds the Pomodoro timer.
+The app header is visible on every screen and holds the music player and the Pomodoro timer.
 
 ## Pomodoro timer
 
@@ -61,3 +62,17 @@ A simple study and rest timer. It runs entirely in the renderer and has no serve
 - If the window sleeps through several phase ends, the timer lands in the right phase and the alarm plays once.
 - The window does not throttle background timers, so the alarm is on time when the app is hidden.
 - The alarm is `app/src/renderer/src/assets/alarm.wav`, a short ascending chime synthesized for this project.
+
+## Music player
+
+A minimal player for audio files kept in the app data folder. It runs in the renderer, with main handling file access. There is no server involvement.
+
+- **Placement:** in the middle of the app header, with the Pomodoro timer on the right.
+- **Controls:** a dropdown of tracks with Add music as the last entry in its list, and a play/pause button showing ▶ (U+25B6) or ⏸ (U+23F8).
+- **Adding:** Add music opens a file picker, and main copies the chosen files into `music/` in the app data folder. The first added file becomes the selected track; canceling keeps the current one. A name already taken gets a numbered suffix, as in `song (2).mp3`. The dropdown lists the files in `music/` by name; to remove a track, delete its file.
+- **Formats:** MP3, M4A, FLAC, WAV, and OGG.
+- **Playback:** the selected track repeats until paused or another track is picked. Picking a track while playing switches to it and keeps playing. A track that fails to play stops the player.
+- **File access:** main serves the files to the renderer through a custom protocol that only resolves plain file names inside `music/`, including through symlinks.
+- **Alarm:** the Pomodoro alarm plays over the music.
+- **Persistence:** the copied files stay in `music/`. The selected track and playback position do not survive an app restart.
+- **Not included:** volume, next and previous, shuffle, playlists, artwork, metadata tags, and search.

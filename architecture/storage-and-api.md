@@ -9,6 +9,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 | Original files | `materials/{lesson_id}/` |
 | Stage outputs | `work/{lesson_id}/`: `pages.json` (routes and text per page), `normalized/`, `extraction.json`, `plan.json`, `outline.json`, `section-{n}.json`, `verification-{n}.json` |
 | Lessons | `lessons/{lesson_id}.json` |
+| Music player tracks | `music/`, written and read only by Electron main |
 | Index and progress | SQLite database |
 
 ## Tables

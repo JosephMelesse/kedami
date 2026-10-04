@@ -9,6 +9,7 @@ describe('isAllowedRequest', () => {
     'ws://localhost:5173/',
     'data:image/png;base64,AAAA',
     'blob:null/1234',
+    'kedami-music://track/song.mp3',
     'devtools://devtools/bundled/inspector.html'
   ])('allows %s', (url) => {
     expect(isAllowedRequest(url)).toBe(true)

@@ -4,8 +4,8 @@
 
 | Process | Responsibility | Stack |
 |---|---|---|
-| Electron renderer | UI only: file drop, lesson rendering, answer input, progress, sandboxed simulation frames, Pomodoro timer | TypeScript, React, KaTeX, DOMPurify |
-| Electron main | Window management; spawns and kills the server; passes the port and session token to the renderer | TypeScript |
+| Electron renderer | UI only: file drop, lesson rendering, answer input, progress, sandboxed simulation frames, Pomodoro timer, music player | TypeScript, React, KaTeX, DOMPurify |
+| Electron main | Window management; spawns and kills the server; passes the port and session token to the renderer; copies and serves music player tracks | TypeScript |
 | Local server | Ingestion, model calls, verification, answer checking, storage | Python, FastAPI, SymPy, SQLite |
 
 ## Launch
@@ -52,7 +52,8 @@ Anthropic is the only provider.
 - The API key lives in the server's `.env`. The renderer never sees it.
 - The only outbound traffic is to the Anthropic API. Fonts and the alarm sound are bundled.
 - Model-written code runs only inside a sandboxed frame with no network, no Node access, and no access to app data.
-- Electron main cancels any renderer request that isn't to a local file or to `127.0.0.1` or `localhost`, frames included, as a backstop to the CSPs.
+- Electron main cancels any renderer request that isn't to a local file, the music protocol, or `127.0.0.1` or `localhost`, frames included, as a backstop to the CSPs.
+- The music protocol serves only audio files directly inside the data folder's `music/`. The renderer names a track by file name; main resolves it and refuses anything outside that folder. Simulation frames can't load media at all.
 - The one link that leaves the app is a LeetCode problem: the renderer asks main to open `https://leetcode.com/problems/{slug}/`, main checks the slug, and the student's default browser opens it. The app itself sends nothing to LeetCode.
 - Diagram SVG is sanitized with DOMPurify before rendering.
 - All expression parsing uses a restricted parser with whitelisted names, for both model output and user input. SymPy's default string parsing evaluates code and must not be used directly.
