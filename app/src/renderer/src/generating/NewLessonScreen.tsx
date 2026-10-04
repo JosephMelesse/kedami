@@ -1,12 +1,10 @@
 import { type DragEvent, type FormEvent, useRef, useState } from 'react'
 import { ApiError, createLesson, type MaterialRole, type NewFile } from '../api'
 import type { Lesson } from '../lesson/types'
+import { SUBJECT_LABELS } from '../subjects'
 import { ACCEPT, canForce, kindOf } from './files'
 
-const SUBJECTS: { value: Lesson['subject']; label: string }[] = [
-  { value: 'math', label: 'Math' },
-  { value: 'physics', label: 'Physics' }
-]
+const SUBJECTS = Object.entries(SUBJECT_LABELS).map(([value, label]) => ({ value: value as Lesson['subject'], label }))
 
 interface NewLessonProps {
   /** The folder the lesson starts in, or null for the home page. */
@@ -88,6 +86,12 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
             ))}
           </div>
         </fieldset>
+        {subject === 'computer_science' && (
+          <p className="muted">
+            For the problem set, list the LeetCode problems one per line with number and title, such as
+            &quot;1. Two Sum&quot;. You solve them on LeetCode and mark them done here.
+          </p>
+        )}
         <FileDrop onFiles={add} />
         {rejected.length > 0 && (
           <p className="answer-error">Not supported, so not added: {rejected.join(', ')}</p>

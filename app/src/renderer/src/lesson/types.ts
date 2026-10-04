@@ -3,7 +3,7 @@
 export type SchemaVersion = 1;
 export type Id = string;
 export type Title = string;
-export type Subject = "math" | "physics";
+export type Subject = "math" | "physics" | "computer_science";
 export type SourceFiles = string[];
 /**
  * @minItems 1
@@ -54,7 +54,8 @@ export type Brief = string | null;
 export type Type5 = "checkpoint";
 export type Id7 = string;
 export type Prompt1 = string;
-export type Answer = NumericAnswer | ExpressionAnswer | SelfCheckAnswer | ChoiceAnswer | MultiChoiceAnswer;
+export type Answer =
+  NumericAnswer | ExpressionAnswer | SelfCheckAnswer | ChoiceAnswer | MultiChoiceAnswer | ExternalAnswer;
 export type Kind = "numeric";
 export type Value = number;
 export type RelTolerance = number;
@@ -78,6 +79,11 @@ export type Options1 = [string, string, ...string[]];
  * @minItems 1
  */
 export type CorrectIndexes = [number, ...number[]];
+export type Kind5 = "external";
+export type Platform = "leetcode";
+export type Number = number;
+export type Title2 = string;
+export type Slug = string;
 /**
  * @maxItems 3
  */
@@ -94,7 +100,8 @@ export type Parts = [Part, ...Part[]];
 export type Id9 = string;
 export type Label1 = string;
 export type Prompt3 = string;
-export type Answer1 = NumericAnswer | ExpressionAnswer | SelfCheckAnswer | ChoiceAnswer | MultiChoiceAnswer;
+export type Answer1 =
+  NumericAnswer | ExpressionAnswer | SelfCheckAnswer | ChoiceAnswer | MultiChoiceAnswer | ExternalAnswer;
 /**
  * @maxItems 3
  */
@@ -248,6 +255,19 @@ export interface MultiChoiceAnswer {
   kind: Kind4;
   options: Options1;
   correct_indexes: CorrectIndexes;
+}
+/**
+ * A problem solved elsewhere and marked done here. Never checked or verified.
+ *
+ * This interface was referenced by `Lesson`'s JSON-Schema
+ * via the `definition` "ExternalAnswer".
+ */
+export interface ExternalAnswer {
+  kind: Kind5;
+  platform: Platform;
+  number: Number;
+  title: Title2;
+  slug: Slug;
 }
 /**
  * This interface was referenced by `Lesson`'s JSON-Schema

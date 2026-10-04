@@ -10,7 +10,7 @@ from kedami_server.app import create_app
 from kedami_server.config import Settings
 from kedami_server.generation import pipeline
 from kedami_server.generation.schemas import (
-    Extraction,
+    ProblemsAndConcepts,
     HintDraft,
     HintJudgements,
     HintReplacements,
@@ -79,7 +79,7 @@ SECTION_TWO_SOLVED = solved(**{"ps1-2/2": 9.2})
 
 def happy_script(overrides=None):
     script = {
-        Extraction: [extraction()],
+        ProblemsAndConcepts: [extraction()],
         Plan: [plan(("Vectors", ["vectors"]), ("Flight", ["gravity", "range"]))],
         SectionDraft: [section_one(), section_two()],
         HintDraft: [hints_for("vectors-block-2", "ps1-1/a", "ps1-1/b"), hints_for("ps1-2/2")],
@@ -167,7 +167,7 @@ def test_requests_use_the_generate_role_and_open_with_the_cached_material(starte
     lesson_id = create().json()["id"]
     fake = FakeModel(happy_script())
     run(data_dir, lesson_id, fake)
-    for output in (Extraction, Plan, SectionDraft, HintDraft):
+    for output in (ProblemsAndConcepts, Plan, SectionDraft, HintDraft):
         for call in fake.calls[output]:
             assert call["role"] == "generate"
             first = call["prompt"][0]
@@ -187,7 +187,7 @@ def test_rejected_section_is_retried_alone_with_the_reason(started, data_dir):
     assert len(prompts) == 3
     assert "missing from the section: PS1 #1" in prompts[1]
     assert "rejected" not in prompts[2]
-    assert len(fake.calls[Extraction]) == 1 and len(fake.calls[Plan]) == 1
+    assert len(fake.calls[ProblemsAndConcepts]) == 1 and len(fake.calls[Plan]) == 1
 
 
 def test_plan_breaking_the_sequencing_rules_is_retried(started, data_dir):
@@ -203,7 +203,7 @@ def test_stage_failing_every_attempt_fails_the_lesson(started, data_dir):
     client, create, _ = started
     lesson_id = create().json()["id"]
     bad = {"concepts": [], "problems": []}
-    fake = FakeModel(happy_script({Extraction: [bad, bad, bad]}))
+    fake = FakeModel(happy_script({ProblemsAndConcepts: [bad, bad, bad]}))
     run(data_dir, lesson_id, fake)
     status = lesson_status(client, lesson_id)
     assert status["status"] == "failed"
@@ -225,7 +225,7 @@ def test_model_error_fails_the_lesson_without_retrying(started, data_dir):
 def test_unexpected_errors_still_fail_the_lesson(started, data_dir):
     client, create, _ = started
     lesson_id = create().json()["id"]
-    fake = FakeModel(happy_script({Extraction: [RuntimeError("boom")]}))
+    fake = FakeModel(happy_script({ProblemsAndConcepts: [RuntimeError("boom")]}))
     run(data_dir, lesson_id, fake)
     assert lesson_status(client, lesson_id)["error"] == "Unexpected error: boom"
 

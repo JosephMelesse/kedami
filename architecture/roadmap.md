@@ -19,5 +19,5 @@ Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the s
 - **Similar-problem generation:** replace or supplement problems whose stored answer is unverified.
 - **Per-page re-transcribe:** a page review screen with a control to re-transcribe a single page.
 - **Light theme:** same token names, same accent and feedback hues, darkened to reach at least 4.5:1 contrast on white.
-- **CS/SWE lessons:** a code block type, a tests answer kind, and sandboxed code execution.
+- **Checked code for CS lessons:** run solutions to LeetCode problems instead of marking them done, either locally (a sandboxed Python runner with a test harness for LeetCode's types, design problems, and special judges) or through LeetCode's Run and Submit. Computer science lessons currently ask the student to solve each problem on LeetCode and mark it done.
 - **Packaging and distribution:** bundling the Python server, plus key handling for other users.

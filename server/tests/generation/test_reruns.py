@@ -5,7 +5,7 @@ import pytest
 from kedami_server import db, library
 from kedami_server.generation import pipeline
 from kedami_server.generation.schemas import (
-    Extraction,
+    ProblemsAndConcepts,
     HintDraft,
     HintJudgements,
     Plan,
@@ -108,7 +108,7 @@ def test_stage_one_routes_uploaded_pdfs_and_images(started, data_dir):
     assert [(p["file"], p["page"], p["route"]) for p in pages] == [
         ("ps.pdf", 1, "keep"), ("ps.pdf", 2, "transcribe"), ("notes.png", 1, "transcribe"),
     ]
-    assert LONG in fake.calls[Extraction][0]["prompt"][0]["text"]
+    assert LONG in fake.calls[ProblemsAndConcepts][0]["prompt"][0]["text"]
 
 
 def test_problem_set_with_no_readable_text_fails(started, data_dir):
@@ -180,7 +180,7 @@ def test_rerun_from_stage_four_reuses_earlier_outputs(generated, data_dir):
     extraction = (data_dir / "work" / lesson_id / "extraction.json").read_text()
     fake = FakeModel(happy_script())
     run(data_dir, lesson_id, fake, start_stage=4)
-    assert Extraction not in fake.calls and Plan not in fake.calls
+    assert ProblemsAndConcepts not in fake.calls and Plan not in fake.calls
     assert len(fake.calls[SectionDraft]) == 2
     assert (data_dir / "work" / lesson_id / "extraction.json").read_text() == extraction
     status = lesson_status(client, lesson_id)
@@ -192,7 +192,7 @@ def test_rerun_from_stage_two_redoes_everything_after_it(generated, data_dir):
     client, lesson_id, _ = generated
     fake = FakeModel(happy_script())
     run(data_dir, lesson_id, fake, start_stage=2)
-    assert len(fake.calls[Extraction]) == 1 and len(fake.calls[Plan]) == 1
+    assert len(fake.calls[ProblemsAndConcepts]) == 1 and len(fake.calls[Plan]) == 1
     assert revision(data_dir, lesson_id) == 2
 
 

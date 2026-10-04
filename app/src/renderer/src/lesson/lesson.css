@@ -375,3 +375,42 @@ textarea.text-input {
   border: 0;
   background: transparent;
 }
+
+/* Code: neutral tokens only, so syntax colors never read as feedback. */
+
+.md code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9em;
+  /* Show code as typed: no ligatures turning != or -> into symbols Python doesn't have. */
+  font-variant-ligatures: none;
+}
+
+.md pre {
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  overflow-x: auto;
+  line-height: 1.5;
+}
+
+.hljs-keyword,
+.hljs-built_in,
+.hljs-literal {
+  font-weight: 500;
+}
+
+.hljs-string,
+.hljs-comment,
+.hljs-meta {
+  color: var(--text-muted);
+}
+
+.hljs-comment {
+  font-style: italic;
+}
+
+.external {
+  justify-content: space-between;
+}

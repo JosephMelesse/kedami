@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+from .generation.leetcode import parse_problem_list
 from .generation.sources import MAX_PAGES, SourceError, kind_of, page_count, safe_filename
 
 ROLES = ("problem_set", "reference")
@@ -38,6 +39,14 @@ def check_uploads(uploads: list[Upload]) -> None:
     pages = sum(page_count(u.name, u.data) for u in uploads)
     if pages > MAX_PAGES:
         raise SourceError(f"These files have {pages} pages; a lesson can use at most {MAX_PAGES}.")
+
+
+def check_problem_lists(uploads: list[Upload]) -> None:
+    """Read a computer science lesson's problem lists now when they are text, so a bad line fails at once.
+    Lists in PDFs or images are read after stage 1 transcribes them."""
+    for upload in uploads:
+        if upload.role == "problem_set" and kind_of(upload.name) == "text":
+            parse_problem_list(upload.data.decode("utf-8"))
 
 
 def save_uploads(folder: Path, uploads: list[Upload]) -> list[SavedFile]:

@@ -50,3 +50,4 @@
 - Each section's results, with both answers, are saved to `work/{lesson_id}/verification-{n}.json`.
 - If not, it shows an "Unverified answer" label. For problem parts, mark done is the way past it.
 - `self_check` answers are not verified.
+- `external` answers (LeetCode problems in computer science lessons) are not checked or verified, and show no "Unverified answer" label. Mark done is the only way to finish them.

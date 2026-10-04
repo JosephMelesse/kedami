@@ -1,6 +1,6 @@
 # Kedami
 
-Kedami is a local-first desktop app that turns course material into one interactive lesson, sequenced so that finishing the lesson means the problem set is done. The MVP covers math and physics for a single user.
+Kedami is a local-first desktop app that turns course material into one interactive lesson, sequenced so that finishing the lesson means the problem set is done. The MVP covers math, physics, and computer science (data structures and algorithms) for a single user.
 
 ## Read first
 

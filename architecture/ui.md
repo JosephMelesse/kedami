@@ -30,7 +30,8 @@ Dark is the only theme in the MVP. All colors come from these tokens so a light 
 
 ## Consistency
 
-- Inter and KaTeX fonts are bundled with the app.
+- Inter, KaTeX, and JetBrains Mono (for code, with ligatures off so code shows as typed) fonts are bundled with the app.
+- Python code blocks are highlighted with neutral tokens only: keywords in medium weight, strings and comments in `--text-muted` (comments in italic), on `--surface-raised`.
 - Plots, diagrams, and simulations take their colors from the tokens.
 - The app icon is ፩ (U+1369, Ethiopic digit one) in `--accent` on a `--bg` rounded square, rendered from Noto Sans Ethiopic Medium to `app/resources/icon.png`. The same glyph, as an inline SVG outline in `--accent`, sits before "Kedami" in the app header.
 

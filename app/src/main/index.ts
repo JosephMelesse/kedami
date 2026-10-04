@@ -1,6 +1,7 @@
-import { BrowserWindow, app, dialog, ipcMain, session } from 'electron'
+import { BrowserWindow, app, dialog, ipcMain, session, shell } from 'electron'
 import { join, resolve } from 'node:path'
 import type { ServerConnection } from '../preload/api'
+import { leetcodeProblemUrl } from './links'
 import { isAllowedRequest } from './requests'
 import { type ServerHandle, startServer } from './server'
 
@@ -57,6 +58,12 @@ async function launch(): Promise<void> {
   }
   const connection: ServerConnection = { baseUrl: `http://127.0.0.1:${server.port}`, token: server.token }
   ipcMain.handle('kedami:server-connection', () => connection)
+  // The renderer can only ask for a LeetCode problem by slug; main builds and checks the URL.
+  ipcMain.handle('kedami:open-leetcode', async (_event, slug: unknown) => {
+    const url = leetcodeProblemUrl(slug)
+    if (!url) throw new Error('Not a LeetCode problem.')
+    await shell.openExternal(url)
+  })
   createWindow()
 }
 

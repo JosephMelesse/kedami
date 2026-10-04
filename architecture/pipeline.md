@@ -42,6 +42,7 @@ Stages 1 to 4 run as a background job on the server. The renderer polls lesson s
 ## Stage 2: extraction
 
 - Every problem in the problem set is captured with its source reference (for example, "PS3 #4") and its parts.
+- For a computer science lesson, the server parses the LeetCode problem list itself and the model only maps problems to concepts. See `lesson-format.md`.
 - Concepts are drawn from the reference material and linked to the problems that need them.
 
 ## Stage 3: sequencing rules

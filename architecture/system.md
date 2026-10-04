@@ -53,5 +53,6 @@ Anthropic is the only provider.
 - The only outbound traffic is to the Anthropic API. Fonts and the alarm sound are bundled.
 - Model-written code runs only inside a sandboxed frame with no network, no Node access, and no access to app data.
 - Electron main cancels any renderer request that isn't to a local file or to `127.0.0.1` or `localhost`, frames included, as a backstop to the CSPs.
+- The one link that leaves the app is a LeetCode problem: the renderer asks main to open `https://leetcode.com/problems/{slug}/`, main checks the slug, and the student's default browser opens it. The app itself sends nothing to LeetCode.
 - Diagram SVG is sanitized with DOMPurify before rendering.
 - All expression parsing uses a restricted parser with whitelisted names, for both model output and user input. SymPy's default string parsing evaluates code and must not be used directly.

@@ -10,7 +10,7 @@ from typing import Annotated, Literal
 from pydantic import Field, PrivateAttr, TypeAdapter, ValidationError, model_validator
 
 from ..ids import slugify
-from ..lesson import MAX_HINTS, Answer, Model, PlotFunction, PlotParameter, Range
+from ..lesson import MAX_HINTS, Answer, ExternalAnswer, Model, PlotFunction, PlotParameter, Range
 
 # Stage 1: ingestion
 
@@ -49,12 +49,14 @@ class ExtractedProblem(Model):
     concepts: list[str] = Field(description="IDs of the concepts a student needs to solve this problem.")
 
 
-class Extraction(Model):
+class ProblemsAndConcepts(Model):
+    """What the extraction call returns for a math or physics lesson."""
+
     concepts: list[Concept]
     problems: Annotated[list[ExtractedProblem], Field(min_length=1)]
 
     @model_validator(mode="after")
-    def references_are_consistent(self) -> "Extraction":
+    def references_are_consistent(self) -> "ProblemsAndConcepts":
         concept_ids = [c.id for c in self.concepts]
         _require_unique(concept_ids, "concept ids")
         _require_unique([slugify(p.source_ref) for p in self.problems], "problem source references")
@@ -67,6 +69,43 @@ class Extraction(Model):
 
     def problem(self, problem_id: str) -> ExtractedProblem:
         return next(p for p in self.problems if slugify(p.source_ref) == problem_id)
+
+
+class Extraction(ProblemsAndConcepts):
+    """The stage 2 output saved to disk and used by later stages."""
+
+    # Problems solved on another site, keyed by problem ID. The server sets these for
+    # computer science lessons; the model never writes them.
+    externals: dict[str, ExternalAnswer] = {}
+
+    @model_validator(mode="after")
+    def externals_name_problems(self) -> "Extraction":
+        unknown = set(self.externals) - {slugify(p.source_ref) for p in self.problems}
+        if unknown:
+            raise ValueError(f"external answers for unknown problems: {', '.join(sorted(unknown))}")
+        return self
+
+
+class ProblemConcepts(Model):
+    number: int = Field(description="The LeetCode problem number exactly as given.")
+    concepts: list[str] = Field(description="IDs of the concepts a student needs to solve this problem.")
+
+
+class ConceptMap(Model):
+    """What the extraction call returns for a computer science lesson. The server lists the problems."""
+
+    concepts: list[Concept]
+    problems: list[ProblemConcepts]
+
+    @model_validator(mode="after")
+    def references_are_consistent(self) -> "ConceptMap":
+        concept_ids = [c.id for c in self.concepts]
+        _require_unique(concept_ids, "concept ids")
+        for problem in self.problems:
+            unknown = set(problem.concepts) - set(concept_ids)
+            if unknown:
+                raise ValueError(f"problem {problem.number} needs unknown concepts: {', '.join(sorted(unknown))}")
+        return self
 
 
 def _require_unique(values: list[str], what: str) -> None:

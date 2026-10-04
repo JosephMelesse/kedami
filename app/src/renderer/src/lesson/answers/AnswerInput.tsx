@@ -1,6 +1,6 @@
 import { type FormEvent, useId, useState } from 'react'
 import { Markdown } from '../Markdown'
-import type { Answer, ChoiceAnswer, MultiChoiceAnswer, SelfCheckAnswer } from '../types'
+import type { Answer, ChoiceAnswer, ExternalAnswer, MultiChoiceAnswer, SelfCheckAnswer } from '../types'
 
 interface InputProps<A> {
   answer: A
@@ -24,7 +24,27 @@ export function AnswerInput(props: InputProps<Answer>) {
       return <ChoiceInput {...props} answer={answer} />
     case 'multi_choice':
       return <MultiChoiceInput {...props} answer={answer} />
+    case 'external':
+      return <ExternalProblem answer={answer} />
   }
+}
+
+/** A LeetCode problem: solved in the browser, then marked done here. Nothing to type. */
+function ExternalProblem({ answer }: { answer: ExternalAnswer }) {
+  const [error, setError] = useState<string | null>(null)
+  return (
+    <div className="answer-actions external">
+      <span className="muted">Solve it on LeetCode, then mark it done.</span>
+      <button
+        type="button"
+        className="button button-primary"
+        onClick={() => window.kedami.openLeetCode(answer.slug).catch(() => setError('Could not open the browser.'))}
+      >
+        Open on LeetCode
+      </button>
+      {error && <span className="answer-error">{error}</span>}
+    </div>
+  )
 }
 
 /** Tracks an in-flight submission so the action can't be sent twice. */

@@ -33,7 +33,8 @@ class Result:
 
 
 def verifiable(section: Section) -> list[Target]:
-    return [t for t in targets(section) if t.answer.kind != "self_check"]
+    """Self checks are the student's own judgment, and external problems are solved elsewhere."""
+    return [t for t in targets(section) if t.answer.kind not in ("self_check", "external")]
 
 
 def answer_format(answer: Answer) -> dict:

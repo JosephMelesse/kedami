@@ -25,7 +25,8 @@ from .hints import add_hints
 from .ingest import Material, Normalized, ingest
 from .plan import SectionPlan, place_problems
 from .retry import GenerationError, retrying
-from .schemas import Extraction, Plan, SectionDraft
+from .leetcode import ProblemListError, build_extraction, parse_problem_list
+from .schemas import ConceptMap, Extraction, Plan, ProblemsAndConcepts, SectionDraft
 from .verify import verify_section
 
 log = logging.getLogger(__name__)
@@ -128,15 +129,7 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
 
     if start_stage <= 2:
         _set_stage(data_dir, lesson_id, 2)
-        extraction = retrying(
-            "Extraction",
-            lambda feedback: call(
-                "generate",
-                system=prompts.EXTRACT_SYSTEM,
-                prompt=context + [prompts.extract_request(feedback)],
-                output=Extraction,
-            ),
-        )
+        extraction = _extract(subject, normalized, context, call)
         _write(work / "extraction.json", extraction)
     else:
         extraction = _load(work / "extraction.json", Extraction)
@@ -159,17 +152,18 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
         outline = place_problems(plan, extraction)
 
     _set_stage(data_dir, lesson_id, 4)
+    section_system = prompts.SECTION_SYSTEM + (prompts.CS_SECTION_RULES if subject == "computer_science" else "")
     sections: list[Section] = []
     for number, section_plan in enumerate(outline, start=1):
 
         def section_attempt(feedback: str | None, section_plan: SectionPlan = section_plan) -> Section:
             draft = call(
                 "generate",
-                system=prompts.SECTION_SYSTEM,
+                system=section_system,
                 prompt=context + [prompts.section_request(section_plan, outline, feedback)],
                 output=SectionDraft,
             )
-            return assemble_section(section_plan, draft)
+            return assemble_section(section_plan, draft, extraction.externals)
 
         section = retrying(f"Section {number} ({section_plan.title})", section_attempt)
         section = retrying(f"Hints for section {number}", lambda _feedback, s=section: add_hints(s, context, call))
@@ -193,6 +187,38 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
             progress.carry_over(conn, lesson_id, lesson)
             simulation_state.clear(conn, lesson_id)
         library.set_ready(conn, lesson_id, rerun=rerun)
+
+
+def _extract(subject: str, normalized: Normalized, context: list[dict], call: Call) -> Extraction:
+    if subject != "computer_science":
+        draft = retrying(
+            "Extraction",
+            lambda feedback: call(
+                "generate",
+                system=prompts.EXTRACT_SYSTEM,
+                prompt=context + [prompts.extract_request(feedback)],
+                output=ProblemsAndConcepts,
+            ),
+        )
+        return Extraction.model_validate(draft.model_dump())
+
+    # The server lists the problems; the model only says which concepts each needs.
+    try:
+        listed = parse_problem_list(normalized.problem_set)
+    except ProblemListError as error:
+        raise GenerationError(str(error)) from error
+    return retrying(
+        "Extraction",
+        lambda feedback: build_extraction(
+            listed,
+            call(
+                "generate",
+                system=prompts.CS_EXTRACT_SYSTEM,
+                prompt=context + [prompts.cs_extract_request(listed, feedback)],
+                output=ConceptMap,
+            ),
+        ),
+    )
 
 
 def _clear_from(work: Path, stage: int) -> None:

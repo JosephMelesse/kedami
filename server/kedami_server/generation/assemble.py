@@ -8,7 +8,7 @@ which sends the section back to the model with the message.
 from pydantic import ValidationError
 
 from ..ids import slugify
-from ..lesson import Lesson, Part, ProblemBlock, Section
+from ..lesson import ExternalAnswer, Lesson, Part, ProblemBlock, Section
 from .plan import SectionPlan
 from .schemas import ProblemDraft, SectionDraft, SimulationDraft
 
@@ -17,7 +17,9 @@ class SectionError(ValueError):
     pass
 
 
-def assemble_section(plan: SectionPlan, draft: SectionDraft) -> Section:
+def assemble_section(plan: SectionPlan, draft: SectionDraft, externals: dict[str, ExternalAnswer] | None = None) -> Section:
+    """Build a section. Problems in `externals` are solved elsewhere, so their parts get that answer."""
+    externals = externals or {}
     targets = {slugify(p.source_ref): p for p in plan.problems}
     typed = [block.typed for block in draft.blocks]
     placed = [_problem_id(block) for block in typed if isinstance(block, ProblemDraft)]
@@ -30,7 +32,8 @@ def assemble_section(plan: SectionPlan, draft: SectionDraft) -> Section:
     blocks = []
     for index, block in enumerate(typed, start=1):
         if isinstance(block, ProblemDraft):
-            blocks.append(_problem(block, targets[_problem_id(block)]))
+            problem_id = _problem_id(block)
+            blocks.append(_problem(block, targets[problem_id], externals.get(problem_id)))
         elif isinstance(block, SimulationDraft):
             # The code is written on request, after the lesson is ready.
             blocks.append(
@@ -70,7 +73,11 @@ def _check_problems(placed: list[str], targets: dict) -> None:
         raise SectionError(f"these problems are missing from the section: {', '.join(missing)}")
 
 
-def _problem(draft: ProblemDraft, extracted) -> dict:
+def _problem(draft: ProblemDraft, extracted, external: ExternalAnswer | None = None) -> dict:
+    if external is not None:
+        # Solved on another site: every part takes that answer, whatever the draft gave.
+        answers = {slugify(part.label): external for part in extracted.parts}
+        return _problem_block(extracted, answers)
     answers = {}
     for part in draft.parts:
         try:
@@ -83,6 +90,10 @@ def _problem(draft: ProblemDraft, extracted) -> dict:
         wanted = ", ".join(part.label for part in extracted.parts)
         raise SectionError(f"{extracted.source_ref} needs one answer for each part ({wanted}); got: {given}")
 
+    return _problem_block(extracted, answers)
+
+
+def _problem_block(extracted, answers: dict) -> dict:
     block = ProblemBlock(
         type="problem",
         source_ref=extracted.source_ref,

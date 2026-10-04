@@ -99,6 +99,25 @@ def extract_request(feedback: str | None = None) -> dict:
     return _with_feedback("Extract the problems and concepts from the problem set above.", feedback)
 
 
+CS_EXTRACT_SYSTEM = f"""You map the problems of a data structures and algorithms assignment to the concepts a lesson
+must teach. The problems are LeetCode problems, given by number and title.
+
+For each listed problem, give its number and the IDs of the concepts a student needs to solve it, such as hash maps,
+two pointers, or binary search on the answer. Draw the concepts from the reference material when it is given,
+otherwise from what the problems require. Keep each concept specific enough to teach in a few paragraphs, list each
+once, and cover every listed problem exactly once using the numbers given.
+
+{MARKDOWN}"""
+
+
+def cs_extract_request(problems: list, feedback: str | None = None) -> dict:
+    data = [{"number": p.number, "title": p.title} for p in problems]
+    return _with_feedback(
+        f"Map these LeetCode problems to the concepts they need:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}",
+        feedback,
+    )
+
+
 # Stage 3: plan
 
 PLAN_SYSTEM = """You plan the order of a lesson that teaches the concepts a homework assignment needs.
@@ -168,6 +187,19 @@ def section_request(section: SectionPlan, outline: list[SectionPlan], feedback: 
         },
     }
     return _with_feedback(f"Write this section:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}", feedback)
+
+
+# Added to the section prompt for computer science lessons.
+CS_SECTION_RULES = """
+
+For this computer science lesson:
+- The homework problems are LeetCode problems the student solves on LeetCode. Place each like any homework problem,
+  with `parts` as an empty list. Never solve, outline, or give code for an assigned LeetCode problem anywhere in the
+  section, including worked examples.
+- Write all code in Python, in fenced ```python blocks, short and runnable.
+- Use checkpoints as comprehension checks: `choice` or `multi_choice` for time and space complexity and for which
+  approach fits, `numeric` for what a snippet prints or how many times a loop runs, and `self_check` with a rubric
+  for explaining why an approach works."""
 
 
 # Hints

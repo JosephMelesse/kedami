@@ -17,7 +17,7 @@ from .model import ModelError, call_model
 from .generation import pipeline
 from .generation.retry import GenerationError
 from .generation.simulations import new_code
-from .lesson import Lesson, PlotBlock, SimulationBlock
+from .lesson import Lesson, PlotBlock, SimulationBlock, Subject
 from .generation.sources import SourceError
 from . import library
 from .library import (
@@ -34,7 +34,8 @@ from .library import (
 from .plot import sample_points
 from .storage import delete_lesson_files, load_lesson
 from .targets import Target, find_target
-from .uploads import Upload, check_uploads, save_uploads
+from .generation.leetcode import ProblemListError
+from .uploads import Upload, check_problem_lists, check_uploads, save_uploads
 
 
 class Body(BaseModel):
@@ -155,7 +156,7 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
 
     @app.post("/lessons", status_code=201)
     def new_lesson(
-        subject: Annotated[Literal["math", "physics"], Form()],
+        subject: Annotated[Subject, Form()],
         files: Annotated[list[UploadFile], File()],
         roles: Annotated[list[str], Form()],
         force: Annotated[list[bool], Form()],
@@ -170,7 +171,9 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
                     raise HTTPException(422, "That folder no longer exists.")
         try:
             check_uploads(uploads)
-        except SourceError as error:
+            if subject == "computer_science":
+                check_problem_lists(uploads)
+        except (SourceError, ProblemListError) as error:
             raise HTTPException(422, str(error)) from error
 
         lesson_id = str(uuid.uuid4())

@@ -7,11 +7,12 @@ Kedami is a desktop app that takes course material for a week, module, or exam a
 **In scope for MVP**
 - Single user, running from source on one machine
 - Math and physics
+- Computer science (data structures and algorithms): lessons with comprehension checks, where each assigned LeetCode problem is solved on LeetCode and marked done in Kedami
 - Local storage; outbound traffic goes only to the Anthropic API
 - Dark theme
 
 **Out of scope for MVP**
-- CS/SWE lessons and code execution
+- Running or checking code in Kedami, and any LeetCode integration beyond opening a problem in the browser
 - Accounts, sync, packaging, distribution
 
 See `roadmap.md` for the backlog.

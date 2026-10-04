@@ -6,6 +6,8 @@ export interface ServerConnection {
 
 export interface KedamiApi {
   serverConnection(): Promise<ServerConnection>
+  /** Open a LeetCode problem in the default browser. */
+  openLeetCode(slug: string): Promise<void>
 }
 
 declare global {

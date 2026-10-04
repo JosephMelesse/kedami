@@ -89,10 +89,26 @@ class MultiChoiceAnswer(Model):
         return self
 
 
+class ExternalAnswer(Model):
+    """A problem solved elsewhere and marked done here. Never checked or verified."""
+
+    kind: Literal["external"]
+    platform: Literal["leetcode"]
+    number: Annotated[int, Field(ge=1)]
+    title: Annotated[str, StringConstraints(min_length=1, max_length=200)]
+    slug: Id
+
+    @property
+    def url(self) -> str:
+        return f"https://leetcode.com/problems/{self.slug}/"
+
+
 Answer = Annotated[
-    NumericAnswer | ExpressionAnswer | SelfCheckAnswer | ChoiceAnswer | MultiChoiceAnswer,
+    NumericAnswer | ExpressionAnswer | SelfCheckAnswer | ChoiceAnswer | MultiChoiceAnswer | ExternalAnswer,
     Field(discriminator="kind"),
 ]
+
+Subject = Literal["math", "physics", "computer_science"]
 
 
 # Blocks
@@ -189,6 +205,12 @@ class CheckpointBlock(Model):
     hints: Hints = []
     verified: bool = False
 
+    @model_validator(mode="after")
+    def answered_here(self) -> "CheckpointBlock":
+        if isinstance(self.answer, ExternalAnswer):
+            raise ValueError("a checkpoint is answered in the lesson, not on an external site")
+        return self
+
 
 def _derive_id(data: Any, source_field: str) -> Any:
     """Fill a missing id from `source_field`, or reject an id that doesn't match it."""
@@ -262,7 +284,7 @@ class Lesson(Model):
     schema_version: Literal[1]
     id: Id
     title: str
-    subject: Literal["math", "physics"]
+    subject: Subject
     source_files: list[str]
     sections: Annotated[list[Section], Field(min_length=1)]
 

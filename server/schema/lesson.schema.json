@@ -22,6 +22,7 @@
             "mapping": {
               "choice": "#/$defs/ChoiceAnswer",
               "expression": "#/$defs/ExpressionAnswer",
+              "external": "#/$defs/ExternalAnswer",
               "multi_choice": "#/$defs/MultiChoiceAnswer",
               "numeric": "#/$defs/NumericAnswer",
               "self_check": "#/$defs/SelfCheckAnswer"
@@ -43,6 +44,9 @@
             },
             {
               "$ref": "#/$defs/MultiChoiceAnswer"
+            },
+            {
+              "$ref": "#/$defs/ExternalAnswer"
             }
           ],
           "title": "Answer"
@@ -179,6 +183,47 @@
       "title": "ExpressionAnswer",
       "type": "object"
     },
+    "ExternalAnswer": {
+      "additionalProperties": false,
+      "description": "A problem solved elsewhere and marked done here. Never checked or verified.",
+      "properties": {
+        "kind": {
+          "const": "external",
+          "title": "Kind",
+          "type": "string"
+        },
+        "platform": {
+          "const": "leetcode",
+          "title": "Platform",
+          "type": "string"
+        },
+        "number": {
+          "minimum": 1,
+          "title": "Number",
+          "type": "integer"
+        },
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "slug": {
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "title": "Slug",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "platform",
+        "number",
+        "title",
+        "slug"
+      ],
+      "title": "ExternalAnswer",
+      "type": "object"
+    },
     "MultiChoiceAnswer": {
       "additionalProperties": false,
       "properties": {
@@ -273,6 +318,7 @@
             "mapping": {
               "choice": "#/$defs/ChoiceAnswer",
               "expression": "#/$defs/ExpressionAnswer",
+              "external": "#/$defs/ExternalAnswer",
               "multi_choice": "#/$defs/MultiChoiceAnswer",
               "numeric": "#/$defs/NumericAnswer",
               "self_check": "#/$defs/SelfCheckAnswer"
@@ -294,6 +340,9 @@
             },
             {
               "$ref": "#/$defs/MultiChoiceAnswer"
+            },
+            {
+              "$ref": "#/$defs/ExternalAnswer"
             }
           ],
           "title": "Answer"
@@ -673,7 +722,8 @@
     "subject": {
       "enum": [
         "math",
-        "physics"
+        "physics",
+        "computer_science"
       ],
       "title": "Subject",
       "type": "string"

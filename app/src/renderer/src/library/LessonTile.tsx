@@ -1,14 +1,14 @@
 import type { LessonStatus, LessonSummary } from '../api'
 import { ProgressBar } from '../ProgressBar'
+import { SUBJECT_LABELS } from '../subjects'
 
-const SUBJECTS: Record<LessonSummary['subject'], string> = { math: 'Math', physics: 'Physics' }
 const STATUS_LABELS: Record<LessonStatus, string> = { generating: 'Generating', ready: 'Ready', failed: 'Generation failed' }
 
 export function LessonTile({ lesson, onOpen }: { lesson: LessonSummary; onOpen: () => void }) {
   const ready = lesson.status === 'ready'
   return (
     <button type="button" className="tile" onClick={onOpen}>
-      <span className="eyebrow">{SUBJECTS[lesson.subject]}</span>
+      <span className="eyebrow">{SUBJECT_LABELS[lesson.subject]}</span>
       <span className="tile-title">{lesson.title}</span>
       {ready ? (
         <span className="tile-progress">
