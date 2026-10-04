@@ -52,9 +52,10 @@ The app header is visible on every screen and holds the music player and the Pom
 A simple study and rest timer. It runs entirely in the renderer and has no server involvement.
 
 - **Inputs:** study minutes and rest minutes, whole numbers. Defaults are 25 and 5.
-- **Controls:** start, pause, reset.
-- **Display:** the current phase ("Study" or "Rest") and the remaining time as minutes and seconds.
-- **Cycle:** when a phase ends, the alarm plays and the other phase starts automatically. This repeats until paused or reset.
+- **Reset:** shows the two inputs and Start.
+- **Running:** shows only the current phase ("Study" or "Rest") and the remaining time as minutes and seconds. Clicking them pauses.
+- **Paused:** shows the phase and the remaining time, muted, with Stop. Clicking them again resumes; Stop resets the timer to its inputs.
+- **Cycle:** when a phase ends, the alarm plays and the other phase starts automatically. This repeats until paused or stopped.
 - **Alarm:** a short, conventional alarm jingle from a bundled audio file, played once at the end of each phase.
 - **Accuracy:** remaining time is computed from the phase's end timestamp, so it stays correct when the window is in the background.
 - **Persistence:** the two durations are saved locally. A running timer does not survive an app restart.
@@ -62,7 +63,7 @@ A simple study and rest timer. It runs entirely in the renderer and has no serve
 - If the window sleeps through several phase ends, the timer lands in the right phase and the alarm plays once.
 - The window does not throttle background timers, so the alarm is on time when the app is hidden.
 - The alarm is `app/src/renderer/src/assets/alarm.wav`, a short ascending chime synthesized for this project.
-- In a window 900px wide or less, the timer collapses to its remaining time. Clicking it opens the inputs and controls in a panel below the header; Escape or a click outside closes it.
+- In a window 720px wide or less, the reset timer collapses to its study time. Clicking it opens the inputs and Start in a panel below the header; Escape or a click outside closes it. A running or paused timer is small enough not to collapse.
 
 ## Music player
 

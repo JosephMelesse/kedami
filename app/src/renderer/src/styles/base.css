@@ -236,6 +236,9 @@ input {
 .pomodoro {
   position: relative;
   justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 14px;
 }
 
@@ -263,7 +266,12 @@ input {
 }
 
 /* Too narrow for the whole timer: show the remaining time, with the controls in a panel below. */
-@media (max-width: 900px) {
+@media (max-width: 720px) {
+  .app-header {
+    gap: 8px;
+    padding: 0 16px;
+  }
+
   .pomodoro-toggle {
     display: block;
   }
@@ -281,10 +289,6 @@ input {
 
   .pomodoro-controls.open {
     display: flex;
-  }
-
-  .pomodoro-controls .pomodoro-time {
-    display: none;
   }
 }
 
@@ -310,6 +314,26 @@ input {
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+
+.pomodoro-counter.paused .pomodoro-time {
+  color: var(--text-muted);
+}
+
+/* The started timer: just the phase and the time, as one quiet button that pauses or resumes it. */
+.pomodoro-counter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: none;
+  cursor: pointer;
+}
+
+.pomodoro-counter:hover {
+  border-color: var(--border);
 }
 
 .dialog-form {

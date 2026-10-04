@@ -66,8 +66,41 @@ export function PomodoroTimer() {
     saveDurations(next)
   }
 
-  const running = state.status === 'running'
+  const stamp = () => {
+    const at = Date.now()
+    setNow(at)
+    return at
+  }
   const time = formatRemaining(remaining(state, now, durations))
+  const phase = PHASE_LABELS[phaseOf(state)]
+
+  // Once started, only the phase and the remaining time show. Clicking them pauses or resumes;
+  // a paused timer also offers Stop.
+  if (state.status !== 'idle') {
+    const running = state.status === 'running'
+    return (
+      <div className="pomodoro">
+        <button
+          type="button"
+          className={running ? 'pomodoro-counter' : 'pomodoro-counter paused'}
+          aria-label={`${running ? 'Pause' : 'Resume'} timer, ${phase} ${time}`}
+          onClick={() => setState(running ? pause(state, stamp()) : start(state, stamp(), durations))}
+        >
+          <span className="pomodoro-phase">{phase}</span>
+          <span className="pomodoro-time" role="timer">
+            {time}
+          </span>
+        </button>
+        {!running && (
+          <button type="button" className="button" onClick={() => setState(IDLE)}>
+            Stop
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  // Reset. In a narrow window the inputs collapse behind a button showing the study time.
   return (
     <div className="pomodoro" ref={root}>
       <button
@@ -80,30 +113,17 @@ export function PomodoroTimer() {
         {time}
       </button>
       <div className={open ? 'pomodoro-controls open' : 'pomodoro-controls'}>
-        {state.status === 'idle' ? (
-          <>
-            <MinutesInput label="Study" value={durations.study} onChange={(study) => update({ study })} />
-            <MinutesInput label="Rest" value={durations.rest} onChange={(rest) => update({ rest })} />
-          </>
-        ) : (
-          <span className="pomodoro-phase">{PHASE_LABELS[phaseOf(state)]}</span>
-        )}
-        <span className="pomodoro-time" role="timer">
-          {time}
-        </span>
+        <MinutesInput label="Study" value={durations.study} onChange={(study) => update({ study })} />
+        <MinutesInput label="Rest" value={durations.rest} onChange={(rest) => update({ rest })} />
         <button
           type="button"
           className="button"
           onClick={() => {
-            const at = Date.now()
-            setNow(at)
-            setState(running ? pause(state, at) : start(state, at, durations))
+            setOpen(false)
+            setState(start(state, stamp(), durations))
           }}
         >
-          {running ? 'Pause' : 'Start'}
-        </button>
-        <button type="button" className="button" disabled={state.status === 'idle'} onClick={() => setState(IDLE)}>
-          Reset
+          Start
         </button>
       </div>
     </div>
