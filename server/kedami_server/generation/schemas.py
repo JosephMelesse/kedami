@@ -10,7 +10,7 @@ from typing import Annotated, Literal
 from pydantic import Field, PrivateAttr, TypeAdapter, ValidationError, field_validator, model_validator
 
 from ..ids import slugify
-from ..lesson import MAX_HINTS, Answer, ExternalAnswer, Model, PlotFunction, PlotParameter, Range
+from ..lesson import MAX_HINTS, Answer, ExternalAnswer, Model, PlainText, PlotFunction, PlotParameter, Range
 
 # Stage 1: ingestion
 
@@ -118,10 +118,10 @@ def _require_unique(values: list[str], what: str) -> None:
 
 
 class PlannedSection(Model):
-    title: str
-    goal: str = Field(description="One line: what the student can do after this section.")
+    title: PlainText
+    goal: PlainText = Field(description="One line: what the student can do after this section.")
     concepts: list[str] = Field(description="IDs of the concepts this section introduces, in teaching order.")
-    simulation: str | None = Field(
+    simulation: PlainText | None = Field(
         default=None,
         description="A one-line brief for an interactive simulation, only where one would teach something a static "
         "plot or diagram can't. Otherwise null.",
@@ -129,7 +129,7 @@ class PlannedSection(Model):
 
 
 class Plan(Model):
-    title: str = Field(description="A short title for the whole lesson.")
+    title: PlainText = Field(description="A short title for the whole lesson.")
     sections: Annotated[list[PlannedSection], Field(min_length=1)]
 
 

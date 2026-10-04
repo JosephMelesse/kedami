@@ -97,3 +97,4 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 - The server checks answers and samples points for static plots, so the renderer never parses SymPy.
 - For plots with parameters, the server sends an expression tree that the renderer evaluates with plain arithmetic and `Math` functions, never as code. Nodes are numbers, names, sums, products, powers, and the whitelisted one-argument functions.
 - The `verified` flag is set only by the server's verification pass, never by the model.
+- Titles, section goals, and simulation briefs are plain text, not Markdown. A model sometimes writes a character as a literal escape such as `\u0394`; the server decodes these in plain-text fields when it reads a plan or a lesson, so they show as the character (Δ). The lesson JSON on disk is left as written.

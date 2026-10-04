@@ -249,3 +249,60 @@ def test_plot_domains_must_be_ordered(lesson_data, field, bounds):
 def test_fixture_is_written_in_the_served_shape(lesson_data):
     """The renderer's tests read the fixture directly, so it must match what the server sends."""
     assert Lesson.model_validate(lesson_data).model_dump(mode="json") == lesson_data
+
+
+# Plain-text fields: literal \uXXXX escapes a model double-escaped are decoded on read
+
+
+@pytest.mark.parametrize(
+    "text, decoded",
+    [
+        ("Apply \\u0394U = Q - W", "Apply ΔU = Q - W"),
+        ("C_V, C_p and \\u03b3", "C_V, C_p and γ"),
+        ("\\u03B3 in upper case", "γ in upper case"),
+        ("\\ud83d\\ude00 a surrogate pair", "😀 a surrogate pair"),
+        ("Already ΔU", "Already ΔU"),
+        ("No escapes at all", "No escapes at all"),
+        # LaTeX commands that start with \u are not escapes.
+        ("\\underline{x} and \\uparrow", "\\underline{x} and \\uparrow"),
+        # Too short, a lone surrogate, and a control character are left as written.
+        ("\\u039 short", "\\u039 short"),
+        ("\\ud83d alone", "\\ud83d alone"),
+        ("\\u0000 null", "\\u0000 null"),
+    ],
+)
+def test_decode_escapes(text, decoded):
+    from kedami_server.lesson import decode_escapes
+
+    assert decode_escapes(text) == decoded
+
+
+def test_plain_text_fields_are_decoded_but_markdown_is_left_alone(lesson_data):
+    lesson_data["title"] = "Heat \\u0026 work"
+    section = lesson_data["sections"][0]
+    section["title"] = "The \\u0394U section"
+    section["goal"] = "Apply \\u0394U = Q - W"
+    section["blocks"][0]["body"] = "Markdown keeps \\u0394 as written."
+    section["blocks"].append(
+        {"type": "simulation", "id": "sim", "code": "", "caption": "Drag.", "brief": "Change \\u03b3 and watch."}
+    )
+    lesson = Lesson.model_validate(lesson_data)
+    first = lesson.sections[0]
+    assert (lesson.title, first.title, first.goal) == ("Heat & work", "The ΔU section", "Apply ΔU = Q - W")
+    assert lesson.find_block("sim").brief == "Change γ and watch."
+    assert first.blocks[0].body == "Markdown keeps \\u0394 as written."
+
+
+def test_new_plans_are_decoded():
+    from kedami_server.generation.schemas import Plan
+
+    plan = Plan.model_validate(
+        {
+            "title": "Thermo \\u0394",
+            "sections": [
+                {"title": "First law", "goal": "Find \\u0394U.", "concepts": ["first-law"], "simulation": "Vary \\u03b3."}
+            ],
+        }
+    )
+    section = plan.sections[0]
+    assert (plan.title, section.goal, section.simulation) == ("Thermo Δ", "Find ΔU.", "Vary γ.")

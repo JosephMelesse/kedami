@@ -3,9 +3,11 @@
 See architecture/lesson-format.md.
 """
 
+import re
 from typing import Annotated, Any, Literal
 
 from pydantic import (
+    AfterValidator,
     BaseModel,
     ConfigDict,
     Field,
@@ -27,6 +29,29 @@ Range = Annotated[
     tuple[float, float],
     WithJsonSchema({"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}),
 ]
+
+
+# A \uXXXX escape written out as text, or a surrogate pair of them.
+_ESCAPE = re.compile(r"\\u([dD][89abAB][0-9a-fA-F]{2})\\u([dD][c-fC-F][0-9a-fA-F]{2})|\\u([0-9a-fA-F]{4})")
+
+
+def decode_escapes(text: str) -> str:
+    """Turn literal \\uXXXX escapes, which a model sometimes writes instead of the character, into
+    the character. Lone surrogates and control characters are left as written."""
+
+    def character(match: re.Match) -> str:
+        if match.group(3):
+            code = int(match.group(3), 16)
+            return match.group(0) if code < 0x20 or 0xD800 <= code <= 0xDFFF else chr(code)
+        high, low = int(match.group(1), 16), int(match.group(2), 16)
+        return chr(0x10000 + ((high - 0xD800) << 10) + (low - 0xDC00))
+
+    return _ESCAPE.sub(character, text)
+
+
+# Titles, goals, and briefs: shown as plain text, so a stray escape would show as written.
+# Markdown and LaTeX fields are not decoded.
+PlainText = Annotated[str, AfterValidator(decode_escapes)]
 
 
 class Model(BaseModel):
@@ -194,7 +219,7 @@ class SimulationBlock(Model):
     code: str = ""
     caption: str
     # The plan's one-line brief, which the code is written from.
-    brief: str | None = None
+    brief: PlainText | None = None
 
 
 class CheckpointBlock(Model):
@@ -275,15 +300,15 @@ Block = Annotated[
 
 class Section(Model):
     id: Id
-    title: str
-    goal: str
+    title: PlainText
+    goal: PlainText
     blocks: list[Block]
 
 
 class Lesson(Model):
     schema_version: Literal[1]
     id: Id
-    title: str
+    title: PlainText
     subject: Subject
     source_files: list[str]
     sections: Annotated[list[Section], Field(min_length=1)]
