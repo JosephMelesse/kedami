@@ -228,11 +228,58 @@ input {
 }
 
 .pomodoro {
+  position: relative;
   justify-self: end;
+  font-size: 14px;
+}
+
+.pomodoro-controls {
   display: flex;
   align-items: center;
   gap: 16px;
-  font-size: 14px;
+}
+
+.pomodoro-toggle {
+  display: none;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: none;
+  font-size: 16px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.pomodoro-toggle:hover,
+.pomodoro-toggle[aria-expanded='true'] {
+  border-color: var(--border);
+}
+
+/* Too narrow for the whole timer: show the remaining time, with the controls in a panel below. */
+@media (max-width: 900px) {
+  .pomodoro-toggle {
+    display: block;
+  }
+
+  .pomodoro-controls {
+    display: none;
+    position: absolute;
+    top: calc(100% + 16px);
+    right: 0;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+  }
+
+  .pomodoro-controls.open {
+    display: flex;
+  }
+
+  .pomodoro-controls .pomodoro-time {
+    display: none;
+  }
 }
 
 .pomodoro-field {

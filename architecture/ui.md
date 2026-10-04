@@ -62,6 +62,7 @@ A simple study and rest timer. It runs entirely in the renderer and has no serve
 - If the window sleeps through several phase ends, the timer lands in the right phase and the alarm plays once.
 - The window does not throttle background timers, so the alarm is on time when the app is hidden.
 - The alarm is `app/src/renderer/src/assets/alarm.wav`, a short ascending chime synthesized for this project.
+- In a window 900px wide or less, the timer collapses to its remaining time. Clicking it opens the inputs and controls in a panel below the header; Escape or a click outside closes it.
 
 ## Music player
 

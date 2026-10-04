@@ -21,9 +21,27 @@ export function PomodoroTimer() {
   const [durations, setDurations] = useState<Durations>(loadDurations)
   const [state, setState] = useState<TimerState>(IDLE)
   const [now, setNow] = useState(() => Date.now())
+  // In a narrow window the controls collapse behind a button showing the remaining time.
+  const [open, setOpen] = useState(false)
+  const root = useRef<HTMLDivElement>(null)
   const alarm = useRef<HTMLAudioElement | null>(null)
   const current = useRef(state)
   current.current = state
+
+  useEffect(() => {
+    if (!open) return
+    const close = (event: Event) => {
+      if (event instanceof KeyboardEvent ? event.key === 'Escape' : !root.current?.contains(event.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', close)
+    document.addEventListener('keydown', close)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('keydown', close)
+    }
+  }, [open])
 
   useEffect(() => {
     if (state.status !== 'running') return
@@ -49,33 +67,45 @@ export function PomodoroTimer() {
   }
 
   const running = state.status === 'running'
+  const time = formatRemaining(remaining(state, now, durations))
   return (
-    <div className="pomodoro">
-      {state.status === 'idle' ? (
-        <>
-          <MinutesInput label="Study" value={durations.study} onChange={(study) => update({ study })} />
-          <MinutesInput label="Rest" value={durations.rest} onChange={(rest) => update({ rest })} />
-        </>
-      ) : (
-        <span className="pomodoro-phase">{PHASE_LABELS[phaseOf(state)]}</span>
-      )}
-      <span className="pomodoro-time" role="timer">
-        {formatRemaining(remaining(state, now, durations))}
-      </span>
+    <div className="pomodoro" ref={root}>
       <button
         type="button"
-        className="button"
-        onClick={() => {
-          const at = Date.now()
-          setNow(at)
-          setState(running ? pause(state, at) : start(state, at, durations))
-        }}
+        className="pomodoro-toggle"
+        aria-label={`Pomodoro timer, ${time}`}
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
       >
-        {running ? 'Pause' : 'Start'}
+        {time}
       </button>
-      <button type="button" className="button" disabled={state.status === 'idle'} onClick={() => setState(IDLE)}>
-        Reset
-      </button>
+      <div className={open ? 'pomodoro-controls open' : 'pomodoro-controls'}>
+        {state.status === 'idle' ? (
+          <>
+            <MinutesInput label="Study" value={durations.study} onChange={(study) => update({ study })} />
+            <MinutesInput label="Rest" value={durations.rest} onChange={(rest) => update({ rest })} />
+          </>
+        ) : (
+          <span className="pomodoro-phase">{PHASE_LABELS[phaseOf(state)]}</span>
+        )}
+        <span className="pomodoro-time" role="timer">
+          {time}
+        </span>
+        <button
+          type="button"
+          className="button"
+          onClick={() => {
+            const at = Date.now()
+            setNow(at)
+            setState(running ? pause(state, at) : start(state, at, durations))
+          }}
+        >
+          {running ? 'Pause' : 'Start'}
+        </button>
+        <button type="button" className="button" disabled={state.status === 'idle'} onClick={() => setState(IDLE)}>
+          Reset
+        </button>
+      </div>
     </div>
   )
 }
