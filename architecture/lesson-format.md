@@ -60,8 +60,21 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 
 - Generated with the lesson, ordered from gentle to specific, revealed one at a time.
 - Hard cap of 3 per part and per checkpoint.
-- There is no full-solution reveal for problems.
+- Hints never give a full solution. A worked solution for a problem part is shown only when the student asks for one; see Solutions.
 - Each hint passes two checks: the answer does not appear in it, and a small check judges that it doesn't give the answer away. A failing hint is regenerated once, then dropped.
+
+## Solutions
+
+- Every problem part in a math or physics lesson has a Show solution button. Lesson generation writes nothing for it, as with simulations: a separate call writes the solution the first time the student asks, and it is stored and shown from storage after that.
+- A confirmation popup comes first, stating that it shows the full solution. Viewing a solution doesn't complete the part; it still needs a correct answer or mark done.
+- Solutions are short: labels and math, no sentences.
+  - Math: the method in a few words (such as "Integration by parts"), then the working as LaTeX lines down to the final answer.
+  - Physics: Given (each known quantity with its value and unit), Required (each quantity asked for), then the solution, starting from the formula it uses and ending at the answer.
+- The whole solution shows at once. Each line of math is display math centered in the lesson column, and the last line boxes the final answer.
+- The call sees the course material and the whole problem, with the part to solve and the form its answer takes. It doesn't see the stored answer, hints, or lesson content.
+- The reply also gives its final answer in that form, which the server compares with the stored answer the way verification does. On a disagreement the call is repeated once with the stored answer shown; if they still disagree, the solution shows with a "Doesn't match the stored answer" label. `self_check` parts aren't compared.
+- A solution is stored apart from the lesson JSON, in the `solutions` table, keyed by block and part ID. A rerun replaces the lesson and clears these rows.
+- `external` parts (computer science) have no solutions.
 
 ## Simulations
 

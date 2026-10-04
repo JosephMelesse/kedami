@@ -6,6 +6,7 @@
 - A problem is done when every part is done.
 - A lesson is done when every problem is done.
 - Checkpoints never count toward completion.
+- Viewing a problem part's solution doesn't complete it.
 
 ## Part states
 

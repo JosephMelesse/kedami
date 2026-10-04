@@ -184,6 +184,22 @@ export function regenerateSimulation(lessonId: string, blockId: string): Promise
   return request('POST', `${blockPath(lessonId, blockId)}/regenerate`)
 }
 
+/** A problem part's step-by-step solution. Every line of math is bare LaTeX. */
+export type SolutionSteps =
+  | { format: 'math'; method: string; steps: string[] }
+  | { format: 'physics'; given: string[]; required: string[]; steps: string[] }
+
+export interface SolutionResponse {
+  solution: SolutionSteps
+  /** Whether its final answer matches the stored one; null when the answer isn't compared. */
+  matches: boolean | null
+}
+
+/** The stored solution, or one written now; the first request for a part waits on the model. */
+export function getSolution(lessonId: string, blockId: string, partId: string): Promise<SolutionResponse> {
+  return request('POST', `${blockPath(lessonId, blockId)}/solution`, { part_id: partId })
+}
+
 export interface Folder {
   id: number
   name: string

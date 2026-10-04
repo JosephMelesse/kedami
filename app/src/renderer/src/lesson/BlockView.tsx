@@ -22,7 +22,7 @@ export function BlockView({ block, lessonId }: { block: Block; lessonId: string 
     case 'checkpoint':
       return <CheckpointBlockView block={block} />
     case 'problem':
-      return <ProblemBlockView block={block} />
+      return <ProblemBlockView block={block} lessonId={lessonId} />
     case 'simulation':
       return <SimulationBlockView block={block} lessonId={lessonId} />
   }

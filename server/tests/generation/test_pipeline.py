@@ -48,7 +48,7 @@ def section_one():
     return {"blocks": [
         {"type": "explanation", "body": "Components."},
         {"type": "checkpoint", "prompt": "A $20$ m/s throw at $60°$: find $v_x$.", "answer": {**NUMERIC, "value": 10}},
-        {"type": "problem", "source_ref": "PS1 #1", "parts": [{"label": "(a)", "answer": NUMERIC},
+        {"type": "problem", "source_ref": "PS1 #1", "parts": [{"label": "(a)", "answer": {**NUMERIC}},
                                                              {"label": "(b)", "answer": {**NUMERIC, "value": 5}}]},
     ]}
 

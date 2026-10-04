@@ -7,7 +7,7 @@ later call, and sets verified only in the verification pass.
 
 from typing import Annotated, Literal
 
-from pydantic import Field, PrivateAttr, TypeAdapter, ValidationError, model_validator
+from pydantic import Field, PrivateAttr, TypeAdapter, ValidationError, field_validator, model_validator
 
 from ..ids import slugify
 from ..lesson import MAX_HINTS, Answer, ExternalAnswer, Model, PlotFunction, PlotParameter, Range
@@ -339,17 +339,89 @@ class HintJudgements(Model):
 # Verification
 
 
-class Solution(Model):
-    """One independently solved answer, flat. Fill the field for the requested format."""
+class FinalAnswer(Model):
+    """A final answer, flat. Fill the field for the requested format and leave the others null."""
 
-    target: str = Field(description="The target ID exactly as given.")
     value: float | None = Field(default=None, description="number: the answer in the unit given.")
     expression: str | None = Field(default=None, description="expression: the answer in SymPy syntax.")
     correct: list[int] | None = Field(default=None, description="choice: the one correct index; select_all: every correct index.")
 
 
+class Solution(FinalAnswer):
+    """One independently solved answer."""
+
+    target: str = Field(description="The target ID exactly as given.")
+
+
 class Solutions(Model):
     solutions: list[Solution]
+
+
+# Solutions on request: labels and LaTeX lines, no sentences
+
+MAX_SOLUTION_LINES = 24
+MAX_SOLUTION_LINE = 600
+MAX_METHOD = 80
+
+
+def _latex_lines(lines: list[str], what: str, required: bool = True) -> list[str]:
+    """Each line as bare LaTeX. Stray $ delimiters are removed, since the renderer adds display math itself."""
+    cleaned = [line.strip().strip("$").strip() for line in lines]
+    if required and not cleaned:
+        raise ValueError(f"{what} needs at least one line")
+    if len(cleaned) > MAX_SOLUTION_LINES:
+        raise ValueError(f"{what} has more than {MAX_SOLUTION_LINES} lines")
+    if any(not line for line in cleaned):
+        raise ValueError(f"{what} has an empty line")
+    if any(len(line) > MAX_SOLUTION_LINE for line in cleaned):
+        raise ValueError(f"{what} has a line longer than {MAX_SOLUTION_LINE} characters")
+    return cleaned
+
+
+class MathSteps(Model):
+    method: str = Field(description="The method in a few words, such as 'Integration by parts'. Plain text, no LaTeX.")
+    steps: list[str] = Field(
+        description="The working as LaTeX, one step per line, without $ delimiters. The last line boxes the final answer."
+    )
+    final: FinalAnswer
+
+    @field_validator("method")
+    @classmethod
+    def short_method(cls, value: str) -> str:
+        value = value.strip()
+        if not value or len(value) > MAX_METHOD:
+            raise ValueError(f"method must be 1 to {MAX_METHOD} characters")
+        return value
+
+    @field_validator("steps")
+    @classmethod
+    def lines(cls, value: list[str]) -> list[str]:
+        return _latex_lines(value, "steps")
+
+
+class PhysicsSteps(Model):
+    given: list[str] = Field(description="Each known quantity as LaTeX, such as 'm = 2.0\\,\\mathrm{kg}'.")
+    required: list[str] = Field(description="Each quantity asked for as LaTeX, such as 'v_f'.")
+    steps: list[str] = Field(
+        description="The solution as LaTeX, one step per line, without $ delimiters. The first line is the formula used, "
+        "in symbols; the last line boxes the final answer with its unit."
+    )
+    final: FinalAnswer
+
+    @field_validator("given")
+    @classmethod
+    def given_lines(cls, value: list[str]) -> list[str]:
+        return _latex_lines(value, "given", required=False)
+
+    @field_validator("required")
+    @classmethod
+    def required_lines(cls, value: list[str]) -> list[str]:
+        return _latex_lines(value, "required")
+
+    @field_validator("steps")
+    @classmethod
+    def lines(cls, value: list[str]) -> list[str]:
+        return _latex_lines(value, "steps")
 
 
 # Simulations

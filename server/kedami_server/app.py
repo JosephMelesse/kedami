@@ -10,14 +10,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StringConstraints
 
-from . import db, progress, simulation_state
+from . import db, progress, simulation_state, solution_state
 from .checking import InvalidResponse, check
 from .config import Settings
 from .model import ModelError, call_model
 from .generation import pipeline
 from .generation.retry import GenerationError
 from .generation.simulations import new_code
-from .lesson import Lesson, PlotBlock, SimulationBlock, Subject
+from .generation.solutions import has_solution, write_solution
+from .lesson import Lesson, PlotBlock, ProblemBlock, SimulationBlock, Subject
 from .generation.sources import SourceError
 from . import library
 from .library import (
@@ -61,6 +62,10 @@ class RerunRequest(Body):
 class SimulationStatusRequest(Body):
     ok: StrictBool
     error: Annotated[str, Field(max_length=2000)] | None = None
+
+
+class SolutionRequest(Body):
+    part_id: Annotated[str, StringConstraints(min_length=1, max_length=200)]
 
 
 class FolderRequest(Body):
@@ -297,6 +302,27 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         with db.connect(settings.data_dir) as conn:
             simulation_state.save_code(conn, lesson_id, block_id, code)
         return {"code": code, "flagged": False, "error": None}
+
+    @app.post("/lessons/{lesson_id}/blocks/{block_id}/solution")
+    def solution(lesson_id: str, block_id: str, body: SolutionRequest):
+        lesson = get_lesson(lesson_id)
+        block = lesson.find_block(block_id)
+        part = next((p for p in block.parts if p.id == body.part_id), None) if isinstance(block, ProblemBlock) else None
+        if part is None or not has_solution(lesson.subject, part):
+            raise HTTPException(404, "This part has no solution.")
+        with db.connect(settings.data_dir) as conn:
+            stored = solution_state.load(conn, lesson_id, block_id, part.id)
+        if stored:
+            return stored
+        materials = pipeline.normalized_materials(settings.data_dir, lesson_id, lesson.subject)
+        try:
+            written = write_solution(lesson.subject, block, part, materials, call)
+        except (ModelError, GenerationError) as error:
+            raise HTTPException(502, str(error)) from error
+        solution = {"format": lesson.subject, **written.steps.model_dump()}
+        with db.connect(settings.data_dir) as conn:
+            solution_state.save(conn, lesson_id, block_id, part.id, solution, written.matches)
+        return {"solution": solution, "matches": written.matches}
 
     @app.delete("/lessons/{lesson_id}")
     def delete_lesson(lesson_id: str):

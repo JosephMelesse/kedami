@@ -1,10 +1,11 @@
 import { AnswerField } from '../answers/AnswerField'
+import { ShowSolution } from '../answers/ShowSolution'
 import { Markdown } from '../Markdown'
 import { useProgress } from '../progress/ProgressContext'
 import { partsDone } from '../progress/state'
 import type { Part, ProblemBlock } from '../types'
 
-export function ProblemBlockView({ block }: { block: ProblemBlock }) {
+export function ProblemBlockView({ block, lessonId }: { block: ProblemBlock; lessonId: string }) {
   const progress = useProgress()
   const multiPart = block.parts.length > 1
 
@@ -26,13 +27,13 @@ export function ProblemBlockView({ block }: { block: ProblemBlock }) {
               <span className="part-label">{part.label}</span>
               <Markdown>{part.prompt}</Markdown>
             </div>
-            <PartAnswer block={block} part={part} name={`${block.source_ref} ${part.label}`} />
+            <PartAnswer block={block} part={part} name={`${block.source_ref} ${part.label}`} lessonId={lessonId} />
           </section>
         ) : (
           // A single-part problem shows its prompt without the part label.
           <div key={part.id} className="part-single">
             <Markdown>{part.prompt}</Markdown>
-            <PartAnswer block={block} part={part} name={block.source_ref} />
+            <PartAnswer block={block} part={part} name={block.source_ref} lessonId={lessonId} />
           </div>
         )
       )}
@@ -40,15 +41,28 @@ export function ProblemBlockView({ block }: { block: ProblemBlock }) {
   )
 }
 
-function PartAnswer({ block, part, name }: { block: ProblemBlock; part: Part; name: string }) {
+interface PartAnswerProps {
+  block: ProblemBlock
+  part: Part
+  name: string
+  lessonId: string
+}
+
+function PartAnswer({ block, part, name, lessonId }: PartAnswerProps) {
   return (
-    <AnswerField
-      blockId={block.id}
-      partId={part.id}
-      name={name}
-      answer={part.answer}
-      hints={part.hints}
-      verified={part.verified}
-    />
+    <>
+      <AnswerField
+        blockId={block.id}
+        partId={part.id}
+        name={name}
+        answer={part.answer}
+        hints={part.hints}
+        verified={part.verified}
+      />
+      {/* Problems solved on LeetCode have no solutions; every math and physics part does. */}
+      {part.answer.kind !== 'external' && (
+        <ShowSolution lessonId={lessonId} blockId={block.id} partId={part.id} name={name} />
+      )}
+    </>
   )
 }

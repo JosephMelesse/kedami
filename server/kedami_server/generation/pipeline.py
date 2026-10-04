@@ -15,7 +15,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
 
-from .. import db, library, progress, simulation_state
+from .. import db, library, progress, simulation_state, solution_state
 from ..lesson import Section
 from ..model import ModelError, call_model
 from ..storage import lessons_dir
@@ -186,6 +186,7 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
         if rerun:
             progress.carry_over(conn, lesson_id, lesson)
             simulation_state.clear(conn, lesson_id)
+            solution_state.clear(conn, lesson_id)
         library.set_ready(conn, lesson_id, rerun=rerun)
 
 

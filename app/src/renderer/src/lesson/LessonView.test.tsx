@@ -94,6 +94,15 @@ describe('LessonView with the sample lesson', () => {
     expect(text(checkpoint)).not.toContain('Mark done')
   })
 
+  it('offers a solution under every problem part, and none on checkpoints', () => {
+    const parts = lesson.sections.flatMap((s) => s.blocks).flatMap((b) => (b.type === 'problem' ? b.parts : []))
+    const buttons = [...root.querySelectorAll('.solution button')].map((b) => b.textContent)
+    expect(buttons).toEqual(parts.map(() => 'Show solution'))
+    const checkpoint = root.querySelector<HTMLElement>('.card .answer-field')!.closest('.card')!
+    expect(checkpoint.querySelector('.solution')).toBeNull()
+    expect(root.querySelector('.solution-steps')).toBeNull()
+  })
+
   it('starts worked examples with no steps revealed', () => {
     expect(root.querySelector('.steps')).toBeNull()
     expect(text(root)).toContain('Show step 1 of 4')

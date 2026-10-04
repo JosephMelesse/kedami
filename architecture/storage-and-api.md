@@ -22,6 +22,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 | `materials` | id, lesson id, filename, role, force transcription |
 | `progress` | lesson id, block id, part id, status, last response, attempts, hints used, updated |
 | `simulations` | lesson id, block id, regenerated code, flagged, error, updated |
+| `solutions` | lesson id, block id, part id, solution JSON, matches stored answer, updated |
 
 - Lesson status is one of: generating, ready, failed. Only a ready lesson has lesson JSON to serve.
 - Material role is problem set or reference.
@@ -36,7 +37,7 @@ All routes require the session token.
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/lessons` | Multipart upload: `subject`, optional `folder`, and per file `files`, `roles`, `force`; starts the pipeline |
-| DELETE | `/lessons/{id}` | Delete a lesson that isn't generating: its JSON, files, stage outputs, progress, and simulations |
+| DELETE | `/lessons/{id}` | Delete a lesson that isn't generating: its JSON, files, stage outputs, progress, simulations, and solutions |
 | POST | `/lessons/{id}/move` | Move a lesson to a folder, or home with `null` |
 | GET | `/folders` | Folders with their lesson counts |
 | POST | `/folders` | Create a folder |
@@ -52,5 +53,6 @@ All routes require the session token.
 | GET | `/lessons/{id}/blocks/{block_id}/simulation` | A simulation's current code (regenerated, or from the lesson JSON) and whether it is flagged |
 | POST | `/lessons/{id}/blocks/{block_id}/simulation-status` | Record whether a simulation loaded; a failure flags it |
 | POST | `/lessons/{id}/blocks/{block_id}/regenerate` | Write a simulation's code on request, or rewrite it; a flagged one's error is passed to the model |
+| POST | `/lessons/{id}/blocks/{block_id}/solution` | A problem part's solution: the stored one, or written on request the first time |
 | GET | `/lessons/{id}/progress` | Progress for all blocks and parts |
 | GET | `/health` | Used by main to detect server readiness |

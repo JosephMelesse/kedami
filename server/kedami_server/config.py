@@ -40,5 +40,6 @@ MODEL_ROLES = {
     "generate": ModelRole(model="claude-sonnet-5-5", max_tokens=64000, effort="high", fallbacks=True),
     "transcribe": ModelRole(model="claude-opus-5-5", max_tokens=32000, effort="medium", fallbacks=True),
     "second_solve": ModelRole(model="claude-opus-5-5", max_tokens=64000, effort="high", fallbacks=True),
+    "solution": ModelRole(model="claude-opus-5-5", max_tokens=32000, effort="high", fallbacks=True),
     "small_check": ModelRole(model="claude-haiku-4-5", max_tokens=4000),
 }

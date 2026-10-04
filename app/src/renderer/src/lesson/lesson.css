@@ -414,3 +414,46 @@ textarea.text-input {
 .external {
   justify-content: space-between;
 }
+
+/* A part's step-by-step solution: short labels, with each line of math centered. */
+.solution {
+  display: grid;
+  gap: 16px;
+  justify-items: start;
+}
+
+.solution-steps {
+  justify-self: stretch;
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+
+.solution-part {
+  display: grid;
+  gap: 8px;
+}
+
+.solution-label {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.solution-method {
+  margin: 0;
+}
+
+.solution-line {
+  /* Scrolls a long line sideways; the padding keeps descenders from being clipped. */
+  overflow-x: auto;
+  padding: 4px 0;
+}
+
+.solution-line .katex-display {
+  margin: 0;
+}

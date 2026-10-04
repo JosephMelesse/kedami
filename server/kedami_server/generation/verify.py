@@ -21,7 +21,7 @@ from ..lesson import (
 from ..mathparse import MathParseError, parse_math
 from . import prompts
 from .hints import Call, Target, targets
-from .schemas import Solution, Solutions
+from .schemas import FinalAnswer, Solutions
 
 
 @dataclass(frozen=True)
@@ -52,7 +52,7 @@ def answer_format(answer: Answer) -> dict:
     raise ValueError(f"{answer.kind} answers are not verified")
 
 
-def agrees(answer: Answer, solution: Solution) -> bool:
+def agrees(answer: Answer, solution: FinalAnswer) -> bool:
     match answer:
         case NumericAnswer():
             if solution.value is None:

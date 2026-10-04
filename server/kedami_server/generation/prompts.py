@@ -13,8 +13,9 @@ from .plan import SectionPlan
 from .schemas import Extraction
 
 if TYPE_CHECKING:
-    from ..lesson import Section
+    from ..lesson import Answer, Part, ProblemBlock, Section
     from .hints import Target
+    from .schemas import FinalAnswer
 
 MATH_SYNTAX = (
     "Math strings in `expression` fields use SymPy syntax: explicit `*` for multiplication, `**` for powers, "
@@ -281,6 +282,85 @@ def solve_request(items: list[tuple[str, str, dict]]) -> dict:
         "type": "text",
         "text": f"Solve each of these questions, using the target IDs as given:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}",
     }
+
+
+# Solutions on request
+
+_FINAL = f"""`final` repeats the final answer in the form requested, so it can be compared with the answer key:
+- number: `value`, in the unit given.
+- expression: `expression`, using only the names listed. {MATH_SYNTAX}
+- choice: `correct` with the one correct option's index (0-based).
+- select_all: `correct` with the index of every correct option (0-based).
+- shown: the answer is the working itself; set every field of `final` to null.
+Set the fields a format doesn't use to null."""
+
+_LINES = """Every line of math is LaTeX without $ delimiters, displayed on its own line. No sentences: a line is math,
+with at most a short \\text{} label. Use the course material's notation and methods. If the part needs a result
+from an earlier part of the same problem, state that result in one line instead of re-deriving it."""
+
+MATH_STEPS_SYSTEM = f"""You write a short step-by-step solution to one part of a math homework problem, for a student
+who asked to see it.
+
+- `method`: the method in a few words, such as "Integration by parts" or "Completing the square". Plain text.
+- `steps`: the working, one step per line, from the starting expression to the final answer. Each line follows from
+  the one before. The last line puts the final answer in \\boxed{{}}.
+
+{_LINES}
+
+{_FINAL}"""
+
+PHYSICS_STEPS_SYSTEM = f"""You write a short step-by-step solution to one part of a physics homework problem, for a
+student who asked to see it.
+
+- `given`: each known quantity from the problem, with its symbol, value, and unit, such as `m = 2.0\\,\\mathrm{{kg}}`.
+  Include values the problem implies, such as `g = 9.8\\,\\mathrm{{m/s^2}}`.
+- `required`: each quantity asked for, as its symbol, such as `v_f`.
+- `steps`: the solution, one step per line. The first line is the formula used, in symbols. Then rearrange,
+  substitute values with units, and compute. The last line puts the final answer, with its unit, in \\boxed{{}}.
+
+{_LINES}
+
+{_FINAL}"""
+
+
+def steps_system(subject: str) -> str:
+    return MATH_STEPS_SYSTEM if subject == "math" else PHYSICS_STEPS_SYSTEM
+
+
+def steps_request(
+    block: "ProblemBlock", part: "Part", form: dict, feedback: str | None = None, disagreement: str | None = None
+) -> dict:
+    data = {
+        "problem": block.source_ref,
+        "shared_text": block.prompt,
+        "parts": [{"label": p.label, "text": p.prompt} for p in block.parts],
+        "solve_part": part.label,
+        **form,
+    }
+    text = f"Write the solution to this part:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}"
+    if disagreement:
+        text += f"\n\n{disagreement}"
+    return _with_feedback(text, feedback)
+
+
+def describe_answer(answer: "Answer") -> str:
+    match answer.kind:
+        case "numeric":
+            return f"{answer.value:g} {answer.unit}" if answer.unit else f"{answer.value:g}"
+        case "expression":
+            return answer.expression
+        case "choice":
+            return f"option {answer.correct_index}: {answer.options[answer.correct_index]}"
+        case "multi_choice":
+            return "options " + ", ".join(f"{i}: {answer.options[i]}" for i in answer.correct_indexes)
+    raise ValueError(f"{answer.kind} answers are not compared")
+
+
+def disagreement(answer: "Answer", final: "FinalAnswer") -> str:
+    return (
+        f"Your last solution ended at {json.dumps(final.model_dump())}, but the answer key has {describe_answer(answer)}. "
+        "Recheck the working. If the key is right, write the corrected solution; if you are sure it is wrong, keep yours."
+    )
 
 
 # Simulations
