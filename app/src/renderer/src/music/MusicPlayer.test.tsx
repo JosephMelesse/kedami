@@ -77,6 +77,15 @@ describe('MusicPlayer', () => {
     expect(toggle().getAttribute('aria-label')).toBe('Play')
   })
 
+  it('marks the track name as playing only while it plays', async () => {
+    await mount([track('a.mp3')])
+    expect(select().classList.contains('playing')).toBe(false)
+    await act(async () => toggle().click())
+    expect(select().classList.contains('playing')).toBe(true)
+    await act(async () => toggle().click())
+    expect(select().classList.contains('playing')).toBe(false)
+  })
+
   it('keeps playing when another track is picked', async () => {
     await mount([track('a.mp3'), track('b.ogg')])
     await act(async () => toggle().click())

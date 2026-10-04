@@ -21,7 +21,7 @@ Dark is the only theme in the MVP. All colors come from these tokens so a light 
 
 ## Rules
 
-- **Accent:** only for the primary action, links, and progress indicators. Everything else stays neutral.
+- **Accent:** only for the primary action, links, and progress indicators, including the music player's track name while it plays. Everything else stays neutral.
 - **Depth:** three surface levels and a 1px border do all the layering. No shadows or gradients.
 - **Type:** Inter in regular and medium weights. Body text is 16px with a line height of 1.6.
 - **Shape and spacing:** 12px radius on cards, 10px on controls; spacing in multiples of 8px.
@@ -72,7 +72,7 @@ A minimal player for audio files kept in the app data folder. It runs in the ren
 - **Controls:** a dropdown of tracks with Add music as the last entry in its list, and a play/pause button showing ▶ (U+25B6) or ⏸ (U+23F8).
 - **Adding:** Add music opens a file picker, and main copies the chosen files into `music/` in the app data folder. The first added file becomes the selected track; canceling keeps the current one. A name already taken gets a numbered suffix, as in `song (2).mp3`. The dropdown lists the files in `music/` by name; to remove a track, delete its file.
 - **Formats:** MP3, M4A, FLAC, WAV, and OGG.
-- **Playback:** the selected track repeats until paused or another track is picked. Picking a track while playing switches to it and keeps playing. A track that fails to play stops the player.
+- **Playback:** the selected track repeats until paused or another track is picked. While it plays, its name is in `--accent`; paused, it is muted. Picking a track while playing switches to it and keeps playing. A track that fails to play stops the player.
 - **File access:** main serves the files to the renderer through a custom protocol that only resolves plain file names inside `music/`, including through symlinks.
 - **Alarm:** the Pomodoro alarm plays over the music.
 - **Persistence:** the copied files stay in `music/`. The selected track and playback position do not survive an app restart.

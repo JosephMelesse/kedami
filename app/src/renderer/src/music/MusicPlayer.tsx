@@ -52,7 +52,7 @@ export function MusicPlayer() {
   return (
     <div className="music-player">
       <select
-        className="music-select"
+        className={playing ? 'music-select playing' : 'music-select'}
         aria-label="Track"
         value={selected ?? ''}
         onChange={(event) => {

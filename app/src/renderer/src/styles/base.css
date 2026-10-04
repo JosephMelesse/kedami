@@ -197,7 +197,8 @@ input {
   font-family: 'Media Symbols', sans-serif;
 }
 
-/* Plain muted text that sizes to the track name; it only lights up when hovered or focused. */
+/* Plain muted text that sizes to the track name. It lights up when hovered or focused, and
+   takes the accent color while the track plays. */
 .music-select {
   appearance: none;
   field-sizing: content;
@@ -210,6 +211,7 @@ input {
   color: var(--text-muted);
   text-overflow: ellipsis;
   cursor: pointer;
+  transition: color 150ms;
 }
 
 .music-select:hover,
@@ -220,6 +222,10 @@ input {
 
 .music-select:focus-visible {
   border-color: var(--border);
+}
+
+.music-select.playing {
+  color: var(--accent);
 }
 
 .music-select option {
