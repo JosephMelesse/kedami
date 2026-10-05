@@ -102,22 +102,30 @@ describe('MusicPlayer', () => {
     expect(toggle().getAttribute('aria-label')).toBe('Play')
   })
 
-  it('pauses during rest and can only play again once rest is over', async () => {
+  it('pauses during rest with play disabled, then resumes if it was playing', async () => {
     await mount([track('a.mp3')])
     await act(async () => toggle().click())
     expect(toggle().getAttribute('aria-label')).toBe('Pause')
 
+    pause.mockClear()
     await act(async () => root.render(<MusicPlayer resting />))
-    expect(pause).toHaveBeenCalled()
+    expect(pause).toHaveBeenCalledTimes(1)
     expect(toggle().getAttribute('aria-label')).toBe('Play')
     expect(toggle().disabled).toBe(true)
 
     play.mockClear()
     await act(async () => root.render(<MusicPlayer resting={false} />))
     expect(toggle().disabled).toBe(false)
-    expect(play).not.toHaveBeenCalled()
-    await act(async () => toggle().click())
     expect(play).toHaveBeenCalledTimes(1)
+    expect(toggle().getAttribute('aria-label')).toBe('Pause')
+  })
+
+  it('stays paused after rest if it was paused before', async () => {
+    await mount([track('a.mp3')])
+    await act(async () => root.render(<MusicPlayer resting />))
+    await act(async () => root.render(<MusicPlayer resting={false} />))
+    expect(play).not.toHaveBeenCalled()
+    expect(toggle().getAttribute('aria-label')).toBe('Play')
   })
 
   it('adds music from the last entry and selects the first added track', async () => {

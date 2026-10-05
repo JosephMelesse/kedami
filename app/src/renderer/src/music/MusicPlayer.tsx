@@ -9,13 +9,15 @@ const PAUSE_SYMBOL = '\u23F8\uFE0E'
 
 /**
  * A track picker and play button. The selected track repeats until paused or changed.
- * While `resting`, music pauses and can't be played.
+ * While `resting`, music pauses and can't be played, then picks up where it was once rest ends.
  */
 export function MusicPlayer({ resting = false }: { resting?: boolean }) {
   const [tracks, setTracks] = useState<MusicTrack[]>([])
   const [selected, setSelected] = useState<string | null>(null)
   const [playing, setPlaying] = useState(false)
   const audio = useRef<HTMLAudioElement>(null)
+  // Rest holds the music without forgetting whether it was playing.
+  const sounding = playing && !resting
 
   useEffect(() => {
     window.kedami
@@ -27,23 +29,19 @@ export function MusicPlayer({ resting = false }: { resting?: boolean }) {
       .catch(() => {})
   }, [])
 
-  useEffect(() => {
-    if (resting) setPlaying(false)
-  }, [resting])
-
   // Runs after the new src is in place, so picking a track while playing switches to it.
   // A switch aborts the previous play request; only other failures stop the player.
   useEffect(() => {
     const element = audio.current
     if (!element) return
-    if (playing && selected) {
+    if (sounding && selected) {
       element.play()?.catch((error: DOMException) => {
         if (error.name !== 'AbortError') setPlaying(false)
       })
     } else {
       element.pause()
     }
-  }, [playing, selected])
+  }, [sounding, selected])
 
   const add = async () => {
     try {
@@ -59,7 +57,7 @@ export function MusicPlayer({ resting = false }: { resting?: boolean }) {
   return (
     <div className="music-player">
       <select
-        className={playing ? 'music-select playing' : 'music-select'}
+        className={sounding ? 'music-select playing' : 'music-select'}
         aria-label="Track"
         value={selected ?? ''}
         onChange={(event) => {
@@ -83,11 +81,11 @@ export function MusicPlayer({ resting = false }: { resting?: boolean }) {
       <button
         type="button"
         className="button music-toggle"
-        aria-label={playing ? 'Pause' : 'Play'}
+        aria-label={sounding ? 'Pause' : 'Play'}
         disabled={!track || resting}
         onClick={() => setPlaying(!playing)}
       >
-        {playing ? PAUSE_SYMBOL : PLAY_SYMBOL}
+        {sounding ? PAUSE_SYMBOL : PLAY_SYMBOL}
       </button>
       {track && <audio ref={audio} src={track.url} loop onError={() => setPlaying(false)} />}
     </div>
