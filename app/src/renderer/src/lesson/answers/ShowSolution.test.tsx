@@ -20,6 +20,14 @@ const MATH: SolutionResponse = {
   matches: true
 }
 
+const GENERAL: SolutionResponse = {
+  solution: {
+    format: 'general',
+    steps: ['The x87 FPU has eight data registers.', 'Each holds an extended-precision value of $80$ bits.', '**80** bits']
+  },
+  matches: true
+}
+
 let container: HTMLDivElement
 let root: Root
 let fetchMock: Mock
@@ -92,6 +100,35 @@ describe('ShowSolution', () => {
     expect(labels()).toEqual(['Method', 'Solution'])
     expect(container.querySelector('.solution-method')?.textContent).toBe('Integration by parts')
     expect(lines()).toHaveLength(2)
+  })
+
+  it('shows a general solution as Markdown lines, then the answer', async () => {
+    reply(GENERAL)
+    await mount()
+    await click('Show solution')
+    await confirm()
+    expect(labels()).toEqual(['Solution', 'Answer'])
+    expect(lines()).toHaveLength(3)
+    expect(lines().some((line) => line.querySelector('.katex-display'))).toBe(false)
+    expect(lines()[1].querySelector('.katex')).not.toBeNull()
+    expect(container.querySelector('.solution-answer strong')?.textContent).toBe('80')
+  })
+
+  it('shows a one-line general solution as just the answer', async () => {
+    reply({ ...GENERAL, solution: { format: 'general', steps: ['Carry flag (CF)'] } })
+    await mount()
+    await click('Show solution')
+    await confirm()
+    expect(labels()).toEqual(['Answer'])
+    expect(container.querySelector('.solution-answer')?.textContent).toBe('Carry flag (CF)')
+  })
+
+  it('renders general Markdown without raw HTML', async () => {
+    reply({ ...GENERAL, solution: { format: 'general', steps: ['<img src=x onerror=alert(1)>', 'x'] } })
+    await mount()
+    await click('Show solution')
+    await confirm()
+    expect(container.querySelector('.solution-steps img')).toBeNull()
   })
 
   it('hides and shows again without asking or fetching again', async () => {

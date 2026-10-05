@@ -5,7 +5,7 @@ from pydantic import ValidationError
 
 from kedami_server import db, solution_state
 from kedami_server.generation import pipeline
-from kedami_server.generation.schemas import MathSteps, PhysicsSteps, SectionDraft
+from kedami_server.generation.schemas import GeneralSteps, MathSteps, PhysicsSteps, SectionDraft
 from kedami_server.generation.solutions import has_solution
 from kedami_server.lesson import Part
 from kedami_server.model import ModelError
@@ -29,6 +29,13 @@ def math(value):
     return {
         "method": "Direct substitution",
         "steps": ["f(x) = 10\\cos x", f"\\boxed{{{value}}}"],
+        "final": {**FINAL_NONE, "value": value},
+    }
+
+
+def general(value):
+    return {
+        "steps": ["The FPU registers hold extended-precision values.", f"**{value}** bits"],
         "final": {**FINAL_NONE, "value": value},
     }
 
@@ -63,11 +70,30 @@ def test_physics_needs_what_is_required_but_not_given_values():
         PhysicsSteps.model_validate({**physics(1), "required": []})
 
 
-def test_only_math_and_physics_parts_with_checked_or_shown_answers_have_solutions():
+def test_general_steps_keep_markdown_and_inline_math():
+    steps = GeneralSteps.model_validate({**general(80), "steps": [" Uses $2^{64}$ bytes. ", "**80** bits"]})
+    assert steps.steps == ["Uses $2^{64}$ bytes.", "**80** bits"]
+
+
+@pytest.mark.parametrize(
+    "change, message",
+    [
+        ({"steps": []}, "at least one line"),
+        ({"steps": ["x", "  "]}, "empty line"),
+        ({"steps": ["x"] * 25}, "more than 24 lines"),
+        ({"steps": ["x" * 601]}, "longer than 600"),
+    ],
+)
+def test_unusable_general_steps_are_rejected(change, message):
+    with pytest.raises(ValidationError, match=message):
+        GeneralSteps.model_validate({**general(1), **change})
+
+
+def test_only_math_physics_and_general_parts_with_checked_or_shown_answers_have_solutions():
     part = lambda answer: Part.model_validate({"label": "(a)", "prompt": "x", "answer": answer})
     numeric = part({"kind": "numeric", "value": 1})
     external = part({"kind": "external", "platform": "leetcode", "number": 1, "title": "Two Sum", "slug": "two-sum"})
-    assert has_solution("math", numeric) and has_solution("physics", numeric)
+    assert has_solution("math", numeric) and has_solution("physics", numeric) and has_solution("general", numeric)
     assert not has_solution("computer_science", numeric)
     assert not has_solution("computer_science", external)
 
@@ -184,6 +210,19 @@ def test_math_lessons_get_a_method_and_working(started, data_dir, app_with_model
     body = ask(client, lesson_id).json()
     assert (body["solution"]["format"], body["solution"]["method"], body["matches"]) == ("math", "Direct substitution", True)
     assert "math homework problem" in fake.calls[MathSteps][0]["system"]
+
+
+def test_general_lessons_get_markdown_lines_not_physics(started, data_dir, app_with_model):
+    _, create, _ = started
+    lesson_id = create(subject="general").json()["id"]
+    pipeline.run(data_dir, lesson_id, "general", 1, call=FakeModel(happy_script()))
+    client, fake = app_with_model({GeneralSteps: [general(8.66)]})
+    body = ask(client, lesson_id).json()
+    assert (body["solution"]["format"], body["matches"]) == ("general", True)
+    assert body["solution"]["steps"][-1] == "**8.66** bits"
+    [call] = fake.calls[GeneralSteps]
+    assert "course" in call["system"] and "physics" not in call["system"] and "LaTeX lines" not in call["system"]
+    assert not fake.calls[PhysicsSteps] and not fake.calls[MathSteps]
 
 
 def test_self_checked_parts_are_shown_but_not_compared(started, data_dir, app_with_model):

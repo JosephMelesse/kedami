@@ -357,7 +357,7 @@ class Solutions(Model):
     solutions: list[Solution]
 
 
-# Solutions on request: labels and LaTeX lines, no sentences
+# Solutions on request: labels and LaTeX lines for math and physics, short Markdown lines for general
 
 MAX_SOLUTION_LINES = 24
 MAX_SOLUTION_LINE = 600
@@ -366,7 +366,10 @@ MAX_METHOD = 80
 
 def _latex_lines(lines: list[str], what: str, required: bool = True) -> list[str]:
     """Each line as bare LaTeX. Stray $ delimiters are removed, since the renderer adds display math itself."""
-    cleaned = [line.strip().strip("$").strip() for line in lines]
+    return _checked_lines([line.strip().strip("$").strip() for line in lines], what, required)
+
+
+def _checked_lines(cleaned: list[str], what: str, required: bool = True) -> list[str]:
     if required and not cleaned:
         raise ValueError(f"{what} needs at least one line")
     if len(cleaned) > MAX_SOLUTION_LINES:
@@ -422,6 +425,19 @@ class PhysicsSteps(Model):
     @classmethod
     def lines(cls, value: list[str]) -> list[str]:
         return _latex_lines(value, "steps")
+
+
+class GeneralSteps(Model):
+    steps: list[str] = Field(
+        description="Short Markdown lines, each one fact or step of reasoning; math is inline LaTeX in $...$. "
+        "The last line is the final answer alone."
+    )
+    final: FinalAnswer
+
+    @field_validator("steps")
+    @classmethod
+    def lines(cls, value: list[str]) -> list[str]:
+        return _checked_lines([line.strip() for line in value], "steps")
 
 
 # Simulations

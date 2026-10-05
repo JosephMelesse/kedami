@@ -177,6 +177,16 @@ def test_requests_use_the_generate_role_and_open_with_the_cached_material(starte
     assert [call["role"] for call in fake.calls[Solutions]] == ["second_solve", "second_solve"]
 
 
+@pytest.mark.parametrize("subject, has_rules", [("general", True), ("physics", False), ("math", False)])
+def test_only_general_lessons_get_the_general_section_rules(started, data_dir, subject, has_rules):
+    client, create, _ = started
+    lesson_id = create(subject=subject).json()["id"]
+    fake = FakeModel(happy_script())
+    pipeline.run(data_dir, lesson_id, subject, 1, call=fake)
+    assert lesson_status(client, lesson_id)["lesson"]["subject"] == subject
+    assert all(("language of the course material" in c["system"]) == has_rules for c in fake.calls[SectionDraft])
+
+
 def test_rejected_section_is_retried_alone_with_the_reason(started, data_dir):
     _, create, _ = started
     lesson_id = create().json()["id"]

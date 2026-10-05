@@ -723,7 +723,8 @@
       "enum": [
         "math",
         "physics",
-        "computer_science"
+        "computer_science",
+        "general"
       ],
       "title": "Subject",
       "type": "string"

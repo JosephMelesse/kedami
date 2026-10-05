@@ -457,3 +457,16 @@ textarea.text-input {
 .solution-line .katex-display {
   margin: 0;
 }
+
+/* General solutions: left-aligned Markdown lines, with the answer in medium weight. */
+.solution-text .md > :first-child {
+  margin-top: 0;
+}
+
+.solution-text .md > :last-child {
+  margin-bottom: 0;
+}
+
+.solution-answer {
+  font-weight: 500;
+}

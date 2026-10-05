@@ -3,7 +3,7 @@
 export type SchemaVersion = 1;
 export type Id = string;
 export type Title = string;
-export type Subject = "math" | "physics" | "computer_science";
+export type Subject = "math" | "physics" | "computer_science" | "general";
 export type SourceFiles = string[];
 /**
  * @minItems 1

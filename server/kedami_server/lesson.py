@@ -133,7 +133,7 @@ Answer = Annotated[
     Field(discriminator="kind"),
 ]
 
-Subject = Literal["math", "physics", "computer_science"]
+Subject = Literal["math", "physics", "computer_science", "general"]
 
 
 # Blocks

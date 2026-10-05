@@ -203,6 +203,15 @@ For this computer science lesson:
   for explaining why an approach works."""
 
 
+# Added to the section prompt for general lessons.
+GENERAL_SECTION_RULES = """
+
+For this lesson:
+- Write code in the language of the course material, in fenced blocks tagged with that language.
+- A homework part with a short factual answer, such as a term or a name, is a `self_check` whose rubric gives the
+  answer. A True/False question is a `choice` with the options True and False, in that order."""
+
+
 # Hints
 
 HINTS_SYSTEM = f"""You write hints for questions in a lesson. Give up to three hints per question, ordered from gentle
@@ -323,8 +332,22 @@ student who asked to see it.
 {_FINAL}"""
 
 
+GENERAL_STEPS_SYSTEM = f"""You write a short step-by-step solution to one part of a homework problem from a course, for
+a student who asked to see it.
+
+- `steps`: a few short Markdown lines, each one fact or step of reasoning drawn from the course material. The last
+  line is the final answer alone, such as `**80** bits` or `Carry flag (CF)`; it is shown under an Answer label.
+  Short sentences are fine; put math in inline LaTeX with `$...$`. Use the course material's terms and notation.
+  If the part needs a result from an earlier part of the same problem, state that result in one line instead of
+  re-deriving it.
+
+{_FINAL}"""
+
+STEPS_SYSTEMS = {"math": MATH_STEPS_SYSTEM, "physics": PHYSICS_STEPS_SYSTEM, "general": GENERAL_STEPS_SYSTEM}
+
+
 def steps_system(subject: str) -> str:
-    return MATH_STEPS_SYSTEM if subject == "math" else PHYSICS_STEPS_SYSTEM
+    return STEPS_SYSTEMS[subject]
 
 
 def steps_request(

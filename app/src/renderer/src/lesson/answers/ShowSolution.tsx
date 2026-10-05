@@ -2,6 +2,7 @@ import katex from 'katex'
 import { type ReactNode, useState } from 'react'
 import { ApiError, getSolution, type SolutionResponse, type SolutionSteps } from '../../api'
 import { ConfirmDialog } from '../../ConfirmDialog'
+import { Markdown } from '../Markdown'
 
 interface ShowSolutionProps {
   lessonId: string
@@ -66,6 +67,37 @@ function SolutionView({ solution, matches }: { solution: SolutionSteps; matches:
   return (
     <div className="solution-steps">
       {matches === false && <span className="status-label">Doesn't match the stored answer</span>}
+      {solution.format === 'general' ? <GeneralSteps steps={solution.steps} /> : <MathSteps solution={solution} />}
+    </div>
+  )
+}
+
+/** Left-aligned Markdown lines, with the last one shown as the answer. */
+function GeneralSteps({ steps }: { steps: string[] }) {
+  const reasoning = steps.slice(0, -1)
+  return (
+    <>
+      {reasoning.length > 0 && (
+        <SolutionPart label="Solution">
+          {reasoning.map((line, index) => (
+            <div key={index} className="solution-line solution-text">
+              <Markdown>{line}</Markdown>
+            </div>
+          ))}
+        </SolutionPart>
+      )}
+      <SolutionPart label="Answer">
+        <div className="solution-line solution-text solution-answer">
+          <Markdown>{steps[steps.length - 1]}</Markdown>
+        </div>
+      </SolutionPart>
+    </>
+  )
+}
+
+function MathSteps({ solution }: { solution: Exclude<SolutionSteps, { format: 'general' }> }) {
+  return (
+    <>
       {solution.format === 'math' ? (
         <SolutionPart label="Method">
           <p className="solution-method">{solution.method}</p>
@@ -83,7 +115,7 @@ function SolutionView({ solution, matches }: { solution: SolutionSteps; matches:
       <SolutionPart label="Solution">
         <MathLines lines={solution.steps} />
       </SolutionPart>
-    </div>
+    </>
   )
 }
 

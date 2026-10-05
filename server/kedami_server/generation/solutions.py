@@ -13,29 +13,30 @@ from ..lesson import Part, ProblemBlock
 from . import prompts
 from .hints import Call
 from .retry import retrying
-from .schemas import MathSteps, PhysicsSteps
+from .schemas import GeneralSteps, MathSteps, PhysicsSteps
 from .verify import agrees, answer_format
 
-SUBJECTS = ("math", "physics")
+Steps = MathSteps | PhysicsSteps | GeneralSteps
+OUTPUTS: dict[str, type[Steps]] = {"math": MathSteps, "physics": PhysicsSteps, "general": GeneralSteps}
 
 
 @dataclass(frozen=True)
 class WrittenSolution:
-    steps: MathSteps | PhysicsSteps
+    steps: Steps
     # None when the part's answer isn't compared: a self check is the student's own judgment.
     matches: bool | None
 
 
 def has_solution(subject: str, part: Part) -> bool:
-    return subject in SUBJECTS and part.answer.kind != "external"
+    return subject in OUTPUTS and part.answer.kind != "external"
 
 
 def write_solution(subject: str, block: ProblemBlock, part: Part, materials: list[dict], call: Call) -> WrittenSolution:
     compared = part.answer.kind != "self_check"
     form = answer_format(part.answer) if compared else {"format": "shown"}
-    output = MathSteps if subject == "math" else PhysicsSteps
+    output = OUTPUTS[subject]
 
-    def ask(disagreement: str | None) -> MathSteps | PhysicsSteps:
+    def ask(disagreement: str | None) -> Steps:
         return retrying(
             f"Solution for {block.id}/{part.id}",
             lambda feedback: call(

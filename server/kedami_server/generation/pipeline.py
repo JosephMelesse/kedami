@@ -152,7 +152,8 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
         outline = place_problems(plan, extraction)
 
     _set_stage(data_dir, lesson_id, 4)
-    section_system = prompts.SECTION_SYSTEM + (prompts.CS_SECTION_RULES if subject == "computer_science" else "")
+    section_rules = {"computer_science": prompts.CS_SECTION_RULES, "general": prompts.GENERAL_SECTION_RULES}
+    section_system = prompts.SECTION_SYSTEM + section_rules.get(subject, "")
     sections: list[Section] = []
     for number, section_plan in enumerate(outline, start=1):
 

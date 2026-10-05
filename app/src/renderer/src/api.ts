@@ -184,10 +184,11 @@ export function regenerateSimulation(lessonId: string, blockId: string): Promise
   return request('POST', `${blockPath(lessonId, blockId)}/regenerate`)
 }
 
-/** A problem part's step-by-step solution. Every line of math is bare LaTeX. */
+/** A problem part's step-by-step solution. Math and physics lines are bare LaTeX; general lines are Markdown. */
 export type SolutionSteps =
   | { format: 'math'; method: string; steps: string[] }
   | { format: 'physics'; given: string[]; required: string[]; steps: string[] }
+  | { format: 'general'; steps: string[] }
 
 export interface SolutionResponse {
   solution: SolutionSteps
