@@ -69,7 +69,7 @@ A simple study and rest timer. It runs entirely in the renderer and has no serve
 - **Alarm:** a short, conventional alarm jingle from a bundled audio file, played once at the end of each phase.
 - **Accuracy:** remaining time is computed from the phase's end timestamp, so it stays correct when the window is in the background.
 - **Persistence:** the two durations are saved locally. A running timer does not survive an app restart.
-- **Rest screen:** during rest, running or paused, everything below the app header is replaced by a 404 page: a large "404" and the caption "You can go back to studying in 4:59", counting down with the timer. The screen underneath keeps its state and scroll position and returns when rest ends or the timer is stopped. The header stays usable, so the music keeps playing, and pausing then Stop ends a break early.
+- **Rest screen:** during rest, running or paused, everything below the app header is replaced by a 404 page: a large "404" and the caption "You can go back to studying in 4:59", counting down with the timer. The screen underneath keeps its state and scroll position and returns when rest ends or the timer is stopped. The header stays usable, so pausing then Stop ends a break early. Rest pauses the music, and the play button stays disabled until study starts again; the music does not resume on its own.
 - Durations are whole minutes from 1 to 180, editable only while the timer is reset, so a running phase never changes length.
 - If the window sleeps through several phase ends, the timer lands in the right phase and the alarm plays once.
 - The window does not throttle background timers, so the alarm is on time when the app is hidden.

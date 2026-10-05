@@ -7,8 +7,11 @@ const ADD_MUSIC = 'add-music'
 const PLAY_SYMBOL = '\u25B6\uFE0E'
 const PAUSE_SYMBOL = '\u23F8\uFE0E'
 
-/** A track picker and play button. The selected track repeats until paused or changed. */
-export function MusicPlayer() {
+/**
+ * A track picker and play button. The selected track repeats until paused or changed.
+ * While `resting`, music pauses and can't be played.
+ */
+export function MusicPlayer({ resting = false }: { resting?: boolean }) {
   const [tracks, setTracks] = useState<MusicTrack[]>([])
   const [selected, setSelected] = useState<string | null>(null)
   const [playing, setPlaying] = useState(false)
@@ -23,6 +26,10 @@ export function MusicPlayer() {
       })
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (resting) setPlaying(false)
+  }, [resting])
 
   // Runs after the new src is in place, so picking a track while playing switches to it.
   // A switch aborts the previous play request; only other failures stop the player.
@@ -77,7 +84,7 @@ export function MusicPlayer() {
         type="button"
         className="button music-toggle"
         aria-label={playing ? 'Pause' : 'Play'}
-        disabled={!track}
+        disabled={!track || resting}
         onClick={() => setPlaying(!playing)}
       >
         {playing ? PAUSE_SYMBOL : PLAY_SYMBOL}

@@ -21,7 +21,7 @@ export function App() {
 
   return (
     <>
-      <AppHeader onHome={openLibrary} onRest={setRestTime} />
+      <AppHeader onHome={openLibrary} onRest={setRestTime} resting={restTime !== null} />
       {restTime !== null && <RestScreen time={restTime} />}
       <main inert={restTime !== null}>
         {screen.name === 'library' && (

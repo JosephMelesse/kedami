@@ -102,6 +102,24 @@ describe('MusicPlayer', () => {
     expect(toggle().getAttribute('aria-label')).toBe('Play')
   })
 
+  it('pauses during rest and can only play again once rest is over', async () => {
+    await mount([track('a.mp3')])
+    await act(async () => toggle().click())
+    expect(toggle().getAttribute('aria-label')).toBe('Pause')
+
+    await act(async () => root.render(<MusicPlayer resting />))
+    expect(pause).toHaveBeenCalled()
+    expect(toggle().getAttribute('aria-label')).toBe('Play')
+    expect(toggle().disabled).toBe(true)
+
+    play.mockClear()
+    await act(async () => root.render(<MusicPlayer resting={false} />))
+    expect(toggle().disabled).toBe(false)
+    expect(play).not.toHaveBeenCalled()
+    await act(async () => toggle().click())
+    expect(play).toHaveBeenCalledTimes(1)
+  })
+
   it('adds music from the last entry and selects the first added track', async () => {
     const addMusic = vi.fn(async () => ({ tracks: [track('a.mp3'), track('new.mp3')], added: ['new.mp3'] }))
     await mount([track('a.mp3')], addMusic)
