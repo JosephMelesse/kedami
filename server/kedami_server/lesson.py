@@ -23,7 +23,6 @@ from .mathparse import parse_math
 MAX_HINTS = 3
 
 Id = Annotated[str, StringConstraints(pattern=ID_PATTERN)]
-Hints = Annotated[list[str], Field(max_length=MAX_HINTS)]
 # A plain array schema, since tuple schemas don't survive conversion to TypeScript.
 Range = Annotated[
     tuple[float, float],
@@ -52,6 +51,33 @@ def decode_escapes(text: str) -> str:
 # Titles, goals, and briefs: shown as plain text, so a stray escape would show as written.
 # Markdown and LaTeX fields are not decoded.
 PlainText = Annotated[str, AfterValidator(decode_escapes)]
+
+
+# Inline or display math in Markdown.
+_MATH = re.compile(r"\$\$.+?\$\$|\$.+?\$", re.DOTALL)
+_BACKSLASHES = re.compile(r"\\+")
+# Two backslashes, then a command name or a spacing command, such as \\Delta or \\,.
+_DOUBLED_COMMAND = re.compile(r"(?<!\\)\\\\(?:[A-Za-z]{2,}|[,;:!])")
+
+
+def undouble_math(text: str) -> str:
+    r"""Halve the backslashes in math a model double-escaped, so \\rightarrow becomes \rightarrow.
+    KaTeX reads \\ as a line break, so such math would show its command names as text. A math
+    span is changed only when every backslash in it is doubled and one comes before a command
+    name, so real line breaks and text outside math, such as code, are left as written."""
+
+    def span(match: re.Match) -> str:
+        math = match.group(0)
+        if any(len(run) % 2 for run in _BACKSLASHES.findall(math)) or not _DOUBLED_COMMAND.search(math):
+            return math
+        return _BACKSLASHES.sub(lambda run: run.group(0)[: len(run.group(0)) // 2], math)
+
+    return _MATH.sub(span, text)
+
+
+# Markdown with LaTeX: double-escaped math is repaired, and nothing else changes.
+MarkdownText = Annotated[str, AfterValidator(undouble_math)]
+Hints = Annotated[list[MarkdownText], Field(max_length=MAX_HINTS)]
 
 
 class Model(BaseModel):
@@ -85,12 +111,12 @@ class ExpressionAnswer(Model):
 
 class SelfCheckAnswer(Model):
     kind: Literal["self_check"]
-    rubric: str
+    rubric: MarkdownText
 
 
 class ChoiceAnswer(Model):
     kind: Literal["choice"]
-    options: Annotated[list[str], Field(min_length=2)]
+    options: Annotated[list[MarkdownText], Field(min_length=2)]
     correct_index: int
 
     @model_validator(mode="after")
@@ -102,7 +128,7 @@ class ChoiceAnswer(Model):
 
 class MultiChoiceAnswer(Model):
     kind: Literal["multi_choice"]
-    options: Annotated[list[str], Field(min_length=2)]
+    options: Annotated[list[MarkdownText], Field(min_length=2)]
     correct_indexes: Annotated[list[int], Field(min_length=1)]
 
     @model_validator(mode="after")
@@ -142,14 +168,14 @@ Subject = Literal["math", "physics", "computer_science", "general"]
 class ExplanationBlock(Model):
     type: Literal["explanation"]
     id: Id
-    body: str
+    body: MarkdownText
 
 
 class WorkedExampleBlock(Model):
     type: Literal["worked_example"]
     id: Id
-    prompt: str
-    steps: Annotated[list[str], Field(min_length=1)]
+    prompt: MarkdownText
+    steps: Annotated[list[MarkdownText], Field(min_length=1)]
 
 
 class PlotFunction(Model):
@@ -185,7 +211,7 @@ class PlotBlock(Model):
     parameters: list[PlotParameter] = []
     x_domain: Range
     y_domain: Range | None = None
-    caption: str
+    caption: MarkdownText
 
     @field_validator("x_domain", "y_domain")
     @classmethod
@@ -209,7 +235,7 @@ class DiagramBlock(Model):
     type: Literal["diagram"]
     id: Id
     svg: str
-    caption: str
+    caption: MarkdownText
 
 
 class SimulationBlock(Model):
@@ -217,7 +243,7 @@ class SimulationBlock(Model):
     id: Id
     # Empty until the student asks for the simulation; its code is then stored apart from the lesson.
     code: str = ""
-    caption: str
+    caption: MarkdownText
     # The plan's one-line brief, which the code is written from.
     brief: PlainText | None = None
 
@@ -225,7 +251,7 @@ class SimulationBlock(Model):
 class CheckpointBlock(Model):
     type: Literal["checkpoint"]
     id: Id
-    prompt: str
+    prompt: MarkdownText
     answer: Answer
     hints: Hints = []
     verified: bool = False
@@ -252,7 +278,7 @@ def _derive_id(data: Any, source_field: str) -> Any:
 class Part(Model):
     id: Id
     label: str
-    prompt: str
+    prompt: MarkdownText
     answer: Answer
     hints: Hints = []
     verified: bool = False
@@ -267,7 +293,7 @@ class ProblemBlock(Model):
     type: Literal["problem"]
     id: Id
     source_ref: str
-    prompt: str = ""
+    prompt: MarkdownText = ""
     parts: Annotated[list[Part], Field(min_length=1)]
 
     @model_validator(mode="before")

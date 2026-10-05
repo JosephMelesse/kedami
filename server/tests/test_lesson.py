@@ -306,3 +306,40 @@ def test_new_plans_are_decoded():
     )
     section = plan.sections[0]
     assert (plan.title, section.goal, section.simulation) == ("Thermo Δ", "Find ΔU.", "Vary γ.")
+
+
+# Markdown fields: math a model double-escaped is repaired on read
+
+
+@pytest.mark.parametrize(
+    "text, repaired",
+    [
+        ("$A\\\\rightarrow B$ (isobaric)", "$A\\rightarrow B$ (isobaric)"),
+        ("$W = p\\\\,\\\\Delta V = 8000\\\\text{ J}$", "$W = p\\,\\Delta V = 8000\\text{ J}$"),
+        ("$$\n\\\\Delta U = Q - W\n$$", "$$\n\\Delta U = Q - W\n$$"),
+        # A doubled line break inside doubled math is halved too.
+        ("$\\\\begin{aligned}a&=1\\\\\\\\b&=2\\\\end{aligned}$", "$\\begin{aligned}a&=1\\\\b&=2\\end{aligned}$"),
+        # Only the doubled span changes.
+        ("$\\Delta U$ and $\\\\Delta V$", "$\\Delta U$ and $\\Delta V$"),
+        # Correct math, real line breaks, and math with no commands are left as written.
+        ("$A\\rightarrow B$", "$A\\rightarrow B$"),
+        ("$\\begin{aligned}a&=1\\\\b&=2\\end{aligned}$", "$\\begin{aligned}a&=1\\\\b&=2\\end{aligned}$"),
+        ("$a\\\\b$", "$a\\\\b$"),
+        ("$W_{BC}=0$", "$W_{BC}=0$"),
+        # Backslashes outside math, such as in code, are left as written.
+        ("`path = \"C:\\\\Users\\\\me\"`", "`path = \"C:\\\\Users\\\\me\"`"),
+    ],
+)
+def test_undouble_math(text, repaired):
+    from kedami_server.lesson import undouble_math
+
+    assert undouble_math(text) == repaired
+
+
+def test_markdown_fields_have_doubled_math_repaired(lesson_data):
+    section = lesson_data["sections"][0]
+    section["blocks"].append(
+        {"type": "worked_example", "id": "loop", "prompt": "Find $\\\\Delta U$.", "steps": ["$A\\\\rightarrow B$"]}
+    )
+    block = Lesson.model_validate(lesson_data).find_block("loop")
+    assert (block.prompt, block.steps) == ("Find $\\Delta U$.", ["$A\\rightarrow B$"])
