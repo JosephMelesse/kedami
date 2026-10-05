@@ -11,6 +11,7 @@
 7. Pomodoro timer
 8. Music player
 9. Step-by-step solutions on request
+10. General subject
 
 Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the sequencing. Each later step is independent of the ones after it.
 
@@ -20,6 +21,7 @@ Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the s
 - **Practice problem generation:** a popup with number of questions, difficulty, and type mix (free response, multiple choice, selection), for lessons with no problem set or when more problems are requested. This also removes the requirement that every lesson has a problem set.
 - **Similar-problem generation:** replace or supplement problems whose stored answer is unverified.
 - **Per-page re-transcribe:** a page review screen with a control to re-transcribe a single page.
+- **Short text answers:** an answer kind for a term or name, matched against a list of accepted answers ignoring case and spacing, in place of a self check for questions such as "Which flag is set on unsigned overflow?"
 - **Light theme:** same token names, same accent and feedback hues, darkened to reach at least 4.5:1 contrast on white.
 - **Checked code for CS lessons:** run solutions to LeetCode problems instead of marking them done, either locally (a sandboxed Python runner with a test harness for LeetCode's types, design problems, and special judges) or through LeetCode's Run and Submit. Computer science lessons currently ask the student to solve each problem on LeetCode and mark it done.
 - **Packaging and distribution:** bundling the Python server, plus key handling for other users.

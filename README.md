@@ -8,6 +8,7 @@ Kedami is a desktop app that takes course material for a week, module, or exam a
 - Single user, running from source on one machine
 - Math and physics
 - Computer science (data structures and algorithms): lessons with comprehension checks, where each assigned LeetCode problem is solved on LeetCode and marked done in Kedami
+- General: any other course, such as computer architecture or chemistry, through the math and physics pipeline with no subject-specific rules
 - Local storage; outbound traffic goes only to the Anthropic API
 - Dark theme
 

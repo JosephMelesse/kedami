@@ -8,7 +8,7 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 
 | Level | Fields |
 |---|---|
-| Lesson | `schema_version` (currently 1), `id`, `title`, `subject` (`math`, `physics`, or `computer_science`), `source_files`, `sections` |
+| Lesson | `schema_version` (currently 1), `id`, `title`, `subject` (`math`, `physics`, `computer_science`, or `general`), `source_files`, `sections` |
 | Section | `id`, `title`, `goal` (one line), `blocks` |
 | Block | `id`, `type`, plus the fields for that type |
 
@@ -56,6 +56,13 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 - Comprehension checks use the existing answer kinds: `choice` and `multi_choice` for complexity and approach, `numeric` for questions such as what a snippet prints, and `self_check` for explanations.
 - Code in lessons is Python, in fenced `python` blocks. No lesson content walks through a solution to an assigned LeetCode problem.
 
+## General lessons
+
+- For courses that aren't math, physics, or data structures and algorithms.
+- The problem set is free-form and goes through the same extraction, planning, generation, hints, and verification as math and physics.
+- Every answer kind except `external` is allowed. A question with a short factual answer, such as a term or a name, is a `self_check` with the answer in the rubric. A True/False question is a `choice` with the options True and False.
+- Code in lessons uses the language of the course material, in fenced blocks tagged with that language. Only Python is highlighted; other languages show in JetBrains Mono without highlighting.
+
 ## Hints
 
 - Generated with the lesson, ordered from gentle to specific, revealed one at a time.
@@ -65,12 +72,13 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 
 ## Solutions
 
-- Every problem part in a math or physics lesson has a Show solution button. Lesson generation writes nothing for it, as with simulations: a separate call writes the solution the first time the student asks, and it is stored and shown from storage after that.
+- Every problem part in a math, physics, or general lesson has a Show solution button. Lesson generation writes nothing for it, as with simulations: a separate call writes the solution the first time the student asks, and it is stored and shown from storage after that.
 - A confirmation popup comes first, stating that it shows the full solution. Viewing a solution doesn't complete the part; it still needs a correct answer or mark done.
-- Solutions are short: labels and math, no sentences.
+- Solutions are short. Math and physics solutions are labels and math, no sentences.
   - Math: the method in a few words (such as "Integration by parts"), then the working as LaTeX lines down to the final answer.
   - Physics: Given (each known quantity with its value and unit), Required (each quantity asked for), then the solution, starting from the formula it uses and ending at the answer.
-- The whole solution shows at once. Each line of math is display math centered in the lesson column, and the last line boxes the final answer.
+  - General: a few short Markdown lines, each one fact or step of reasoning from the course material, ending with a line that states the final answer. Short sentences are allowed; math is inline LaTeX.
+- The whole solution shows at once. In math and physics, each line of math is display math centered in the lesson column, and the last line boxes the final answer. In general, lines are left-aligned Markdown, and the last line has an "Answer" label and is set in medium weight.
 - The call sees the course material and the whole problem, with the part to solve and the form its answer takes. It doesn't see the stored answer, hints, or lesson content.
 - The reply also gives its final answer in that form, which the server compares with the stored answer the way verification does. On a disagreement the call is repeated once with the stored answer shown; if they still disagree, the solution shows with a "Doesn't match the stored answer" label. `self_check` parts aren't compared.
 - A solution is stored apart from the lesson JSON, in the `solutions` table, keyed by block and part ID. A rerun replaces the lesson and clears these rows.
