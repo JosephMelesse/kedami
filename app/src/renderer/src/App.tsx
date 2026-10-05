@@ -4,6 +4,7 @@ import { GeneratingScreen } from './generating/GeneratingScreen'
 import { NewLessonScreen } from './generating/NewLessonScreen'
 import { LessonScreen } from './lesson/LessonScreen'
 import { LibraryScreen } from './library/LibraryScreen'
+import { DayBarProvider } from './lesson/days/DayBar'
 import { RestScreen } from './pomodoro/RestScreen'
 
 type Screen =
@@ -20,7 +21,7 @@ export function App() {
   const openGenerating = (lessonId: string) => setScreen({ name: 'generating', lessonId })
 
   return (
-    <>
+    <DayBarProvider>
       <AppHeader onHome={openLibrary} onRest={setRestTime} resting={restTime !== null} />
       {restTime !== null && <RestScreen time={restTime} />}
       <main inert={restTime !== null}>
@@ -40,6 +41,6 @@ export function App() {
           <LessonScreen lessonId={screen.lessonId} onBack={openLibrary} onRerun={openGenerating} />
         )}
       </main>
-    </>
+    </DayBarProvider>
   )
 }

@@ -22,6 +22,8 @@ export interface LessonResponse {
   rerun_stages: number[]
   /** The block the student was last reading, which may be gone after a rerun. */
   reading_block: string | null
+  /** The blocks that begin day 2 onward, in lesson order. Empty if the lesson isn't split into days. */
+  day_starts: string[]
 }
 
 export interface NewFile {
@@ -130,6 +132,10 @@ export function getLesson(lessonId: string): Promise<LessonResponse> {
 
 export async function saveReadingPosition(lessonId: string, blockId: string): Promise<void> {
   await request('POST', `${lessonPath(lessonId)}/reading-position`, { block_id: blockId })
+}
+
+export async function saveDays(lessonId: string, blockIds: string[]): Promise<void> {
+  await request('POST', `${lessonPath(lessonId)}/days`, { block_ids: blockIds })
 }
 
 export async function getPlotPoints(lessonId: string, blockId: string): Promise<PlotSeries[]> {

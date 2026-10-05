@@ -29,7 +29,8 @@ CREATE TABLE IF NOT EXISTS lessons (
     created TEXT NOT NULL,
     error TEXT,
     folder_id INTEGER REFERENCES folders (id) ON DELETE SET NULL,
-    reading_block TEXT
+    reading_block TEXT,
+    day_starts TEXT
 );
 
 CREATE TABLE IF NOT EXISTS simulations (
@@ -92,6 +93,7 @@ ADDED_COLUMNS = {
         "folder_id": "INTEGER REFERENCES folders (id) ON DELETE SET NULL",
         "custom_title": "TEXT",
         "reading_block": "TEXT",
+        "day_starts": "TEXT",
     },
 }
 

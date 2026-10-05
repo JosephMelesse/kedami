@@ -177,11 +177,30 @@ input {
 }
 
 .music-player {
+  position: relative;
+  isolation: isolate;
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
+  border-radius: 10px;
   font-size: 14px;
+}
+
+/* In a lesson, the player's background fills toward the next finish line. See Finish lines in ui.md. */
+.music-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: -1;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 20%, var(--bg));
+  transition: width 150ms ease-out;
+}
+
+.music-note {
+  padding: 4px 8px;
+  color: var(--accent);
+  white-space: nowrap;
 }
 
 /* ▶ and ⏸ from one font, so the play/pause symbols match in size. See assets/media-symbols-OFL.txt. */

@@ -4,7 +4,7 @@ import type { LessonResponse } from '../api'
 import { GeneratingView } from './GeneratingScreen'
 
 function status(overrides: Partial<LessonResponse>): LessonResponse {
-  return { lesson: null, status: 'generating', current_stage: null, error: null, materials: [], rerun_stages: [], reading_block: null, ...overrides }
+  return { lesson: null, status: 'generating', current_stage: null, error: null, materials: [], rerun_stages: [], reading_block: null, day_starts: [], ...overrides }
 }
 
 function render(value: LessonResponse | null, error: string | null = null): HTMLElement {

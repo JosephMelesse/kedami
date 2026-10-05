@@ -77,6 +77,27 @@ describe('MusicPlayer', () => {
     expect(toggle().getAttribute('aria-label')).toBe('Play')
   })
 
+  it('fills its background with the day bar, and shows no fill without one', async () => {
+    await mount([track('a.mp3')])
+    expect(container.querySelector('.music-fill')).toBeNull()
+    await act(async () => root.render(<MusicPlayer bar={{ fill: 0.25, note: false }} />))
+    const fill = container.querySelector<HTMLElement>('.music-fill')!
+    expect([fill.style.width, fill.getAttribute('aria-valuenow')]).toEqual(['25%', '25'])
+    expect(select().value).toBe('a.mp3')
+  })
+
+  it('shows Done for today in place of the track name, and keeps playing', async () => {
+    await mount([track('a.mp3')])
+    await act(async () => toggle().click())
+    await act(async () => root.render(<MusicPlayer bar={{ fill: 1, note: true }} />))
+    expect(container.querySelector('select')).toBeNull()
+    expect(container.querySelector('.music-note')!.textContent).toBe('Done for today')
+    expect(toggle().getAttribute('aria-label')).toBe('Pause')
+    await act(async () => root.render(<MusicPlayer bar={{ fill: 0, note: false }} />))
+    expect(select().value).toBe('a.mp3')
+    expect(toggle().getAttribute('aria-label')).toBe('Pause')
+  })
+
   it('marks the track name as playing only while it plays', async () => {
     await mount([track('a.mp3')])
     expect(select().classList.contains('playing')).toBe(false)

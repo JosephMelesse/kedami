@@ -1,18 +1,31 @@
-import { useRef } from 'react'
+import { Fragment, useMemo, useRef } from 'react'
 import { ProgressBar } from '../ProgressBar'
 import { SUBJECT_LABELS } from '../subjects'
 import { useProgress } from './progress/ProgressContext'
 import { problemCounts } from './progress/state'
+import { FinishLine } from './days/FinishLine'
+import { useFinishLines } from './days/useFinishLines'
 import { useReadingPosition } from './reading/useReadingPosition'
 import { SectionView } from './SectionView'
 import type { Lesson } from './types'
 
+const NO_DAYS: string[] = []
 
-export function LessonView({ lesson, readingBlock = null }: { lesson: Lesson; readingBlock?: string | null }) {
+interface LessonViewProps {
+  lesson: Lesson
+  readingBlock?: string | null
+  /** The blocks that begin day 2 onward. */
+  dayStarts?: string[]
+}
+
+export function LessonView({ lesson, readingBlock = null, dayStarts = NO_DAYS }: LessonViewProps) {
   const progress = useProgress()
   const { done, total } = problemCounts(lesson, progress.map)
   const article = useRef<HTMLElement>(null)
-  useReadingPosition(lesson.id, readingBlock, article)
+  const opened = useReadingPosition(lesson.id, readingBlock, article)
+  useFinishLines(article, dayStarts, opened)
+  // The day each finish line ends, by the block that follows it.
+  const lineBefore = useMemo(() => new Map(dayStarts.map((blockId, index) => [blockId, index + 1])), [dayStarts])
 
   return (
     <article className="lesson" ref={article}>
@@ -25,9 +38,16 @@ export function LessonView({ lesson, readingBlock = null }: { lesson: Lesson; re
           <span className="muted">{done === total && total > 0 ? 'Lesson complete' : `${done} of ${total} problems done`}</span>
         </div>
       </header>
-      {lesson.sections.map((section) => (
-        <SectionView key={section.id} section={section} lessonId={lesson.id} />
-      ))}
+      {lesson.sections.map((section) => {
+        // A line before a section's first block goes above its heading.
+        const day = lineBefore.get(section.blocks[0]?.id)
+        return (
+          <Fragment key={section.id}>
+            {day && <FinishLine day={day} />}
+            <SectionView section={section} lessonId={lesson.id} lineBefore={lineBefore} />
+          </Fragment>
+        )
+      })}
     </article>
   )
 }

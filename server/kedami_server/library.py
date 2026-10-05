@@ -1,5 +1,6 @@
 """The lesson index: one row per lesson, whatever its generation status."""
 
+import json
 import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -26,6 +27,8 @@ class LessonRow:
     custom_title: str | None = None
     # The block the student was last reading. A rerun keeps it, even if that block is gone.
     reading_block: str | None = None
+    # The blocks that begin day 2 onward, as a JSON list. A rerun keeps them; see `day_starts`.
+    day_starts: str | None = None
 
     @property
     def shown_title(self) -> str:
@@ -196,6 +199,17 @@ def rename_lesson(conn: sqlite3.Connection, lesson_id: str, title: str) -> None:
 
 def set_reading_block(conn: sqlite3.Connection, lesson_id: str, block_id: str) -> None:
     conn.execute("UPDATE lessons SET reading_block = ? WHERE id = ?", (block_id, lesson_id))
+
+
+def set_day_starts(conn: sqlite3.Connection, lesson_id: str, block_ids: list[str]) -> None:
+    conn.execute("UPDATE lessons SET day_starts = ? WHERE id = ?", (json.dumps(block_ids) if block_ids else None, lesson_id))
+
+
+def day_starts(row: LessonRow, lesson: Lesson) -> list[str]:
+    """The saved day starts still in the lesson, in lesson order, since a rerun can drop or move blocks."""
+    saved = set(json.loads(row.day_starts)) if row.day_starts else set()
+    block_ids = [block.id for section in lesson.sections for block in section.blocks]
+    return [block_id for block_id in block_ids[1:] if block_id in saved]
 
 
 def move_lesson(conn: sqlite3.Connection, lesson_id: str, folder_id: int | None) -> None:

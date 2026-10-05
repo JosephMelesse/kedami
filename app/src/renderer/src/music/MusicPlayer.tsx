@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { MusicTrack } from '../../../preload/api'
+import type { DayBar } from '../lesson/days/DayBar'
 
 // The last entry in the track list opens the file picker. It has no audio extension, so no track can share it.
 const ADD_MUSIC = 'add-music'
@@ -10,8 +11,9 @@ const PAUSE_SYMBOL = '\u23F8\uFE0E'
 /**
  * A track picker and play button. The selected track repeats until paused or changed.
  * While `resting`, music pauses and can't be played, then picks up where it was once rest ends.
+ * In a lesson, its background fills as the `bar` toward the next finish line.
  */
-export function MusicPlayer({ resting = false }: { resting?: boolean }) {
+export function MusicPlayer({ resting = false, bar = null }: { resting?: boolean; bar?: DayBar | null }) {
   const [tracks, setTracks] = useState<MusicTrack[]>([])
   const [selected, setSelected] = useState<string | null>(null)
   const [playing, setPlaying] = useState(false)
@@ -56,28 +58,43 @@ export function MusicPlayer({ resting = false }: { resting?: boolean }) {
   const track = tracks.find((t) => t.name === selected)
   return (
     <div className="music-player">
-      <select
-        className={sounding ? 'music-select playing' : 'music-select'}
-        aria-label="Track"
-        value={selected ?? ''}
-        onChange={(event) => {
-          // Choosing Add music leaves the selection as it was; the controlled value snaps back.
-          if (event.target.value === ADD_MUSIC) add()
-          else setSelected(event.target.value)
-        }}
-      >
-        {tracks.length === 0 && (
-          <option value="" disabled>
-            No music yet
-          </option>
-        )}
-        {tracks.map((t) => (
-          <option key={t.name} value={t.name}>
-            {t.name}
-          </option>
-        ))}
-        <option value={ADD_MUSIC}>Add music</option>
-      </select>
+      {bar && (
+        <span
+          className="music-fill"
+          role="progressbar"
+          aria-label="Today's reading"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(bar.fill * 100)}
+          style={{ width: `${bar.fill * 100}%` }}
+        />
+      )}
+      {bar?.note ? (
+        <span className="music-note">Done for today</span>
+      ) : (
+        <select
+          className={sounding ? 'music-select playing' : 'music-select'}
+          aria-label="Track"
+          value={selected ?? ''}
+          onChange={(event) => {
+            // Choosing Add music leaves the selection as it was; the controlled value snaps back.
+            if (event.target.value === ADD_MUSIC) add()
+            else setSelected(event.target.value)
+          }}
+        >
+          {tracks.length === 0 && (
+            <option value="" disabled>
+              No music yet
+            </option>
+          )}
+          {tracks.map((t) => (
+            <option key={t.name} value={t.name}>
+              {t.name}
+            </option>
+          ))}
+          <option value={ADD_MUSIC}>Add music</option>
+        </select>
+      )}
       <button
         type="button"
         className="button music-toggle"

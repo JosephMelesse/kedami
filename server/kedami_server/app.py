@@ -85,6 +85,11 @@ class ReadingPositionRequest(Body):
     block_id: Annotated[str, StringConstraints(min_length=1, max_length=200)]
 
 
+class DaysRequest(Body):
+    # Day 1 starts at the first block, so 30 days have 29 starts.
+    block_ids: Annotated[list[Annotated[str, StringConstraints(min_length=1, max_length=200)]], Field(max_length=29)]
+
+
 class MarkDoneRequest(Body):
     part_id: str
     done: StrictBool
@@ -223,7 +228,8 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
     @app.get("/lessons/{lesson_id}")
     def lesson(lesson_id: str):
         row = get_row(lesson_id)
-        body = get_lesson(lesson_id).model_dump(mode="json") if row.status == "ready" else None
+        loaded = get_lesson(lesson_id) if row.status == "ready" else None
+        body = loaded.model_dump(mode="json") if loaded else None
         if body and row.custom_title:
             # A renamed lesson is served under its new name; the JSON on disk keeps the plan's.
             body["title"] = row.custom_title
@@ -240,6 +246,7 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
             ],
             "rerun_stages": pipeline.available_stages(settings.data_dir, lesson_id, bool(materials)),
             "reading_block": row.reading_block,
+            "day_starts": library.day_starts(row, loaded) if loaded else [],
         }
 
     @app.post("/lessons/{lesson_id}/reading-position")
@@ -249,6 +256,20 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         with db.connect(settings.data_dir) as conn:
             library.set_reading_block(conn, lesson_id, body.block_id)
         return {"block_id": body.block_id}
+
+    @app.post("/lessons/{lesson_id}/days")
+    def days(lesson_id: str, body: DaysRequest):
+        block_ids = [block.id for section in get_lesson(lesson_id).sections for block in section.blocks]
+        if any(block_id not in block_ids for block_id in body.block_ids):
+            raise HTTPException(404, "block not found")
+        positions = [block_ids.index(block_id) for block_id in body.block_ids]
+        if positions and positions[0] == 0:
+            raise HTTPException(422, "The first block already starts day 1.")
+        if any(a >= b for a, b in zip(positions, positions[1:])):
+            raise HTTPException(422, "Day starts must be in lesson order, with no repeats.")
+        with db.connect(settings.data_dir) as conn:
+            library.set_day_starts(conn, lesson_id, body.block_ids)
+        return {"block_ids": body.block_ids}
 
     @app.get("/lessons/{lesson_id}/blocks/{block_id}/points")
     def points(lesson_id: str, block_id: str):
