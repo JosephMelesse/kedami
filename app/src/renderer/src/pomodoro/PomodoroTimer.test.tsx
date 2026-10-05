@@ -140,5 +140,34 @@ describe('PomodoroTimer', () => {
       expect(play).toHaveBeenCalledTimes(1)
       play.mockRestore()
     })
+
+    it('reports the rest time until rest ends, frozen while paused, and null once stopped', async () => {
+      const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+      const onRest = vi.fn()
+      await act(async () => root.render(<PomodoroTimer onRest={onRest} />))
+      const reported = () => onRest.mock.calls.map(([time]) => time)
+      await click('Start')
+      expect(reported()).toEqual([null])
+
+      await act(async () => vi.advanceTimersByTime(25 * 60_000))
+      await act(async () => vi.advanceTimersByTime(1_000))
+      expect(reported()).toEqual([null, '5:00', '4:59'])
+
+      await act(async () => counter()!.click())
+      await act(async () => vi.advanceTimersByTime(60_000))
+      expect(reported()).toEqual([null, '5:00', '4:59'])
+
+      await act(async () => counter()!.click())
+      await act(async () => vi.advanceTimersByTime(4 * 60_000 + 59_000))
+      expect(reported().at(-1)).toBeNull()
+      expect(counter()!.textContent).toBe('Study25:00')
+
+      await act(async () => vi.advanceTimersByTime(25 * 60_000))
+      expect(reported().at(-1)).toBe('5:00')
+      await act(async () => counter()!.click())
+      await click('Stop')
+      expect(reported().at(-1)).toBeNull()
+      play.mockRestore()
+    })
   })
 })

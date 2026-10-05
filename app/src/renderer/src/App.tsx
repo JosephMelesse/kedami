@@ -4,6 +4,7 @@ import { GeneratingScreen } from './generating/GeneratingScreen'
 import { NewLessonScreen } from './generating/NewLessonScreen'
 import { LessonScreen } from './lesson/LessonScreen'
 import { LibraryScreen } from './library/LibraryScreen'
+import { RestScreen } from './pomodoro/RestScreen'
 
 type Screen =
   | { name: 'library' }
@@ -13,14 +14,16 @@ type Screen =
 
 export function App() {
   const [screen, setScreen] = useState<Screen>({ name: 'library' })
+  const [restTime, setRestTime] = useState<string | null>(null)
   const openLibrary = () => setScreen({ name: 'library' })
   const openLesson = (lessonId: string) => setScreen({ name: 'lesson', lessonId })
   const openGenerating = (lessonId: string) => setScreen({ name: 'generating', lessonId })
 
   return (
     <>
-      <AppHeader onHome={openLibrary} />
-      <main>
+      <AppHeader onHome={openLibrary} onRest={setRestTime} />
+      {restTime !== null && <RestScreen time={restTime} />}
+      <main inert={restTime !== null}>
         {screen.name === 'library' && (
           <LibraryScreen
             onOpen={(lesson) => (lesson.status === 'ready' ? openLesson(lesson.id) : openGenerating(lesson.id))}

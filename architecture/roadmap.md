@@ -13,6 +13,7 @@
 9. Step-by-step solutions on request
 10. General subject
 11. Reading position
+12. Rest screen
 
 Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the sequencing. Each later step is independent of the ones after it.
 

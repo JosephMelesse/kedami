@@ -17,7 +17,12 @@ import {
 const TICK_MS = 250
 const PHASE_LABELS = { study: 'Study', rest: 'Rest' }
 
-export function PomodoroTimer() {
+interface PomodoroTimerProps {
+  /** Called with the time left whenever it changes during rest, running or paused, and with null otherwise. */
+  onRest?: (time: string | null) => void
+}
+
+export function PomodoroTimer({ onRest }: PomodoroTimerProps) {
   const [durations, setDurations] = useState<Durations>(loadDurations)
   const [state, setState] = useState<TimerState>(IDLE)
   const [now, setNow] = useState(() => Date.now())
@@ -73,6 +78,9 @@ export function PomodoroTimer() {
   }
   const time = formatRemaining(remaining(state, now, durations))
   const phase = PHASE_LABELS[phaseOf(state)]
+  const restTime = state.status !== 'idle' && state.phase === 'rest' ? time : null
+
+  useEffect(() => onRest?.(restTime), [onRest, restTime])
 
   // Once started, only the phase and the remaining time show. Clicking them pauses or resumes;
   // a paused timer also offers Stop.

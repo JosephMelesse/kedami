@@ -336,6 +336,40 @@ input {
   border-color: var(--border);
 }
 
+/* During rest a 404 page covers everything below the header, and the page underneath can't scroll. */
+.resting {
+  overflow: hidden;
+}
+
+.rest-screen {
+  position: fixed;
+  z-index: 1;
+  inset: 56px 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px;
+  background: var(--bg);
+  text-align: center;
+}
+
+.rest-code {
+  font-size: 96px;
+  line-height: 1;
+}
+
+.rest-caption {
+  color: var(--text-muted);
+}
+
+.rest-time {
+  color: var(--text);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
 .dialog-form {
   display: grid;
   gap: 16px;
