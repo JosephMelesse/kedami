@@ -43,9 +43,19 @@ Dark is the only theme in the MVP. All colors come from these tokens so a light 
 | Library | The start screen. Folder tiles first, then the lessons in no folder, oldest first, with status and problem progress, then a New lesson tile that opens Upload. A New folder button creates a folder. Folders are one level deep; opening one shows its lessons, a Rename button, a Delete folder button (its lessons move back home), and a New lesson tile that creates the lesson in that folder. Each lesson tile has an options menu to rename it, move it to a folder or home, or delete it after a confirmation; a generating lesson can't be deleted, and a renamed lesson keeps its name through reruns |
 | Upload | File drop, role tag and force-transcription toggle per file |
 | Generating | Current pipeline stage; a failed lesson shows the reason and a Rerun button |
-| Lesson | Sections and blocks in order, with a progress indicator in the accent color. A Rerun button opens a dialog with the start stage and force-transcription toggles; a failed rerun shows its reason above the lesson |
+| Lesson | Sections and blocks in order, with a progress indicator in the accent color. A Rerun button opens a dialog with the start stage and force-transcription toggles; a failed rerun shows its reason above the lesson. Opening a lesson returns to the block last read; see Reading position |
 
 The app header is visible on every screen and holds the music player and the Pomodoro timer.
+
+## Reading position
+
+Kedami remembers where the student was reading in each lesson and reopens the lesson there. There is no button.
+
+- The block being read is the topmost block still on screen: the first whose bottom edge is below the app header.
+- It is saved when scrolling has stopped for one second and when the student leaves the lesson, only if it changed.
+- On open, the lesson jumps to that block with no animation, its top just below the app header.
+- Position is kept per block, not per pixel, so it holds when content above it changes height. Returning to a long block lands at its top.
+- A lesson with no saved position, or whose saved block is gone after a rerun, opens at the top.
 
 ## Pomodoro timer
 
