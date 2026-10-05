@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS lessons (
     revision INTEGER NOT NULL DEFAULT 1,
     created TEXT NOT NULL,
     error TEXT,
-    folder_id INTEGER REFERENCES folders (id) ON DELETE SET NULL
+    folder_id INTEGER REFERENCES folders (id) ON DELETE SET NULL,
+    reading_block TEXT
 );
 
 CREATE TABLE IF NOT EXISTS simulations (
@@ -90,6 +91,7 @@ ADDED_COLUMNS = {
         "error": "TEXT",
         "folder_id": "INTEGER REFERENCES folders (id) ON DELETE SET NULL",
         "custom_title": "TEXT",
+        "reading_block": "TEXT",
     },
 }
 

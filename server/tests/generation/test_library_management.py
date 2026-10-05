@@ -203,8 +203,8 @@ def test_older_database_gains_the_folder_column(tmp_path):
     conn.close()
     db.init(tmp_path)
     with db.connect(tmp_path) as conn:
-        row = conn.execute("SELECT error, folder_id, custom_title FROM lessons WHERE id = 'old'").fetchone()
-    assert (row["error"], row["folder_id"], row["custom_title"]) == (None, None, None)
+        row = conn.execute("SELECT error, folder_id, custom_title, reading_block FROM lessons WHERE id = 'old'").fetchone()
+    assert (row["error"], row["folder_id"], row["custom_title"], row["reading_block"]) == (None, None, None, None)
 
 
 # Renaming lessons

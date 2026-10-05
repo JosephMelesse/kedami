@@ -1,17 +1,21 @@
+import { useRef } from 'react'
 import { ProgressBar } from '../ProgressBar'
 import { SUBJECT_LABELS } from '../subjects'
 import { useProgress } from './progress/ProgressContext'
 import { problemCounts } from './progress/state'
+import { useReadingPosition } from './reading/useReadingPosition'
 import { SectionView } from './SectionView'
 import type { Lesson } from './types'
 
 
-export function LessonView({ lesson }: { lesson: Lesson }) {
+export function LessonView({ lesson, readingBlock = null }: { lesson: Lesson; readingBlock?: string | null }) {
   const progress = useProgress()
   const { done, total } = problemCounts(lesson, progress.map)
+  const article = useRef<HTMLElement>(null)
+  useReadingPosition(lesson.id, readingBlock, article)
 
   return (
-    <article className="lesson">
+    <article className="lesson" ref={article}>
       <header className="lesson-header">
         <span className="eyebrow">{SUBJECT_LABELS[lesson.subject]}</span>
         <h1>{lesson.title}</h1>

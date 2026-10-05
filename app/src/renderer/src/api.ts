@@ -20,6 +20,8 @@ export interface LessonResponse {
   materials: Material[]
   /** Stages a rerun can start from. Empty if the lesson can't be rerun. */
   rerun_stages: number[]
+  /** The block the student was last reading, which may be gone after a rerun. */
+  reading_block: string | null
 }
 
 export interface NewFile {
@@ -124,6 +126,10 @@ export async function rerunLesson(lessonId: string, stage: number, force: Record
 
 export function getLesson(lessonId: string): Promise<LessonResponse> {
   return request('GET', lessonPath(lessonId))
+}
+
+export async function saveReadingPosition(lessonId: string, blockId: string): Promise<void> {
+  await request('POST', `${lessonPath(lessonId)}/reading-position`, { block_id: blockId })
 }
 
 export async function getPlotPoints(lessonId: string, blockId: string): Promise<PlotSeries[]> {

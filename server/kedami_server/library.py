@@ -24,6 +24,8 @@ class LessonRow:
     folder_id: int | None = None
     # The student's name for the lesson. It outlasts reruns, which replace `title` with the plan's.
     custom_title: str | None = None
+    # The block the student was last reading. A rerun keeps it, even if that block is gone.
+    reading_block: str | None = None
 
     @property
     def shown_title(self) -> str:
@@ -190,6 +192,10 @@ def delete_folder(conn: sqlite3.Connection, folder_id: int) -> None:
 
 def rename_lesson(conn: sqlite3.Connection, lesson_id: str, title: str) -> None:
     conn.execute("UPDATE lessons SET custom_title = ? WHERE id = ?", (title, lesson_id))
+
+
+def set_reading_block(conn: sqlite3.Connection, lesson_id: str, block_id: str) -> None:
+    conn.execute("UPDATE lessons SET reading_block = ? WHERE id = ?", (block_id, lesson_id))
 
 
 def move_lesson(conn: sqlite3.Connection, lesson_id: str, folder_id: int | None) -> None:

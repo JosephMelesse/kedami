@@ -81,6 +81,10 @@ class MoveRequest(Body):
     folder_id: StrictInt | None
 
 
+class ReadingPositionRequest(Body):
+    block_id: Annotated[str, StringConstraints(min_length=1, max_length=200)]
+
+
 class MarkDoneRequest(Body):
     part_id: str
     done: StrictBool
@@ -235,7 +239,16 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
                 for m in materials
             ],
             "rerun_stages": pipeline.available_stages(settings.data_dir, lesson_id, bool(materials)),
+            "reading_block": row.reading_block,
         }
+
+    @app.post("/lessons/{lesson_id}/reading-position")
+    def reading_position(lesson_id: str, body: ReadingPositionRequest):
+        if get_lesson(lesson_id).find_block(body.block_id) is None:
+            raise HTTPException(404, "block not found")
+        with db.connect(settings.data_dir) as conn:
+            library.set_reading_block(conn, lesson_id, body.block_id)
+        return {"block_id": body.block_id}
 
     @app.get("/lessons/{lesson_id}/blocks/{block_id}/points")
     def points(lesson_id: str, block_id: str):

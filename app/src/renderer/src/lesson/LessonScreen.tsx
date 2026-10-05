@@ -58,7 +58,7 @@ export function LessonScreen({ lessonId, onBack, onRerun }: LessonScreenProps) {
         <>
           {state.response.error && <p className="notice">{state.response.error}</p>}
           <ProgressProvider key={lessonId} lessonId={lessonId} initial={state.progress}>
-            <LessonView lesson={state.lesson} />
+            <LessonView lesson={state.lesson} readingBlock={state.response.reading_block} />
           </ProgressProvider>
           {rerunning && (
             <RerunDialog
