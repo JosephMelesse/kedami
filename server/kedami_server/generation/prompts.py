@@ -86,6 +86,8 @@ EXTRACT_SYSTEM = f"""You extract the structure of a homework assignment so it ca
 From the problem set, capture every problem with:
 - its source reference (for example "PS3 #4"; build one from the assignment name and problem number if none is written),
 - its shared text and each part, copied verbatim, keeping every number, unit, and symbol,
+- for a part that asks the student to pick from listed options, including True/False, its options in `options`,
+  as written and in order, left out of the part's text so they aren't shown twice,
 - the concepts a student needs to solve it.
 
 A problem with no lettered parts has one part whose label is the problem number.
@@ -170,7 +172,8 @@ Rules:
 - Choose each answer kind to match the question. Keep a homework part's form: never turn a free-response part into
   multiple choice. Use `numeric` for a number (the student types only the number; give `unit` separately and a
   `rel_tolerance` that allows for rounding), `expression` for a formula, `choice` or `multi_choice` only when the
-  question offers options, and `self_check` with a rubric for explanations, proofs, and sketches.
+  question offers options, and `self_check` with a rubric for explanations, proofs, and sketches. A homework part
+  with `options` takes a `choice` or `multi_choice` answer with exactly those options, in that order.
 - Work every answer out carefully; students are graded against it.
 - {MATH_SYNTAX}
 - {MARKDOWN}"""

@@ -8,7 +8,7 @@ which sends the section back to the model with the message.
 from pydantic import ValidationError
 
 from ..ids import slugify
-from ..lesson import ExternalAnswer, Lesson, Part, ProblemBlock, Section
+from ..lesson import ChoiceAnswer, ExternalAnswer, Lesson, MultiChoiceAnswer, Part, ProblemBlock, Section
 from .plan import SectionPlan
 from .schemas import ProblemDraft, SectionDraft, SimulationDraft
 
@@ -90,7 +90,21 @@ def _problem(draft: ProblemDraft, extracted, external: ExternalAnswer | None = N
         wanted = ", ".join(part.label for part in extracted.parts)
         raise SectionError(f"{extracted.source_ref} needs one answer for each part ({wanted}); got: {given}")
 
+    for part in extracted.parts:
+        if part.options is not None:
+            key = slugify(part.label)
+            answers[key] = _with_options(answers[key], part.options, f"{extracted.source_ref} {part.label}")
     return _problem_block(extracted, answers)
+
+
+def _with_options(answer, options: list[str], where: str):
+    """The answer with the problem set's options, so the choices read as the student's homework does."""
+    if not isinstance(answer, ChoiceAnswer | MultiChoiceAnswer):
+        raise SectionError(f"{where} lists options, so its answer must be choice or multi_choice")
+    if len(answer.options) != len(options):
+        raise SectionError(f"{where} must offer its {len(options)} options as given, in order")
+    # Validated afresh, so the options get the same checks as any lesson text.
+    return type(answer).model_validate({**answer.model_dump(), "options": options})
 
 
 def _problem_block(extracted, answers: dict) -> dict:

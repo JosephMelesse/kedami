@@ -39,7 +39,12 @@ class Concept(Model):
 
 class ExtractedPart(Model):
     label: str = Field(description="The part label as written, such as '(a)'. For a problem with no parts, its number.")
-    prompt: str = Field(description="The part's text, verbatim, as Markdown with LaTeX.")
+    prompt: str = Field(description="The part's text, verbatim, as Markdown with LaTeX, without its options.")
+    options: Annotated[list[str], Field(min_length=2)] | None = Field(
+        default=None,
+        description="For a part that asks the student to pick from listed options, including True/False: the options "
+        "as written, in order, without their letters or bullets. Null otherwise.",
+    )
 
 
 class ExtractedProblem(Model):

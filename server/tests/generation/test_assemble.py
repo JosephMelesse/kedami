@@ -93,3 +93,81 @@ def test_lesson_assembly_validates(section_plan):
     section = assemble_section(section_plan, draft(EXPLANATION, problem1(), problem2()))
     lesson = assemble_lesson("abc-123", "Projectiles", "physics", ["problem-set.md"], [section])
     assert lesson.find_block("ps1-2").parts[0].id == "2"
+
+
+# Options listed in the problem set
+
+
+def choice(options, correct=(0,), kind="choice"):
+    return {"kind": kind, "options": options, "correct": list(correct)}
+
+
+@pytest.fixture
+def options_plan():
+    problems = [
+        {
+            "source_ref": "Review #1",
+            "prompt": "",
+            "parts": [{"label": "1", "prompt": "SRAM does not need refreshing.", "options": ["true", "false"]}],
+            "concepts": ["vectors"],
+        },
+        {
+            "source_ref": "Review #2",
+            "prompt": "",
+            "parts": [{"label": "2", "prompt": "Which are buses?", "options": ["Data bus", "Clock", "Address bus"]}],
+            "concepts": ["vectors"],
+        },
+    ]
+    [section] = place_problems(plan(("Memory", ["vectors"])), extraction(problems, concepts=("vectors",)))
+    return section
+
+
+def review(first, second=None):
+    second = second or choice(["Data bus", "Clock", "Address bus"], (0, 2), "multi_choice")
+    return draft(
+        {"type": "problem", "source_ref": "Review #1", "parts": [{"label": "1", "answer": first}]},
+        {"type": "problem", "source_ref": "Review #2", "parts": [{"label": "2", "answer": second}]},
+    )
+
+
+def test_listed_options_are_shown_once_as_written(options_plan):
+    reworded = choice(["data", "clk", "addr"], (0, 2), "multi_choice")
+    section = assemble_section(options_plan, review(choice(["True", "False"]), reworded))
+    first, second = (block.parts[0] for block in section.blocks)
+    assert first.prompt == "SRAM does not need refreshing."
+    assert (first.answer.options, first.answer.correct_index) == (["true", "false"], 0)
+    assert (second.answer.options, second.answer.correct_indexes) == (["Data bus", "Clock", "Address bus"], [0, 2])
+
+
+@pytest.mark.parametrize(
+    "answer, message",
+    [
+        ({"kind": "self_check", "rubric": "True."}, "Review #1 1 lists options, so its answer must be choice"),
+        (choice(["True", "False", "Unsure"]), "Review #1 1 must offer its 2 options as given, in order"),
+    ],
+)
+def test_a_part_with_options_needs_a_choice_with_as_many(options_plan, answer, message):
+    with pytest.raises(SectionError, match=message):
+        assemble_section(options_plan, review(answer))
+
+
+def test_options_are_checked_like_lesson_text():
+    part = {"label": "1", "prompt": "Q", "options": ["$\\\\Delta U = 0$", "$Q = 0$"]}
+    problems = [{"source_ref": "R #1", "prompt": "", "parts": [part], "concepts": ["vectors"]}]
+    [section_plan] = place_problems(plan(("Heat", ["vectors"])), extraction(problems, concepts=("vectors",)))
+    answer = {"type": "problem", "source_ref": "R #1", "parts": [{"label": "1", "answer": choice(["a", "b"])}]}
+    part = assemble_section(section_plan, draft(answer)).blocks[0].parts[0]
+    assert part.answer.options == ["$\\Delta U = 0$", "$Q = 0$"]
+
+
+def test_a_part_offers_at_least_two_options():
+    with pytest.raises(ValueError, match="at least 2"):
+        part = {"label": "1", "prompt": "Q", "options": ["yes"]}
+        extraction([{"source_ref": "R #1", "prompt": "", "parts": [part], "concepts": []}])
+
+
+def test_the_section_request_shows_the_options(options_plan):
+    from kedami_server.generation.prompts import section_request
+
+    text = section_request(options_plan, [options_plan])["text"]
+    assert '"options": [\n' in text and '"Address bus"' in text
