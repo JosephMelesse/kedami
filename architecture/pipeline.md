@@ -42,6 +42,7 @@ Stages 1 to 4 run as a background job on the server. The renderer polls lesson s
 ## Stage 2: extraction
 
 - Every problem in the problem set is captured with its source reference (for example, "PS3 #4") and its parts.
+- A part that asks the student to pick from listed options, including True/False, has its options captured separately, as written and in order, and left out of the part's text. The lesson shows them once, as the answer's choices.
 - For a computer science lesson, the server parses the LeetCode problem list itself and the model only maps problems to concepts. See `lesson-format.md`.
 - Concepts are drawn from the reference material and linked to the problems that need them.
 
@@ -56,6 +57,7 @@ Stages 1 to 4 run as a background job on the server. The renderer polls lesson s
 
 - One model call per section. A failed or invalid section is retried alone.
 - The model places each of the section's problems among the teaching blocks and gives their answers by part label. The server inserts the problem and part text verbatim from extraction.
+- A part with extracted options must get a `choice` or `multi_choice` answer with the same number of options, and the server stores the extracted options in place of the model's wording, so the choices read as in the problem set.
 - Teaching block IDs are `{section_id}-block-{n}`.
 - Hint checks: the cheap check looks for the answer in the hint (a number within tolerance, the expression, or the correct option). Integer answers below 10 are left to the small model, since they appear in ordinary working. A hint the small model doesn't rule on counts as failing.
 - Hints, simulations, and verification run after the section content exists.
@@ -65,6 +67,7 @@ Stages 1 to 4 run as a background job on the server. The renderer polls lesson s
 
 - A rerun starts from a chosen stage and repeats every stage after it.
 - A bad page is fixed by turning on force transcription for its file and rerunning from stage 1.
+- A lesson extracted before options were captured separately shows a problem's options twice, in its text and as choices. Rerunning from stage 2 fixes it.
 - A rerun replaces the lesson JSON and increments the lesson's revision.
 - A rerun can start from stage 1 if the lesson has uploaded files, and from stage k > 1 only if the saved outputs of stages 1 to k-1 are on disk. Changing a force-transcription toggle requires starting from stage 1.
 - Outputs of the stages being redone are deleted first, so nothing is left over from a longer earlier run.
