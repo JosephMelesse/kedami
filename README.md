@@ -29,3 +29,7 @@ See `roadmap.md` for the backlog.
 | `architecture/ui.md` | Design tokens, UI rules, screens, Pomodoro timer, music player |
 | `architecture/storage-and-api.md` | Files on disk, database tables, server API |
 | `architecture/roadmap.md` | Build order and backlog |
+
+## License
+
+Copyright (c) 2026 Joseph Melesse. All rights reserved.
