@@ -59,12 +59,12 @@ Kedami remembers where the student was reading in each lesson and reopens the le
 
 ## Finish lines
 
-The student can split a lesson into days. Each day ends at a finish line, and the music player's background in the app header fills as a progress bar toward the next one.
+The student can split a lesson into days. Each day ends at a finish line, and the background of the music player's track name in the app header fills as a progress bar toward the next one.
 
 - **Splitting:** the Days button opens a dialog with the number of days, a whole number from 1 to 30 and at most the number of blocks, and a Split button. The renderer cuts the lesson as currently laid out at the block boundaries nearest to equal heights, giving each day at least one block. Splitting again replaces the lines, and 1 day removes them.
 - **Lines:** a finish line is kept as the ID of the block that starts the next day, so it stays between the same blocks when content changes height, such as a revealed solution. Heights matter only at the moment of splitting.
 - **In the lesson:** each line shows between its blocks as a 1px `--border` rule with a muted "End of day 1" label.
-- **Bar:** while a lesson is open, the music player's background fills from left to right with `--accent` mixed to 20% over `--bg`. The reading point is the bottom edge of the window. The fill is how far it has moved from the previous line, or the lesson start, to the next line, or the lesson end. A lesson with no lines fills toward its end. On other screens the player shows no fill.
+- **Bar:** while a lesson is open, the track name's background fills from left to right, stopping short of the play button, with `--accent` mixed to 20% over `--bg`. The reading point is the bottom edge of the window. The fill is how far it has moved from the previous line, or the lesson start, to the next line, or the lesson end. A lesson with no lines fills toward its end. On other screens the player shows no fill.
 - **Reaching a line:** when the reading point passes a line while scrolling down, "Done for today" replaces the track name in `--accent` for 4 seconds, then the bar starts the next day empty. The end of a split lesson counts as its last line. Opening a lesson past a line, or scrolling back up across one, shows no note.
 - **Persistence:** lines are saved on the server. A rerun keeps the lines whose blocks still exist.
 
@@ -91,7 +91,7 @@ A simple study and rest timer. It runs entirely in the renderer and has no serve
 
 A minimal player for audio files kept in the app data folder. It runs in the renderer, with main handling file access. There is no server involvement.
 
-- **Placement:** in the middle of the app header, with the Pomodoro timer on the right. In a lesson, its background is the finish-line progress bar; see Finish lines.
+- **Placement:** in the middle of the app header, with the Pomodoro timer on the right. In a lesson, the track name's background is the finish-line progress bar; see Finish lines.
 - **Controls:** a dropdown of tracks with Add music as the last entry in its list, and a play/pause button showing ▶ (U+25B6) or ⏸ (U+23F8).
 - **Adding:** Add music opens a file picker, and main copies the chosen files into `music/` in the app data folder. The first added file becomes the selected track; canceling keeps the current one. A name already taken gets a numbered suffix, as in `song (2).mp3`. The dropdown lists the files in `music/` by name; to remove a track, delete its file.
 - **Formats:** MP3, M4A, FLAC, WAV, and OGG.
