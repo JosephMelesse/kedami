@@ -7,6 +7,7 @@ import './styles/base.css'
 import './lesson/lesson.css'
 import './library/library.css'
 import './generating/generating.css'
+import './game/game.css'
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'

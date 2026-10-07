@@ -1,0 +1,70 @@
+.game {
+  display: grid;
+  gap: 16px;
+  justify-self: center;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.game-board {
+  display: grid;
+  grid-template-columns: repeat(4, 72px);
+  grid-auto-rows: 72px;
+  gap: 8px;
+}
+
+.game-cell {
+  display: grid;
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+/* Each doubling mixes in more accent, from 8% for a 2 to 88% for a 2048. */
+.game-tile {
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) calc(var(--level) * 8%), var(--surface-raised));
+  font-size: 28px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.game-tile[data-digits='4'] {
+  font-size: 22px;
+}
+
+.game-tile[data-digits='5'] {
+  font-size: 18px;
+}
+
+/* From 256 up the tile is light enough to need dark digits. */
+.game-tile[data-strong='true'] {
+  color: var(--bg);
+}
+
+.game-footer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.game-score {
+  color: var(--text-muted);
+}
+
+.game-score-value {
+  color: var(--text);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.game-over {
+  color: var(--text-muted);
+}
+
+.game-footer .button {
+  margin-left: auto;
+}

@@ -361,7 +361,8 @@ input {
   border-color: var(--border);
 }
 
-/* During rest a 404 page covers everything below the header, and the page underneath can't scroll. */
+/* During rest a 404 page covers everything below the header, and the page underneath can't scroll.
+   The 404 sits at the top, centered horizontally, with the game below it. */
 .resting {
   overflow: hidden;
 }
@@ -373,11 +374,15 @@ input {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: 16px;
-  padding: 24px;
+  overflow-y: auto;
+  padding: 48px 24px 24px;
   background: var(--bg);
   text-align: center;
+}
+
+.rest-screen .game {
+  margin-top: 16px;
 }
 
 .rest-code {

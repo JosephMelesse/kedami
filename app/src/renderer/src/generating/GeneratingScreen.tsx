@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getLesson, type LessonResponse } from '../api'
+import { Game2048 } from '../game/Game2048'
 import { RerunDialog } from './RerunDialog'
 import { STAGES } from './stages'
 
@@ -96,6 +97,7 @@ export function GeneratingView({ status, error, onRerun }: GeneratingViewProps) 
           )
         })}
       </ol>
+      {!failed && <Game2048 />}
       {failed && status.rerun_stages.length > 0 && onRerun && (
         <div>
           <button type="button" className="button button-primary" onClick={onRerun}>

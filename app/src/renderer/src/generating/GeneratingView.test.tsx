@@ -22,6 +22,15 @@ describe('GeneratingView', () => {
     expect(root.querySelector('h1')?.textContent).toBe('Generating your lesson')
   })
 
+  it('shows the game below the stages while generating, and not once failed', () => {
+    const root = render(status({ current_stage: 2 }))
+    const game = root.querySelector('.game')
+    expect(game).not.toBeNull()
+    expect(root.querySelector('.stages')!.compareDocumentPosition(game!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(render(status({ status: 'failed', current_stage: 2 })).querySelector('.game')).toBeNull()
+    expect(render(null).querySelector('.game')).toBeNull()
+  })
+
   it('shows every stage pending before the first one starts', () => {
     expect(stages(render(status({})))).toEqual(['pending', 'pending', 'pending', 'pending'])
   })
