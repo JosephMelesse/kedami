@@ -21,7 +21,7 @@ Dark is the only theme in the MVP. All colors come from these tokens so a light 
 
 ## Rules
 
-- **Accent:** only for the primary action, links, and progress indicators, including the music player's track name while it plays. Everything else stays neutral.
+- **Accent:** only for the primary action, links, and progress indicators, including the music player's track name while it plays, and the 2048 tiles. Everything else stays neutral.
 - **Depth:** three surface levels and a 1px border do all the layering. No shadows or gradients.
 - **Type:** Inter in regular and medium weights. Body text is 16px with a line height of 1.6.
 - **Shape and spacing:** 12px radius on cards, 10px on controls; spacing in multiples of 8px.
@@ -42,7 +42,7 @@ Dark is the only theme in the MVP. All colors come from these tokens so a light 
 |---|---|
 | Library | The start screen. Folder tiles first, then the lessons in no folder, oldest first, with status and problem progress, then a New lesson tile that opens Upload. A New folder button creates a folder. Folders are one level deep; opening one shows its lessons, a Rename button, a Delete folder button (its lessons move back home), and a New lesson tile that creates the lesson in that folder. Each lesson tile has an options menu to rename it, move it to a folder or home, or delete it after a confirmation; a generating lesson can't be deleted, and a renamed lesson keeps its name through reruns |
 | Upload | File drop, role tag and force-transcription toggle per file |
-| Generating | Current pipeline stage; a failed lesson shows the reason and a Rerun button |
+| Generating | Current pipeline stage, with a 2048 game below it while the lesson generates; a failed lesson shows the reason and a Rerun button |
 | Lesson | Sections and blocks in order, with a progress indicator in the accent color. A Rerun button opens a dialog with the start stage and force-transcription toggles; a failed rerun shows its reason above the lesson. A Days button splits the lesson into days; see Finish lines. Opening a lesson returns to the block last read; see Reading position |
 
 The app header is visible on every screen and holds the music player and the Pomodoro timer.
@@ -80,12 +80,24 @@ A simple study and rest timer. It runs entirely in the renderer and has no serve
 - **Alarm:** a short, conventional alarm jingle from a bundled audio file, played once at the end of each phase.
 - **Accuracy:** remaining time is computed from the phase's end timestamp, so it stays correct when the window is in the background.
 - **Persistence:** the two durations are saved locally. A running timer does not survive an app restart.
-- **Rest screen:** during rest, running or paused, everything below the app header is replaced by a 404 page: a large "404" and the caption "You can go back to studying in 4:59", counting down with the timer. The screen underneath keeps its state and scroll position and returns when rest ends or the timer is stopped. The header stays usable, so pausing then Stop ends a break early. Rest pauses the music, and the play button stays disabled until study starts again. When rest ends, music that was playing picks up where it paused, and music that was paused stays paused.
+- **Rest screen:** during rest, running or paused, everything below the app header is replaced by a 404 page: a large "404" and the caption "You can go back to studying in 4:59", counting down with the timer, centered horizontally at the top, with a 2048 game below them. The screen underneath keeps its state and scroll position and returns when rest ends or the timer is stopped. The header stays usable, so pausing then Stop ends a break early. Rest pauses the music, and the play button stays disabled until study starts again. When rest ends, music that was playing picks up where it paused, and music that was paused stays paused.
 - Durations are whole minutes from 1 to 180, editable only while the timer is reset, so a running phase never changes length.
 - If the window sleeps through several phase ends, the timer lands in the right phase and the alarm plays once.
 - The window does not throttle background timers, so the alarm is on time when the app is hidden.
 - The alarm is `app/src/renderer/src/assets/alarm.wav`, a short ascending chime synthesized for this project.
 - In a window 720px wide or less, the reset timer collapses to its study time. Clicking it opens the inputs and Start in a panel below the header; Escape or a click outside closes it. A running or paused timer is small enough not to collapse.
+
+## 2048
+
+A simple 2048 game to pass the wait while a lesson generates and to fill a break. It runs entirely in the renderer and has no server involvement.
+
+- **Placement:** centered below the stages on the Generating screen while the lesson generates, and below the caption on the rest screen.
+- **Layout:** a card holding the 4 by 4 board, with the score and a New game button along its bottom.
+- **Play:** the arrow keys slide every tile that way. Equal tiles that meet merge once per move, and the merged value is added to the score. A move that changes the board adds a 2, or a 4 one time in ten, in a random empty cell. When no move is left, "No moves left" shows beside the score; New game starts over.
+- **Keys:** a game inside an inert screen, such as the Generating screen under the rest screen, ignores keys. So does every game while focus is in a text field or dropdown, so typing a duration or picking a track never moves tiles.
+- **Tiles:** each tile is `--accent` mixed over `--surface-raised`, stronger as the value doubles, up to 2048. New tiles fade in; tiles do not slide.
+- **Persistence:** both places share one game, kept for the app session. It does not survive an app restart.
+- **Not included:** a best score, undo, a win screen, and touch or mouse controls.
 
 ## Music player
 
