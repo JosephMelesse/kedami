@@ -63,6 +63,7 @@ Every model call is recorded against its lesson, so a lesson shows what it took 
 - Cost is an estimate in US dollars from list prices per million tokens (input, output, cache write, cache read), which live in `MODEL_PRICES` in `server/kedami_server/config.py`, beside the roles. Cache writes are priced at the 5-minute rate, the only one the server uses.
 - Cost is worked out when the call is recorded and stored with it, so a later price change doesn't rewrite what a lesson cost.
 - When a declined request is re-run on a fallback model, the API reports each attempt on its own. The row's tokens are the sum over the attempts, and each attempt is priced at its own model's rate.
+- Every reported attempt is priced, though the API doesn't bill some attempts that are declined before any output, so a lesson with declined requests can read slightly high.
 - An attempt by a model with no listed price leaves the row's cost empty. Totals count such calls instead of treating them as free.
 
 **Reading it**

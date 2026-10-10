@@ -34,6 +34,7 @@ Before writing code, read `README.md` and every file in `architecture/`. Those d
 **Model calls**
 - All model calls go through one server function.
 - Model names live in config, never hardcoded at call sites.
+- That function adds every call that gets a reply to the usage log. Prices live in config beside the model names; update them when a model or its price changes.
 
 **Untrusted content**
 - Model-written code runs only in a sandboxed frame with no network, no Node access, and no access to app data.
@@ -69,6 +70,7 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m pytest
 .venv/bin/python -m kedami_server.export_schema   # after changing lesson models, then run gen:types in app/
+.venv/bin/python -m kedami_server.usage_report ../data   # time, tokens, and cost per lesson and stage
 ```
 
 The server will not start without `KEDAMI_PORT`, `KEDAMI_TOKEN`, and `KEDAMI_DATA_DIR`. Electron main sets them. Lesson generation also needs `ANTHROPIC_API_KEY`, which the server loads from `server/.env`; without it the server runs but new lessons fail. If the key is not scoped to a workspace, also set `ANTHROPIC_WORKSPACE_ID` there. To start it by hand:

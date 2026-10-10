@@ -43,3 +43,22 @@ MODEL_ROLES = {
     "solution": ModelRole(model="claude-opus-5-5", max_tokens=32000, effort="high", fallbacks=True),
     "small_check": ModelRole(model="claude-haiku-4-5", max_tokens=4000),
 }
+
+
+@dataclass(frozen=True)
+class ModelPrice:
+    """List prices in US dollars per million tokens."""
+
+    input: float
+    output: float
+    # Writing a 5-minute cache entry, the only kind the server asks for.
+    cache_write: float
+    cache_read: float
+
+
+# What the usage log prices calls with. See architecture/system.md, Usage log.
+MODEL_PRICES = {
+    "claude-sonnet-5-5": ModelPrice(input=2.00, output=10.00, cache_write=2.50, cache_read=0.20),
+    "claude-opus-5-5": ModelPrice(input=4.00, output=20.00, cache_write=5.00, cache_read=0.20),
+    "claude-haiku-4-5": ModelPrice(input=1.00, output=5.00, cache_write=1.25, cache_read=0.10),
+}

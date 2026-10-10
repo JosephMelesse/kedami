@@ -9,13 +9,14 @@ import json
 import logging
 import shutil
 import threading
+import time
 from collections.abc import Callable
 from dataclasses import asdict
 from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
 
-from .. import db, library, progress, simulation_state, solution_state
+from .. import db, library, progress, simulation_state, solution_state, usage
 from ..lesson import Section
 from ..model import ModelError, call_model
 from ..storage import lessons_dir
@@ -32,6 +33,7 @@ from .verify import verify_section
 log = logging.getLogger(__name__)
 
 STAGES = (1, 2, 3, 4)
+STAGE_NAMES = {1: "ingest", 2: "extract", 3: "plan", 4: "generate"}
 NORMALIZED = "normalized"
 PROBLEM_SET_FILE = "problem-set.md"
 REFERENCE_FILE = "reference.md"
@@ -86,8 +88,11 @@ def run(data_dir: Path, lesson_id: str, subject: str, start_stage: int = 1, call
     """Generate the lesson and record the outcome in the index. Never raises.
 
     If a previous version of the lesson exists, a failure leaves it in place.
+    Model calls made by the run go to the lesson's usage log, and the run ends with one
+    log line saying what it took.
     """
     had_lesson = lesson_path(data_dir, lesson_id).exists()
+    began, outcome = time.monotonic(), "failed"
 
     def fail(message: str) -> None:
         if had_lesson:
@@ -95,13 +100,17 @@ def run(data_dir: Path, lesson_id: str, subject: str, start_stage: int = 1, call
         else:
             _record(data_dir, lambda conn: library.set_failed(conn, lesson_id, message))
 
-    try:
-        _generate(data_dir, lesson_id, subject, start_stage, call, rerun=had_lesson)
-    except (GenerationError, ModelError) as error:
-        fail(str(error))
-    except Exception as error:
-        log.exception("lesson %s failed", lesson_id)
-        fail(f"Unexpected error: {error}")
+    with usage.recording(data_dir, lesson_id, STAGE_NAMES[start_stage]) as recorded:
+        try:
+            _generate(data_dir, lesson_id, subject, start_stage, call, rerun=had_lesson)
+            outcome = "ready"
+        except (GenerationError, ModelError) as error:
+            fail(str(error))
+        except Exception as error:
+            log.exception("lesson %s failed", lesson_id)
+            fail(f"Unexpected error: {error}")
+    took = usage.duration(time.monotonic() - began)
+    log.info("lesson %s %s in %s: %s", lesson_id, outcome, took, usage.describe(recorded.run))
 
 
 def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, call: Call, rerun: bool) -> None:
@@ -265,6 +274,7 @@ def _load(path: Path, model: type[BaseModel]):
 
 def _set_stage(data_dir: Path, lesson_id: str, stage: int) -> None:
     _record(data_dir, lambda conn: library.set_stage(conn, lesson_id, stage))
+    usage.set_stage(STAGE_NAMES[stage])
 
 
 def _record(data_dir: Path, update: Callable) -> None:

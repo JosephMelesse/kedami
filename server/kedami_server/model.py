@@ -10,12 +10,14 @@ import json
 import os
 import re
 import time
+from datetime import UTC, datetime
 from typing import Any, TypeVar
 
 import anthropic
 from anthropic.lib._parse._transform import transform_schema
 from pydantic import BaseModel, ValidationError
 
+from . import usage
 from .config import MODEL_ROLES
 
 T = TypeVar("T", bound=BaseModel)
@@ -49,6 +51,7 @@ def call_model(role: str, *, system: str, prompt: list[dict] | str, output: type
 
     Raises ModelError for refusals, truncation, and API errors, and pydantic's
     ValidationError when the reply doesn't satisfy the model's validators.
+    A call that gets a reply is added to the usage log, whatever becomes of the reply.
     """
     config = MODEL_ROLES[role]
     schema = output_schema(output)
@@ -65,6 +68,7 @@ def call_model(role: str, *, system: str, prompt: list[dict] | str, output: type
         request["betas"] = [FALLBACK_BETA]
         request["fallbacks"] = "default"
 
+    started, clock = datetime.now(UTC).isoformat(), time.monotonic()
     try:
         message = _send(request)
     except anthropic.BadRequestError as error:
@@ -83,6 +87,7 @@ def call_model(role: str, *, system: str, prompt: list[dict] | str, output: type
     except anthropic.AnthropicError as error:
         raise _model_error(error) from error
 
+    usage.record(role, config.model, message, started, time.monotonic() - clock)
     if message.stop_reason == "refusal":
         raise ModelError("The model declined this request.")
     if message.stop_reason == "max_tokens":

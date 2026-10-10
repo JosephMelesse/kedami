@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StringConstraints
 
-from . import db, progress, simulation_state, solution_state
+from . import db, progress, simulation_state, solution_state, usage
 from .checking import InvalidResponse, check
 from .config import Settings
 from .model import ModelError, call_model
@@ -337,7 +337,8 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         materials = pipeline.normalized_materials(settings.data_dir, lesson_id, lesson.subject)
         failure = state.error if state.flagged else None
         try:
-            code = new_code(section, block, block.brief, materials, call, failure)
+            with usage.recording(settings.data_dir, lesson_id, "simulation"):
+                code = new_code(section, block, block.brief, materials, call, failure)
         except (ModelError, GenerationError) as error:
             raise HTTPException(502, str(error)) from error
         with db.connect(settings.data_dir) as conn:
@@ -357,7 +358,8 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
             return stored
         materials = pipeline.normalized_materials(settings.data_dir, lesson_id, lesson.subject)
         try:
-            written = write_solution(lesson.subject, block, part, materials, call)
+            with usage.recording(settings.data_dir, lesson_id, "solution"):
+                written = write_solution(lesson.subject, block, part, materials, call)
         except (ModelError, GenerationError) as error:
             raise HTTPException(502, str(error)) from error
         solution = {"format": lesson.subject, **written.steps.model_dump()}
