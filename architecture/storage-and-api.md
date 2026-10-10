@@ -23,6 +23,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 | `progress` | lesson id, block id, part id, status, last response, attempts, hints used, updated |
 | `simulations` | lesson id, block id, regenerated code, flagged, error, updated |
 | `solutions` | lesson id, block id, part id, solution JSON, matches stored answer, updated |
+| `model_calls` | id, lesson id, stage, role, model, started, latency in ms, input tokens, output tokens, cache write tokens, cache read tokens, cost in USD |
 
 - Lesson status is one of: generating, ready, failed. Only a ready lesson has lesson JSON to serve.
 - A lesson's title is the plan's until the student renames it. The custom title is kept in the index and served in place of the lesson JSON's title, which is never edited, and a rerun keeps it.
@@ -31,6 +32,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 - Progress is stored apart from the lesson JSON and keyed by block and part ID. A checkpoint has no part and is stored with an empty part ID.
 - The reading block is the ID of the block the student was last reading (see Reading position in `ui.md`). A rerun keeps it, and deleting the lesson removes it.
 - Day starts are the IDs of the blocks that begin day 2 onward, in lesson order (see Finish lines in `ui.md`). Splitting again replaces them, a rerun drops any whose block is gone, and deleting the lesson removes them.
+- `model_calls` is the usage log: one row per model call that got a reply (see Usage log in `system.md`). Cost is empty when a model has no listed price. Rows are only added, never changed, and a rerun keeps them.
 - The database is `kedami.db` in the app data folder.
 
 ## API
@@ -40,7 +42,7 @@ All routes require the session token.
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/lessons` | Multipart upload: `subject`, optional `folder`, and per file `files`, `roles`, `force`; starts the pipeline |
-| DELETE | `/lessons/{id}` | Delete a lesson that isn't generating: its JSON, files, stage outputs, progress, simulations, and solutions |
+| DELETE | `/lessons/{id}` | Delete a lesson that isn't generating: its JSON, files, stage outputs, progress, simulations, solutions, and usage log |
 | POST | `/lessons/{id}/rename` | Rename a lesson |
 | POST | `/lessons/{id}/move` | Move a lesson to a folder, or home with `null` |
 | GET | `/folders` | Folders with their lesson counts |

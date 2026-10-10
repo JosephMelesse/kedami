@@ -22,7 +22,7 @@ See `roadmap.md` for the backlog.
 
 | File | Covers |
 |---|---|
-| `architecture/system.md` | Processes, launch, model roles, security |
+| `architecture/system.md` | Processes, launch, model roles, usage log, security |
 | `architecture/pipeline.md` | Ingestion through lesson generation, reruns |
 | `architecture/lesson-format.md` | Lesson structure, blocks, answers, hints, simulations |
 | `architecture/completion-and-verification.md` | Part states, mark done, answer checking, verification |
