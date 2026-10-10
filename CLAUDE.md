@@ -23,6 +23,7 @@ Before writing code, read `README.md` and every file in `architecture/`. Those d
 | `app/` | Electron main and renderer (TypeScript, React) |
 | `server/` | Local server (Python, FastAPI, SymPy, SQLite) |
 | `data/` | App data folder during development (git-ignored) |
+| `research/` | Research notes, such as the cost of generating a lesson (git-ignored) |
 
 ## Rules that must hold
 

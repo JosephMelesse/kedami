@@ -26,6 +26,9 @@ data/
 *.sqlite
 *.sqlite3
 
+# Research notes
+research/
+
 # OS and editors
 .DS_Store
 Thumbs.db
