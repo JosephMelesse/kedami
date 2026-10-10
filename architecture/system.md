@@ -67,6 +67,7 @@ Every model call is recorded against its lesson, so a lesson shows what it took 
 - An attempt by a model with no listed price leaves the row's cost empty. Totals count such calls instead of treating them as free.
 
 **Reading it**
+- As each call is recorded, the server prints one line for it: the lesson, stage, role, model, latency, tokens, and cost. This is the live view while a lesson generates.
 - When a pipeline run ends, ready or failed, the server prints one line: the lesson, the outcome, the run's wall time, and the calls, tokens, and cost of that run.
 - `python -m kedami_server.usage_report {data folder}` prints the totals per lesson, and per stage within a lesson.
 - A lesson's totals cover every run and every on-request call, so a rerun adds to them. Deleting a lesson deletes its rows.

@@ -150,6 +150,20 @@ def test_a_call_is_recorded_against_the_named_lesson_and_stage(data_dir):
     assert recorded.run.calls == 1 and recorded.run.cost == pytest.approx(row["cost"])
 
 
+def test_each_call_prints_a_line_as_it_is_recorded(data_dir, caplog):
+    caplog.set_level("INFO", logger="kedami_server")
+    with usage.recording(data_dir, "first", "generate"):
+        usage.record("second_solve", OPUS, message(reported(input=293, output=210, cache_read=12_837), OPUS), "t", 2.847)
+        usage.record("generate", SONNET, message(reported(input=5), "claude-unlisted-9"), "t", 0.04)
+    assert [r.getMessage() for r in caplog.records] == [
+        "lesson first generate second_solve (claude-opus-5-5): 2.8s, 293 input tokens, 12,837 read from cache, "
+        "0 written to cache, 210 output tokens, $0.0079",
+        "lesson first generate generate (claude-unlisted-9): 0.0s, 5 input tokens, 0 read from cache, "
+        "0 written to cache, 0 output tokens, $0.0000",
+    ]
+    assert "no listed price" in usage._call(1.0, Tokens(input=5), None)
+
+
 def test_the_stage_follows_the_run(data_dir):
     with usage.recording(data_dir, "first", "ingest"):
         usage.record("transcribe", OPUS, message(reported(input=1)), "t", 0)

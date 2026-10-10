@@ -139,6 +139,9 @@ def record(role: str, requested_model: str, message: Any, started: str, seconds:
         tokens, cost = measure(requested_model, message.usage)
         latency_ms = round(seconds * 1000)
         current.run += Totals(1, latency_ms, tokens, cost or 0.0, int(cost is None))
+        log.info(
+            "lesson %s %s %s (%s): %s", current.lesson_id, current.stage, role, message.model, _call(seconds, tokens, cost)
+        )
         with db.connect(current.data_dir) as conn:
             conn.execute(
                 "INSERT INTO model_calls (lesson_id, stage, role, model, started, latency_ms,"
@@ -195,6 +198,15 @@ def describe(totals: Totals) -> str:
         f"{_count(totals.calls)}, {duration(totals.latency_ms / 1000)} of model time, "
         f"{tokens.input:,} input tokens, {tokens.cache_read:,} read from cache, "
         f"{tokens.cache_write:,} written to cache, {tokens.output:,} output tokens, {cost}"
+    )
+
+
+def _call(seconds: float, tokens: Tokens, cost: float | None) -> str:
+    """One call as it happens: finer time and cost than a total needs."""
+    return (
+        f"{seconds:.1f}s, {tokens.input:,} input tokens, {tokens.cache_read:,} read from cache, "
+        f"{tokens.cache_write:,} written to cache, {tokens.output:,} output tokens, "
+        + ("no listed price" if cost is None else f"${cost:,.4f}")
     )
 
 
