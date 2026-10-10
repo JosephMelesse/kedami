@@ -1,6 +1,5 @@
 """The usage log across a lesson's life: runs, reruns, and calls made on request."""
 
-import logging
 from types import SimpleNamespace
 
 import pytest
@@ -9,7 +8,6 @@ from fastapi.testclient import TestClient
 from kedami_server import db, usage, usage_report
 from kedami_server.app import create_app
 from kedami_server.config import Settings
-from kedami_server.generation import pipeline
 from kedami_server.generation.schemas import PhysicsSteps, Plan, SectionDraft, SimulationCode
 from kedami_server.model import ModelError
 
@@ -52,13 +50,13 @@ def new_lesson(started):
     return create().json()["id"]
 
 
-@pytest.fixture
-def server_log(caplog):
-    caplog.set_level(logging.INFO, logger="kedami_server")
-    return caplog
+def printed(capsys):
+    """The table a run leaves in the server's output: its heading, and each row's cells by stage."""
+    heading, _columns, *rows = capsys.readouterr().err.splitlines()[-7:]
+    return heading, {row.split()[0]: row.split()[1:] for row in rows}
 
 
-def test_a_run_logs_each_call_under_its_stage(new_lesson, data_dir, server_log):
+def test_a_run_logs_each_call_under_its_stage(new_lesson, data_dir, capsys):
     run(data_dir, new_lesson, LoggingModel(happy_script()))
     # Text files need no model to ingest. Stage 4 makes a section, hints, a hint check,
     # and a second solve for each of the two sections.
@@ -66,29 +64,34 @@ def test_a_run_logs_each_call_under_its_stage(new_lesson, data_dir, server_log):
     with db.connect(data_dir) as conn:
         roles = [r["role"] for r in conn.execute("SELECT DISTINCT role FROM model_calls ORDER BY role")]
     assert roles == ["generate", "second_solve", "small_check"]
-    [line] = [r.getMessage() for r in server_log.records if r.name == pipeline.__name__]
-    assert line.startswith(f"lesson {new_lesson} ready in ") and "10 calls, 20s of model time, 10,000 input tokens" in line
+    heading, rows = printed(capsys)
+    assert heading.startswith("lesson ready in ")
+    assert rows == {
+        "ingest": ["0", "0s", "$0.00"], "extract": ["1", "2s", "$0.00"], "plan": ["1", "2s", "$0.00"],
+        "generate": ["8", "16s", "$0.03"], "total": ["10", "20s", "$0.03"],
+    }
 
 
-def test_a_rerun_adds_to_the_lesson_from_its_start_stage(new_lesson, data_dir, server_log):
+def test_a_rerun_adds_to_the_lesson_from_its_start_stage(new_lesson, data_dir, capsys):
     run(data_dir, new_lesson, LoggingModel(happy_script()))
     run(data_dir, new_lesson, LoggingModel(happy_script()), start_stage=3)
     assert stages(data_dir, new_lesson) == {"extract": 1, "plan": 2, "generate": 16}
-    # The line for the rerun counts only the rerun.
-    assert "9 calls" in server_log.records[-1].getMessage()
+    # The table for the rerun counts only the rerun.
+    _, rows = printed(capsys)
+    assert (rows["extract"][0], rows["plan"][0], rows["total"][0]) == ("0", "1", "9")
 
 
-def test_a_failed_run_keeps_what_it_spent(new_lesson, data_dir, server_log):
+def test_a_failed_run_keeps_what_it_spent(new_lesson, data_dir, capsys):
     run(data_dir, new_lesson, LoggingModel(happy_script({Plan: [ModelError("The model declined this request.")]})))
     assert stages(data_dir, new_lesson) == {"extract": 1, "plan": 1}
-    line = server_log.records[-1].getMessage()
-    assert line.startswith(f"lesson {new_lesson} failed in ") and "2 calls" in line
+    heading, rows = printed(capsys)
+    assert heading.startswith("lesson failed in ") and rows["total"][0] == "2"
 
 
-def test_a_run_that_makes_no_calls_says_so(new_lesson, data_dir, server_log):
+def test_a_run_that_makes_no_calls_prints_an_empty_table(new_lesson, data_dir, capsys):
     run(data_dir, new_lesson, FakeModel(happy_script()))
     assert stages(data_dir, new_lesson) == {}
-    assert server_log.records[-1].getMessage().endswith("no model calls")
+    assert printed(capsys)[1]["total"] == ["0", "0s", "$0.00"]
 
 
 def test_a_run_does_not_leave_its_lesson_named(new_lesson, data_dir):

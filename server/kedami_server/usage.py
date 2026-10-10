@@ -6,10 +6,10 @@ See architecture/system.md, Usage log. Cost is an estimate from the list prices 
 import logging
 import re
 import sqlite3
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -65,20 +65,28 @@ class Recording:
     data_dir: Path
     lesson_id: str
     stage: str
-    # What the calls made under this recording add up to so far.
-    run: Totals = Totals()
+    # What the calls made under this recording add up to so far, per stage.
+    stages: dict[str, Totals] = field(default_factory=dict)
+    # Told after each call, for a live view.
+    on_call: "Callable[[Recording], None] | None" = None
+
+    @property
+    def run(self) -> Totals:
+        return sum(self.stages.values(), Totals())
 
 
 _current: ContextVar[Recording | None] = ContextVar("usage_recording", default=None)
 
 
 @contextmanager
-def recording(data_dir: Path, lesson_id: str, stage: str) -> Iterator[Recording]:
+def recording(
+    data_dir: Path, lesson_id: str, stage: str, on_call: Callable[[Recording], None] | None = None
+) -> Iterator[Recording]:
     """Name the lesson and stage that model calls made inside the block belong to.
 
     Held per thread, so a generation run and requests for other lessons don't mix.
     """
-    current = Recording(data_dir, lesson_id, stage)
+    current = Recording(data_dir, lesson_id, stage, on_call=on_call)
     token = _current.set(current)
     try:
         yield current
@@ -138,10 +146,8 @@ def record(role: str, requested_model: str, message: Any, started: str, seconds:
     try:
         tokens, cost = measure(requested_model, message.usage)
         latency_ms = round(seconds * 1000)
-        current.run += Totals(1, latency_ms, tokens, cost or 0.0, int(cost is None))
-        log.info(
-            "lesson %s %s %s (%s): %s", current.lesson_id, current.stage, role, message.model, _call(seconds, tokens, cost)
-        )
+        call = Totals(1, latency_ms, tokens, cost or 0.0, int(cost is None))
+        current.stages[current.stage] = current.stages.get(current.stage, Totals()) + call
         with db.connect(current.data_dir) as conn:
             conn.execute(
                 "INSERT INTO model_calls (lesson_id, stage, role, model, started, latency_ms,"
@@ -163,6 +169,8 @@ def record(role: str, requested_model: str, message: Any, started: str, seconds:
             )
     except Exception as error:
         log.warning("usage: could not record a %s call for lesson %s: %s", role, current.lesson_id, error)
+    if current.on_call:
+        current.on_call(current)
 
 
 def by_stage(conn: sqlite3.Connection, lesson_id: str) -> dict[str, Totals]:
@@ -198,15 +206,6 @@ def describe(totals: Totals) -> str:
         f"{_count(totals.calls)}, {duration(totals.latency_ms / 1000)} of model time, "
         f"{tokens.input:,} input tokens, {tokens.cache_read:,} read from cache, "
         f"{tokens.cache_write:,} written to cache, {tokens.output:,} output tokens, {cost}"
-    )
-
-
-def _call(seconds: float, tokens: Tokens, cost: float | None) -> str:
-    """One call as it happens: finer time and cost than a total needs."""
-    return (
-        f"{seconds:.1f}s, {tokens.input:,} input tokens, {tokens.cache_read:,} read from cache, "
-        f"{tokens.cache_write:,} written to cache, {tokens.output:,} output tokens, "
-        + ("no listed price" if cost is None else f"${cost:,.4f}")
     )
 
 

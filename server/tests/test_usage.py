@@ -150,18 +150,18 @@ def test_a_call_is_recorded_against_the_named_lesson_and_stage(data_dir):
     assert recorded.run.calls == 1 and recorded.run.cost == pytest.approx(row["cost"])
 
 
-def test_each_call_prints_a_line_as_it_is_recorded(data_dir, caplog):
-    caplog.set_level("INFO", logger="kedami_server")
-    with usage.recording(data_dir, "first", "generate"):
-        usage.record("second_solve", OPUS, message(reported(input=293, output=210, cache_read=12_837), OPUS), "t", 2.847)
-        usage.record("generate", SONNET, message(reported(input=5), "claude-unlisted-9"), "t", 0.04)
-    assert [r.getMessage() for r in caplog.records] == [
-        "lesson first generate second_solve (claude-opus-5-5): 2.8s, 293 input tokens, 12,837 read from cache, "
-        "0 written to cache, 210 output tokens, $0.0079",
-        "lesson first generate generate (claude-unlisted-9): 0.0s, 5 input tokens, 0 read from cache, "
-        "0 written to cache, 0 output tokens, $0.0000",
-    ]
-    assert "no listed price" in usage._call(1.0, Tokens(input=5), None)
+def test_a_recording_adds_up_per_stage_and_tells_its_listener(data_dir):
+    seen = []
+    with usage.recording(data_dir, "first", "extract", on_call=lambda r: seen.append(r.run.calls)) as recorded:
+        usage.record("generate", SONNET, message(reported(input=1_000_000)), "t", 1.0)
+        usage.set_stage("generate")
+        usage.record("generate", SONNET, message(reported(input=1_000_000)), "t", 2.0)
+        usage.record("second_solve", OPUS, SimpleNamespace(model=OPUS, usage=None), "t", 4.0)
+    assert {stage: (t.calls, t.latency_ms, t.cost) for stage, t in recorded.stages.items()} == {
+        "extract": (1, 1000, pytest.approx(2.00)), "generate": (1, 2000, pytest.approx(2.00)),
+    }
+    # The listener hears of every call, including one whose usage could not be read.
+    assert seen == [1, 2, 2]
 
 
 def test_the_stage_follows_the_run(data_dir):

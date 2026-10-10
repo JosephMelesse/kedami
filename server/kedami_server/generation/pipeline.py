@@ -20,6 +20,7 @@ from .. import db, library, progress, simulation_state, solution_state, usage
 from ..lesson import Section
 from ..model import ModelError, call_model
 from ..storage import lessons_dir
+from ..usage_table import RunTable
 from . import prompts
 from .assemble import assemble_lesson, assemble_section
 from .hints import add_hints
@@ -88,8 +89,8 @@ def run(data_dir: Path, lesson_id: str, subject: str, start_stage: int = 1, call
     """Generate the lesson and record the outcome in the index. Never raises.
 
     If a previous version of the lesson exists, a failure leaves it in place.
-    Model calls made by the run go to the lesson's usage log, and the run ends with one
-    log line saying what it took.
+    Model calls made by the run go to the lesson's usage log, and the server's terminal
+    shows a table of what the run has taken so far.
     """
     had_lesson = lesson_path(data_dir, lesson_id).exists()
     began, outcome = time.monotonic(), "failed"
@@ -100,7 +101,9 @@ def run(data_dir: Path, lesson_id: str, subject: str, start_stage: int = 1, call
         else:
             _record(data_dir, lambda conn: library.set_failed(conn, lesson_id, message))
 
-    with usage.recording(data_dir, lesson_id, STAGE_NAMES[start_stage]) as recorded:
+    table = RunTable()
+    with usage.recording(data_dir, lesson_id, STAGE_NAMES[start_stage], on_call=table.update) as recorded:
+        table.start()
         try:
             _generate(data_dir, lesson_id, subject, start_stage, call, rerun=had_lesson)
             outcome = "ready"
@@ -109,8 +112,7 @@ def run(data_dir: Path, lesson_id: str, subject: str, start_stage: int = 1, call
         except Exception as error:
             log.exception("lesson %s failed", lesson_id)
             fail(f"Unexpected error: {error}")
-    took = usage.duration(time.monotonic() - began)
-    log.info("lesson %s %s in %s: %s", lesson_id, outcome, took, usage.describe(recorded.run))
+    table.finish(f"lesson {outcome} in {usage.duration(time.monotonic() - began)}", recorded.stages)
 
 
 def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, call: Call, rerun: bool) -> None:

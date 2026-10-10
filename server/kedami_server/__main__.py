@@ -1,4 +1,3 @@
-import logging
 import os
 import threading
 import time
@@ -26,15 +25,7 @@ def exit_with_parent() -> None:
     threading.Thread(target=watch, daemon=True).start()
 
 
-def log_to_terminal() -> None:
-    """Show the server's own messages, such as what a finished run took, without other libraries' chatter."""
-    logger = logging.getLogger("kedami_server")
-    logger.setLevel(logging.INFO)
-    logger.addHandler(logging.StreamHandler())
-
-
 def main() -> None:
-    log_to_terminal()
     # The Anthropic client reads ANTHROPIC_API_KEY from the environment; the key stays in this process.
     load_dotenv(Path(__file__).resolve().parents[1] / ".env")
     settings = from_env()

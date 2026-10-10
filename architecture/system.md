@@ -67,9 +67,10 @@ Every model call is recorded against its lesson, so a lesson shows what it took 
 - An attempt by a model with no listed price leaves the row's cost empty. Totals count such calls instead of treating them as free.
 
 **Reading it**
-- As each call is recorded, the server prints one line for it: the lesson, stage, role, model, latency, tokens, and cost. This is the live view while a lesson generates.
-- When a pipeline run ends, ready or failed, the server prints one line: the lesson, the outcome, the run's wall time, and the calls, tokens, and cost of that run.
-- `python -m kedami_server.usage_report {data folder}` prints the totals per lesson, and per stage within a lesson.
+- While a pipeline run is under way, the server's terminal shows `generating lesson...` above a table: a row per pipeline stage and a total, each with its calls, model time, and cost. The table covers that run only and is redrawn in place each time a call is recorded.
+- When the run ends, the heading becomes `lesson ready in 10m 09s` or `lesson failed in 10m 09s`, the run's wall time, and the table stays.
+- One table is redrawn at a time. A run that starts while another is under way, or whose output isn't a terminal, prints its table once, when it ends. Calls made on request print nothing.
+- `python -m kedami_server.usage_report {data folder}` prints the totals per lesson, and per stage within a lesson, with tokens.
 - A lesson's totals cover every run and every on-request call, so a rerun adds to them. Deleting a lesson deletes its rows.
 
 **Not included:** usage in the app or the API, spending limits or warnings, and reconciling with Anthropic's billing.
