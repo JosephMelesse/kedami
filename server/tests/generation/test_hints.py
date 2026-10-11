@@ -12,6 +12,7 @@ from kedami_server.lesson import (
     Section,
     SelfCheckAnswer,
 )
+from kedami_server.model import output_schema
 
 from .test_pipeline import FakeModel
 
@@ -166,3 +167,44 @@ def test_section_without_targets_makes_no_calls():
     fake = FakeModel({})
     assert add_hints(plain, [], fake) == plain
     assert not fake.calls
+
+
+# The cap of 3
+
+
+def test_hints_past_the_cap_are_dropped_not_rejected(section):
+    fake = FakeModel({HintDraft: [hints(["c1", "c2", "c3", "c4"], ["p1", "p2", "p3", "p4", "p5"])], HintJudgements: [judged(set())]})
+    assert result(add_hints(section, [], fake)) == (["c1", "c2", "c3"], ["p1", "p2", "p3"])
+    assert len(fake.calls[HintDraft]) == 1
+
+
+def test_hints_past_the_cap_are_never_judged(section):
+    fake = FakeModel({HintDraft: [hints(["c1", "c2", "c3", "c4"], ["p1"])], HintJudgements: [judged(set())]})
+    add_hints(section, [], fake)
+    assert "c3" in fake.calls[HintJudgements][0]["prompt"][0]["text"]
+    assert "c4" not in fake.calls[HintJudgements][0]["prompt"][0]["text"]
+
+
+def test_the_cap_applies_before_failing_hints_are_dropped(section):
+    # The second hint fails and is dropped. The fourth does not move up to take its place.
+    fake = FakeModel({
+        HintDraft: [hints(["c1", "c2", "c3", "c4"], ["p1"])],
+        HintJudgements: [judged({("cp", 1)})],
+        HintReplacements: [{"replacements": []}],
+    })
+    assert result(add_hints(section, [], fake)) == (["c1", "c3"], ["p1"])
+
+
+def test_a_replacement_past_the_cap_is_ignored(section):
+    fake = FakeModel({
+        HintDraft: [hints(["c1", "c2", "c3", "c4"], ["p1"])],
+        HintJudgements: [judged({("cp", 2)}), judged(set())],
+        HintReplacements: [{"replacements": [{"target": "cp", "index": 3, "hint": "extra"},
+                                             {"target": "cp", "index": 2, "hint": "better"}]}],
+    })
+    assert result(add_hints(section, [], fake)) == (["c1", "c2", "better"], ["p1"])
+
+
+def test_the_model_is_told_the_cap():
+    described = output_schema(HintDraft)["$defs"]["TargetHints"]["properties"]["hints"]["description"]
+    assert "At most 3 hints" in described

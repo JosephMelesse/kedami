@@ -314,7 +314,8 @@ class SectionDraft(Model):
 
 class TargetHints(Model):
     target: str = Field(description="The target ID exactly as given.")
-    hints: Annotated[list[str], Field(max_length=MAX_HINTS)]
+    # The cap is not enforced here: the server keeps the first few, so a hint too many can't reject the reply.
+    hints: list[str] = Field(description=f"At most {MAX_HINTS} hints, ordered from gentle to specific.")
 
 
 class HintDraft(Model):

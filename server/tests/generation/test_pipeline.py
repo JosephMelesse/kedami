@@ -200,6 +200,18 @@ def test_rejected_section_is_retried_alone_with_the_reason(started, data_dir):
     assert len(fake.calls[ProblemsAndConcepts]) == 1 and len(fake.calls[Plan]) == 1
 
 
+def test_a_hint_too_many_does_not_fail_the_lesson(started, data_dir):
+    client, create, _ = started
+    lesson_id = create().json()["id"]
+    four = {"items": [{"target": "ps1-2/2", "hints": ["One.", "Two.", "Three.", "Four."]}]}
+    fake = FakeModel(happy_script({HintDraft: [hints_for("vectors-block-2", "ps1-1/a", "ps1-1/b"), four]}))
+    run(data_dir, lesson_id, fake)
+    status = lesson_status(client, lesson_id)
+    assert status["status"] == "ready" and status["error"] is None
+    assert Lesson.model_validate(status["lesson"]).find_block("ps1-2").parts[0].hints == ["One.", "Two.", "Three."]
+    assert len(fake.calls[HintDraft]) == 2 and len(fake.calls[SectionDraft]) == 2
+
+
 def test_plan_breaking_the_sequencing_rules_is_retried(started, data_dir):
     _, create, _ = started
     lesson_id = create().json()["id"]
