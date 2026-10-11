@@ -12,11 +12,12 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import asdict
+from datetime import UTC, datetime
 from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
 
-from .. import db, library, progress, simulation_state, solution_state, usage
+from .. import db, library, progress, run_log, simulation_state, solution_state, usage
 from ..lesson import Section
 from ..model import ModelError, call_model
 from ..storage import lessons_dir
@@ -90,12 +91,15 @@ def run(data_dir: Path, lesson_id: str, subject: str, start_stage: int = 1, call
 
     If a previous version of the lesson exists, a failure leaves it in place.
     Model calls made by the run go to the lesson's usage log, and the server's terminal
-    shows a table of what the run has taken so far.
+    shows a table of what the run has taken so far. When it ends, the run is added to the run log.
     """
     had_lesson = lesson_path(data_dir, lesson_id).exists()
-    began, outcome = time.monotonic(), "failed"
+    started, began = datetime.now(UTC).isoformat(), time.monotonic()
+    error: str | None = None
 
     def fail(message: str) -> None:
+        nonlocal error
+        error = message
         if had_lesson:
             _record(data_dir, lambda conn: library.set_rerun_failed(conn, lesson_id, message))
         else:
@@ -106,13 +110,25 @@ def run(data_dir: Path, lesson_id: str, subject: str, start_stage: int = 1, call
         table.start()
         try:
             _generate(data_dir, lesson_id, subject, start_stage, call, rerun=had_lesson)
-            outcome = "ready"
-        except (GenerationError, ModelError) as error:
-            fail(str(error))
-        except Exception as error:
+        except (GenerationError, ModelError) as failure:
+            fail(str(failure))
+        except Exception as failure:
             log.exception("lesson %s failed", lesson_id)
-            fail(f"Unexpected error: {error}")
-    table.finish(f"lesson {outcome} in {usage.duration(time.monotonic() - began)}", recorded.stages)
+            fail(f"Unexpected error: {failure}")
+    wall = time.monotonic() - began
+    table.finish(f"lesson {'ready' if error is None else 'failed'} in {usage.duration(wall)}", recorded.stages)
+    run_log.write(
+        data_dir,
+        lesson_id,
+        subject,
+        work=work_dir(data_dir, lesson_id),
+        started=started,
+        wall_seconds=wall,
+        start_stage=start_stage,
+        rerun=had_lesson,
+        error=error,
+        recorded=recorded,
+    )
 
 
 def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, call: Call, rerun: bool) -> None:

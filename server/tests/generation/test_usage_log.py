@@ -17,7 +17,7 @@ from .test_simulations import GOOD_CODE, plan_with_simulation, with_simulation
 from .test_solutions import physics
 
 MODELS = {"generate": "claude-sonnet-5-5", "second_solve": "claude-opus-5-5", "solution": "claude-opus-5-5",
-          "small_check": "claude-haiku-4-5"}
+          "small_check": "claude-haiku-4-5", "transcribe": "claude-opus-5-5"}
 
 
 class LoggingModel(FakeModel):

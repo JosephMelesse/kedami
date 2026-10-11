@@ -6,7 +6,7 @@ from pathlib import Path
 import uvicorn
 from dotenv import load_dotenv
 
-from . import db, library
+from . import db, library, run_log
 from .app import create_app
 from .config import from_env
 from .generation.pipeline import lesson_path
@@ -29,6 +29,7 @@ def main() -> None:
     # The Anthropic client reads ANTHROPIC_API_KEY from the environment; the key stays in this process.
     load_dotenv(Path(__file__).resolve().parents[1] / ".env")
     settings = from_env()
+    run_log.code = run_log.read_code(Path(__file__).resolve().parent)
     db.init(settings.data_dir)
     with db.connect(settings.data_dir) as conn:
         library.fail_interrupted(conn, lambda lesson_id: lesson_path(settings.data_dir, lesson_id).exists())

@@ -1,3 +1,4 @@
+import contextvars
 import json
 import threading
 from types import SimpleNamespace
@@ -212,6 +213,41 @@ def test_calls_made_at_the_same_time_reach_their_own_lessons(data_dir):
         thread.join()
     assert {r["stage"] for r in rows(data_dir, "first")} == {"generate"} and len(rows(data_dir, "first")) == 20
     assert {r["stage"] for r in rows(data_dir, "second")} == {"solution"} and len(rows(data_dir, "second")) == 15
+
+
+def test_threads_started_by_a_run_record_under_it_without_losing_calls(data_dir):
+    """Stage 1 transcribes on several threads, each in a copy of the run's context."""
+    seen = []
+
+    def work():
+        for _ in range(25):
+            usage.record("transcribe", OPUS, message(reported(input=1, output=2), OPUS), "t", 0.001)
+
+    with usage.recording(data_dir, "first", "ingest", on_call=lambda r: seen.append(r.run.calls)) as recorded:
+        threads = [threading.Thread(target=contextvars.copy_context().run, args=(work,)) for _ in range(8)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+    assert len(rows(data_dir, "first")) == 200
+    assert recorded.stages["ingest"].calls == 200 and recorded.stages["ingest"].tokens == Tokens(input=200, output=400)
+    assert recorded.groups == {("ingest", "transcribe", OPUS): recorded.stages["ingest"]}
+    assert len(seen) == 200 and max(seen) == 200
+
+
+def test_a_recording_groups_calls_by_stage_role_and_model(data_dir):
+    with usage.recording(data_dir, "first", "generate") as recorded:
+        usage.record("generate", SONNET, message(reported(input=1)), "t", 1.0)
+        usage.record("generate", SONNET, message(reported(input=1)), "t", 1.0)
+        usage.record("small_check", HAIKU, message(reported(input=1), "claude-haiku-4-5-20251001"), "t", 0.5)
+        usage.record("generate", SONNET, message(reported(input=1), OPUS), "t", 1.0)
+    assert {key: totals.calls for key, totals in recorded.groups.items()} == {
+        ("generate", "generate", SONNET): 2,
+        ("generate", "small_check", "claude-haiku-4-5-20251001"): 1,
+        # A fallback model answered, so the call is grouped under the model that did.
+        ("generate", "generate", OPUS): 1,
+    }
+    assert recorded.stages["generate"].calls == 4
 
 
 def test_a_call_for_a_deleted_lesson_is_dropped_without_failing(data_dir, caplog):

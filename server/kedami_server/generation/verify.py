@@ -32,9 +32,12 @@ class Result:
     verified: bool
 
 
+# Self checks are the student's own judgment, and external problems are solved elsewhere.
+NOT_VERIFIED = ("self_check", "external")
+
+
 def verifiable(section: Section) -> list[Target]:
-    """Self checks are the student's own judgment, and external problems are solved elsewhere."""
-    return [t for t in targets(section) if t.answer.kind not in ("self_check", "external")]
+    return [t for t in targets(section) if t.answer.kind not in NOT_VERIFIED]
 
 
 def answer_format(answer: Answer) -> dict:

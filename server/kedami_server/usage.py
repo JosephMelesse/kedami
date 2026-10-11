@@ -6,6 +6,7 @@ See architecture/system.md, Usage log. Cost is an estimate from the list prices 
 import logging
 import re
 import sqlite3
+import threading
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -67,8 +68,12 @@ class Recording:
     stage: str
     # What the calls made under this recording add up to so far, per stage.
     stages: dict[str, Totals] = field(default_factory=dict)
+    # The same calls per stage, role, and model that answered, in the order first seen.
+    groups: dict[tuple[str, str, str], Totals] = field(default_factory=dict)
     # Told after each call, for a live view.
     on_call: "Callable[[Recording], None] | None" = None
+    # Calls may finish on several threads at once.
+    lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
 
     @property
     def run(self) -> Totals:
@@ -84,7 +89,9 @@ def recording(
 ) -> Iterator[Recording]:
     """Name the lesson and stage that model calls made inside the block belong to.
 
-    Held per thread, so a generation run and requests for other lessons don't mix.
+    Held per thread, so a generation run and requests for other lessons don't mix. A thread
+    the block starts sees it only if started in a copy of this context, as stage 1 does for
+    its transcription threads.
     """
     current = Recording(data_dir, lesson_id, stage, on_call=on_call)
     token = _current.set(current)
@@ -113,7 +120,7 @@ def measure(
     total, cost = Tokens(), 0.0
     for model, tokens in attempts or [(requested_model, _tokens(reported))]:
         total += tokens
-        price = prices.get(model) or prices.get(DATE_SUFFIX.sub("", model))
+        price = price_of(model, prices)
         if price is None or cost is None:
             cost = None
             continue
@@ -124,6 +131,11 @@ def measure(
             + tokens.cache_read * price.cache_read
         ) / 1_000_000
     return total, cost
+
+
+def price_of(model: str, prices: dict[str, ModelPrice] = MODEL_PRICES) -> ModelPrice | None:
+    """A model's list price, also when the API names it by a dated snapshot."""
+    return prices.get(model) or prices.get(DATE_SUFFIX.sub("", model))
 
 
 def _tokens(reported: Any) -> Tokens:
@@ -147,7 +159,11 @@ def record(role: str, requested_model: str, message: Any, started: str, seconds:
         tokens, cost = measure(requested_model, message.usage)
         latency_ms = round(seconds * 1000)
         call = Totals(1, latency_ms, tokens, cost or 0.0, int(cost is None))
-        current.stages[current.stage] = current.stages.get(current.stage, Totals()) + call
+        stage, group = current.stage, (current.stage, role, message.model)
+        with current.lock:
+            # Replaced rather than changed in place, so a reader on another thread sees whole totals.
+            current.stages = {**current.stages, stage: current.stages.get(stage, Totals()) + call}
+            current.groups = {**current.groups, group: current.groups.get(group, Totals()) + call}
         with db.connect(current.data_dir) as conn:
             conn.execute(
                 "INSERT INTO model_calls (lesson_id, stage, role, model, started, latency_ms,"
@@ -155,7 +171,7 @@ def record(role: str, requested_model: str, message: Any, started: str, seconds:
                 " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     current.lesson_id,
-                    current.stage,
+                    stage,
                     role,
                     message.model,
                     started,

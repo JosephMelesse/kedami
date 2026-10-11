@@ -11,6 +11,7 @@ When the small check gives no verdict for a page, the page takes the safer route
 
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -113,8 +114,10 @@ def ingest(source_dir: Path, materials: list[Material], call: Callable) -> tuple
         )
         return reply.markdown
 
+    # Each call runs in its own copy of this thread's context, so the usage log still knows its lesson.
+    contexts = [copy_context() for _ in images]
     with ThreadPoolExecutor(max_workers=TRANSCRIBE_WORKERS) as pool:
-        transcribed = dict(zip(images, pool.map(transcribe, images)))
+        transcribed = dict(zip(images, pool.map(lambda context, key: context.run(transcribe, key), contexts, images)))
 
     pages = [
         RoutedPage(

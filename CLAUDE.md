@@ -72,6 +72,7 @@ python3 -m venv .venv
 .venv/bin/python -m pytest
 .venv/bin/python -m kedami_server.export_schema   # after changing lesson models, then run gen:types in app/
 .venv/bin/python -m kedami_server.usage_report ../data   # time, tokens, and cost per lesson and stage
+.venv/bin/python -m kedami_server.run_report ../data     # every pipeline run as Markdown, from data/runs.jsonl
 ```
 
 The server will not start without `KEDAMI_PORT`, `KEDAMI_TOKEN`, and `KEDAMI_DATA_DIR`. Electron main sets them. Lesson generation also needs `ANTHROPIC_API_KEY`, which the server loads from `server/.env`; without it the server runs but new lessons fail. If the key is not scoped to a workspace, also set `ANTHROPIC_WORKSPACE_ID` there. To start it by hand:
