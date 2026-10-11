@@ -66,7 +66,7 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 ## Hints
 
 - Generated with the lesson, ordered from gentle to specific, revealed one at a time.
-- Hard cap of 3 per part and per checkpoint.
+- Hard cap of 3 per part and per checkpoint. If the model writes more, the server keeps the first 3 and drops the rest before any check, so a hint too many never fails the lesson.
 - Hints never give a full solution. A worked solution for a problem part is shown only when the student asks for one; see Solutions.
 - Each hint passes two checks: the answer does not appear in it, and a small check judges that it doesn't give the answer away. A failing hint is regenerated once, then dropped.
 
