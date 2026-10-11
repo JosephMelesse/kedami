@@ -56,6 +56,7 @@ Every model call is recorded against its lesson, so a lesson shows what it took 
 - A reply that is then rejected, cut off, or declined is recorded too, since it is billed. A call that ends in an API error returns no usage and is not recorded.
 - The stage is `ingest`, `extract`, `plan`, or `generate` for pipeline calls (hints and verification count as `generate`), and `solution` or `simulation` for calls made on request.
 - The pipeline and the on-request routes name the lesson and stage before they call. A call made with no lesson named is not recorded.
+- Stage 1 transcribes pages on several threads at once. Each of those calls is recorded under the run's lesson and stage, like a call made on the run's own thread.
 - Latency is the wall time of the call, including waits before retrying a temporary failure.
 
 **Tokens and cost**
@@ -76,6 +77,31 @@ Every model call is recorded against its lesson, so a lesson shows what it took 
 **Not included:** usage in the app or the API, spending limits or warnings, and reconciling with Anthropic's billing.
 
 Most likely to be wrong: the token and cost arithmetic (cached tokens, fallback attempts counted once, a model with no price) and tying a call to the right lesson while a generation thread and on-request calls run at the same time. These get tests first.
+
+## Run log
+
+Every pipeline run leaves one record of what it made and what it took, so the cost of a lesson can be followed from run to run without copying numbers by hand. The usage log answers what a lesson has cost in all; the run log answers what one run cost, and keeps the answer after the lesson is gone.
+
+**What is recorded**
+- One record per pipeline run, for a new lesson or a rerun, written when the run ends, whether the lesson is ready or the run failed.
+- The run: when it started, its wall time, the stage it started from, whether it was a rerun of an existing lesson, and the outcome. A failed run also records the stage it failed in and the reason, as the Generating screen shows it for a new lesson.
+- The code: the commit the server is running from and whether the working tree had uncommitted changes, read from git when the server starts. Both are empty when git can't be read.
+- The material: each file with its role, the number of pages kept and transcribed, and the length of the normalized text. These come from the stage 1 output on disk and are empty if a run fails before it is written.
+- The lesson: ID, title, and subject. A run that ends ready also records the number of sections, blocks, problems, and parts, and how many answers were verified out of those that could be.
+- The usage: calls, model time, tokens of each kind, and cost, for each stage, role, and model that ran. These are the run's calls from the usage log, added up when the run ends.
+- The prices: the list prices of the models that ran, as they stood in config, so cost by kind of token can be worked out later whatever the config says by then.
+
+**Where it lives**
+- `runs.jsonl` in the app data folder: one JSON object per line, only ever added to.
+- It is apart from the database and from the lesson's files, so deleting a lesson, or the database, keeps it.
+- Writing the record never fails the run. If it can't be written, the server logs a warning.
+
+**Reading it**
+- `python -m kedami_server.run_report {data folder}` prints the run log as Markdown: a table with a row per run (date, lesson, start stage, outcome, calls, wall time, cost), then for each run its material and lesson, and its usage by stage, by role, and by kind of token.
+
+**Not included:** calls made on request (solutions and simulations stay in the usage log only), a run cut short by the app closing (it leaves no record, though its calls are in the usage log), runs made before this step, and anything in the app or the API.
+
+Most likely to be wrong: counting the calls made on the transcription threads under the right run, and writing a complete record for a run that failed partway, when some stage outputs don't exist. These get tests first.
 
 ## Security and privacy
 

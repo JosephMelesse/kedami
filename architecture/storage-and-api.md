@@ -10,6 +10,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 | Stage outputs | `work/{lesson_id}/`: `pages.json` (routes and text per page), `normalized/`, `extraction.json`, `plan.json`, `outline.json`, `section-{n}.json`, `verification-{n}.json` |
 | Lessons | `lessons/{lesson_id}.json` |
 | Music player tracks | `music/`, written and read only by Electron main |
+| Run log | `runs.jsonl`: one line per pipeline run (see Run log in `system.md`). Deleting a lesson or the database keeps it |
 | Index and progress | SQLite database |
 
 ## Tables
