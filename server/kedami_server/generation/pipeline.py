@@ -28,7 +28,7 @@ from .hints import add_hints
 from .ingest import Material, Normalized, ingest
 from .plan import SectionPlan, place_problems
 from .retry import GenerationError, retrying
-from .leetcode import ProblemListError, build_extraction, parse_problem_list
+from .leetcode import ProblemListError, build_extraction, find_in_dataset, parse_problem_list
 from .schemas import ConceptMap, Extraction, Plan, ProblemsAndConcepts, SectionDraft
 from .verify import verify_section
 
@@ -156,7 +156,7 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
 
     if start_stage <= 2:
         _set_stage(data_dir, lesson_id, 2)
-        extraction = _extract(subject, normalized, context, call)
+        extraction = _extract(data_dir, subject, normalized, context, call)
         _write(work / "extraction.json", extraction)
     else:
         extraction = _load(work / "extraction.json", Extraction)
@@ -191,7 +191,7 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
                 prompt=context + [prompts.section_request(section_plan, outline, feedback)],
                 output=SectionDraft,
             )
-            return assemble_section(section_plan, draft, extraction.externals)
+            return assemble_section(section_plan, draft, extraction.answers)
 
         section = retrying(f"Section {number} ({section_plan.title})", section_attempt)
         section = retrying(f"Hints for section {number}", lambda _feedback, s=section: add_hints(s, context, call))
@@ -218,7 +218,7 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
         library.set_ready(conn, lesson_id, rerun=rerun)
 
 
-def _extract(subject: str, normalized: Normalized, context: list[dict], call: Call) -> Extraction:
+def _extract(data_dir: Path, subject: str, normalized: Normalized, context: list[dict], call: Call) -> Extraction:
     if subject != "computer_science":
         draft = retrying(
             "Extraction",
@@ -234,8 +234,10 @@ def _extract(subject: str, normalized: Normalized, context: list[dict], call: Ca
     # The server lists the problems; the model only says which concepts each needs.
     try:
         listed = parse_problem_list(normalized.problem_set)
+        found = find_in_dataset(data_dir, listed)
     except ProblemListError as error:
         raise GenerationError(str(error)) from error
+    descriptions = {number: problem.description for number, problem in found.items()}
     return retrying(
         "Extraction",
         lambda feedback: build_extraction(
@@ -243,9 +245,10 @@ def _extract(subject: str, normalized: Normalized, context: list[dict], call: Ca
             call(
                 "generate",
                 system=prompts.CS_EXTRACT_SYSTEM,
-                prompt=context + [prompts.cs_extract_request(listed, feedback)],
+                prompt=context + [prompts.cs_extract_request(listed, descriptions, feedback)],
                 output=ConceptMap,
             ),
+            found,
         ),
     )
 

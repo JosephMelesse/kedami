@@ -13,6 +13,7 @@ import sympy
 from .lesson import (
     Answer,
     ChoiceAnswer,
+    CodeAnswer,
     ExpressionAnswer,
     ExternalAnswer,
     MultiChoiceAnswer,
@@ -50,6 +51,9 @@ def check(answer: Answer, response: Any) -> bool:
             return check_self(response)
         case ExternalAnswer():
             raise InvalidResponse("This problem is solved on LeetCode. Mark it done once you've solved it.")
+        case CodeAnswer():
+            # Its tests run in the sandboxed runner, never on the server.
+            raise InvalidResponse("This problem is checked by submitting it in the workspace.")
     raise TypeError(f"unknown answer kind {answer!r}")
 
 

@@ -59,8 +59,8 @@ function PartAnswer({ block, part, name, lessonId }: PartAnswerProps) {
         hints={part.hints}
         verified={part.verified}
       />
-      {/* Problems solved on LeetCode have no solutions; every math and physics part does. */}
-      {part.answer.kind !== 'external' && (
+      {/* LeetCode problems have no solutions; every math and physics part does. */}
+      {part.answer.kind !== 'external' && part.answer.kind !== 'code' && (
         <ShowSolution lessonId={lessonId} blockId={block.id} partId={part.id} name={name} />
       )}
     </>

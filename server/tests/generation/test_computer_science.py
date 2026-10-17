@@ -3,9 +3,18 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from kedami_server.generation.leetcode import ConceptMapError, ListedProblem, build_extraction
+from kedami_server import progress
+from kedami_server.db import connect
+from kedami_server.generation.leetcode import (
+    ConceptMapError,
+    ListedProblem,
+    ProblemListError,
+    build_extraction,
+    find_in_dataset,
+)
 from kedami_server.generation.schemas import (
     ConceptMap,
+    Extraction,
     HintDraft,
     HintJudgements,
     Plan,
@@ -13,7 +22,7 @@ from kedami_server.generation.schemas import (
     Solutions,
     TextChecks,
 )
-from kedami_server.lesson import CheckpointBlock, ExternalAnswer, Lesson
+from kedami_server.lesson import CheckpointBlock, CodeAnswer, ExternalAnswer, Lesson
 
 from .conftest import AUTH, upload
 from .files import text_pdf
@@ -32,18 +41,100 @@ def concept_map(*problems, concepts=("hash-maps", "two-pointers")):
 
 GOOD_MAP = concept_map((1, ["hash-maps"]), (15, ["hash-maps", "two-pointers"]))
 
+TWO_SUM_DESCRIPTION = "Given an array of integers nums and an integer target, return indices...\n\nExample 1:"
+
+
+def dataset_entry(number=1, slug="two-sum", **overrides) -> dict:
+    """A problem as the import writes it to leetcode.jsonl: number first, then the rest."""
+    return {
+        "number": number,
+        "slug": slug,
+        "difficulty": "Easy",
+        "description": TWO_SUM_DESCRIPTION,
+        "starter_code": "class Solution:\n    def twoSum(self, nums: List[int], target: int) -> List[int]:\n        ",
+        "method": "twoSum",
+        "tests": [{"args": "nums = [3, 3], target = 6", "expected": "[0, 1]", "compare": "equal"}],
+    } | overrides
+
+
+def import_dataset(data_dir, *entries) -> None:
+    (data_dir / "leetcode.jsonl").write_text("".join(json.dumps(e) + "\n" for e in entries))
+
 
 # The extraction built from the list
 
 
-def test_extraction_lists_the_problems_with_external_answers():
+def test_without_the_dataset_every_problem_is_solved_on_leetcode():
     extraction = build_extraction(LISTED, GOOD_MAP)
     assert [(p.source_ref, p.prompt, [(x.label, x.prompt) for x in p.parts], p.concepts) for p in extraction.problems] == [
         ("LeetCode #1", "", [("1", "Complete LeetCode #1: Two Sum.")], ["hash-maps"]),
         ("LeetCode #15", "", [("15", "Complete LeetCode #15: 3Sum.")], ["hash-maps", "two-pointers"]),
     ]
-    two_sum = extraction.externals["leetcode-1"]
+    two_sum = extraction.answers["leetcode-1"]
+    assert isinstance(two_sum, ExternalAnswer)
     assert (two_sum.number, two_sum.title, two_sum.slug, two_sum.url) == (1, "Two Sum", "two-sum", "https://leetcode.com/problems/two-sum/")
+
+
+# Problems found in the imported dataset
+
+
+def test_a_problem_in_the_dataset_becomes_a_code_answer(data_dir):
+    import_dataset(data_dir, dataset_entry(), dataset_entry(number=2, slug="add-two-numbers"))
+    found = find_in_dataset(data_dir, LISTED)
+    assert list(found) == [1]
+    answer = found[1].answer
+    assert (answer.kind, answer.number, answer.title, answer.slug, answer.difficulty, answer.method) == (
+        "code", 1, "Two Sum", "two-sum", "Easy", "twoSum"
+    )
+    assert [t.model_dump() for t in answer.tests] == [{"args": "nums = [3, 3], target = 6", "expected": "[0, 1]", "compare": "equal"}]
+    assert found[1].description == TWO_SUM_DESCRIPTION
+
+
+def test_code_problems_take_their_description_and_the_rest_stay_on_leetcode(data_dir):
+    import_dataset(data_dir, dataset_entry())
+    extraction = build_extraction(LISTED, GOOD_MAP, find_in_dataset(data_dir, LISTED))
+    assert [p.parts[0].prompt for p in extraction.problems] == [TWO_SUM_DESCRIPTION, "Complete LeetCode #15: 3Sum."]
+    assert isinstance(extraction.answers["leetcode-1"], CodeAnswer)
+    assert isinstance(extraction.answers["leetcode-15"], ExternalAnswer)
+
+
+def test_a_title_that_names_a_different_problem_is_refused(data_dir):
+    import_dataset(data_dir, dataset_entry(), dataset_entry(number=15, slug="3sum"))
+    listed = [ListedProblem(1, "Add Two Numbers"), ListedProblem(15, "3Sum")]
+    with pytest.raises(ProblemListError, match="#1 is 'two-sum', not 'Add Two Numbers'"):
+        find_in_dataset(data_dir, listed)
+
+
+@pytest.mark.parametrize(
+    "damage",
+    [
+        {"difficulty": "Impossible"},
+        {"method": "two sum"},
+        {"tests": []},
+        {"tests": [{"args": "x = 1"}]},
+        {"starter_code": ""},
+        {"description": "  "},
+        {"description": None},
+    ],
+)
+def test_a_damaged_dataset_entry_leaves_the_problem_on_leetcode(data_dir, damage):
+    import_dataset(data_dir, dataset_entry(**damage))
+    assert find_in_dataset(data_dir, LISTED) == {}
+
+
+def test_a_dataset_entry_missing_a_field_leaves_the_problem_on_leetcode(data_dir):
+    entry = dataset_entry()
+    del entry["tests"]
+    import_dataset(data_dir, entry)
+    assert find_in_dataset(data_dir, LISTED) == {}
+
+
+def test_extraction_saved_before_the_rename_still_loads():
+    external = {"kind": "external", "platform": "leetcode", "number": 1, "title": "Two Sum", "slug": "two-sum"}
+    saved = build_extraction(LISTED[:1], concept_map((1, ["hash-maps"]))).model_dump()
+    saved["externals"] = {"leetcode-1": external}
+    del saved["answers"]
+    assert isinstance(Extraction.model_validate(saved).answers["leetcode-1"], ExternalAnswer)
 
 
 @pytest.mark.parametrize(
@@ -64,10 +155,18 @@ def test_concept_map_rejects_unknown_concepts():
         concept_map((1, ["graphs"]))
 
 
-def test_checkpoints_cannot_be_external():
-    external = {"kind": "external", "platform": "leetcode", "number": 1, "title": "Two Sum", "slug": "two-sum"}
-    with pytest.raises(ValidationError, match="answered in the lesson"):
-        CheckpointBlock.model_validate({"type": "checkpoint", "id": "c", "prompt": "Q", "answer": external})
+@pytest.mark.parametrize(
+    "answer",
+    [
+        {"kind": "external", "platform": "leetcode", "number": 1, "title": "Two Sum", "slug": "two-sum"},
+        {"kind": "code", "platform": "leetcode", "number": 1, "title": "Two Sum", "slug": "two-sum", "difficulty": "Easy",
+         "method": "twoSum", "starter_code": "class Solution: ...",
+         "tests": [{"args": "", "expected": "1", "compare": "equal"}]},
+    ],
+)
+def test_checkpoints_cannot_be_leetcode_problems(answer):
+    with pytest.raises(ValidationError, match="homework only"):
+        CheckpointBlock.model_validate({"type": "checkpoint", "id": "c", "prompt": "Q", "answer": answer})
 
 
 # A whole computer science lesson
@@ -135,10 +234,66 @@ def test_cs_lesson_end_to_end(cs_lesson, data_dir):
 
     sent_problems = json.loads(fake.calls[ConceptMap][0]["prompt"][-1]["text"].split("\n\n", 1)[1])
     assert sent_problems == [{"number": 1, "title": "Two Sum"}, {"number": 15, "title": "3Sum"}]
-    assert all("LeetCode problems the student solves on LeetCode" in c["system"] for c in fake.calls[SectionDraft])
+    assert all("solves in a code editor or on LeetCode" in c["system"] for c in fake.calls[SectionDraft])
     solved = json.loads(fake.calls[Solutions][0]["prompt"][-1]["text"].split("\n\n", 1)[1])
     assert [s["target"] for s in solved] == ["hash-maps-block-2"]
     assert len(fake.calls[Solutions]) == 1  # the second section has nothing to verify
+
+
+def test_cs_lesson_with_the_dataset_end_to_end(started, data_dir):
+    client, _, _ = started
+    import_dataset(data_dir, dataset_entry())
+    lesson_id = upload(client, [("problems.md", LIST, "problem_set", False)], subject="computer_science").json()["id"]
+    fake = FakeModel(cs_script())
+    pipeline_run(data_dir, lesson_id, fake)
+    status = lesson_status(client, lesson_id)
+    assert (status["status"], status["error"]) == ("ready", None)
+    lesson = Lesson.model_validate(status["lesson"])
+
+    two_sum = lesson.find_block("leetcode-1").parts[0]
+    assert two_sum.prompt == TWO_SUM_DESCRIPTION
+    assert isinstance(two_sum.answer, CodeAnswer) and two_sum.answer.tests[0].expected == "[0, 1]"
+    assert two_sum.hints == ["Think about what you've seen so far."] and two_sum.verified is False
+    assert isinstance(lesson.find_block("leetcode-15").parts[0].answer, ExternalAnswer)
+
+    # The concept map sees the description; hints see it too, but never the tests or starter code.
+    sent = json.loads(fake.calls[ConceptMap][0]["prompt"][-1]["text"].split("\n\n", 1)[1])
+    assert sent == [{"number": 1, "title": "Two Sum", "description": TWO_SUM_DESCRIPTION}, {"number": 15, "title": "3Sum"}]
+    hinted = json.loads(fake.calls[HintDraft][0]["prompt"][-1]["text"].split("\n\n", 1)[1])
+    code_target = next(h for h in hinted if h["target"] == "leetcode-1/1")
+    assert TWO_SUM_DESCRIPTION in code_target["question"]
+    assert set(code_target["answer"]) == {"kind", "platform", "number", "title", "slug", "difficulty", "method"}
+
+    check = client.post(f"/lessons/{lesson_id}/blocks/leetcode-1/check", json={"part_id": "1", "response": "x"}, headers=AUTH)
+    assert check.status_code == 422 and "workspace" in check.json()["detail"]
+
+
+def test_a_wrong_title_is_refused_at_upload_once_the_dataset_is_imported(started, data_dir):
+    client, _, runs = started
+    import_dataset(data_dir, dataset_entry())
+    response = upload(client, [("problems.md", b"1. Add Two Numbers\n", "problem_set", False)], subject="computer_science")
+    assert response.status_code == 422
+    assert "#1 is 'two-sum', not 'Add Two Numbers'" in response.json()["detail"]
+    assert runs == []
+
+
+def test_a_rerun_keeps_a_code_parts_state_and_code(started, data_dir):
+    client, _, _ = started
+    import_dataset(data_dir, dataset_entry())
+    lesson_id = upload(client, [("problems.md", LIST, "problem_set", False)], subject="computer_science").json()["id"]
+    pipeline_run(data_dir, lesson_id, FakeModel(cs_script()))
+    code = "class Solution:\n    def twoSum(self, nums, target):\n        return [0, 1]\n"
+    with connect(data_dir) as conn:
+        progress.save(conn, lesson_id, progress.Record(
+            block_id="leetcode-1", part_id="1", status=progress.CORRECT, last_response=code, attempts=2))
+    rerun = FakeModel({k: v for k, v in cs_script().items() if k is not ConceptMap})
+    from kedami_server.generation import pipeline
+
+    pipeline.run(data_dir, lesson_id, "computer_science", start_stage=3, call=rerun)
+    assert lesson_status(client, lesson_id)["status"] == "ready"
+    with connect(data_dir) as conn:
+        record = progress.load(conn, lesson_id, "leetcode-1", "1")
+    assert (record.status, record.last_response, record.attempts) == (progress.CORRECT, code, 2)
 
 
 def test_concept_map_missing_a_problem_is_retried(cs_lesson, data_dir):

@@ -195,7 +195,7 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         try:
             check_uploads(uploads)
             if subject == "computer_science":
-                check_problem_lists(uploads)
+                check_problem_lists(uploads, settings.data_dir)
         except (SourceError, ProblemListError) as error:
             raise HTTPException(422, str(error)) from error
 

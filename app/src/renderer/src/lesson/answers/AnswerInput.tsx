@@ -1,6 +1,6 @@
 import { type FormEvent, useId, useState } from 'react'
 import { Markdown } from '../Markdown'
-import type { Answer, ChoiceAnswer, ExternalAnswer, MultiChoiceAnswer, SelfCheckAnswer } from '../types'
+import type { Answer, ChoiceAnswer, CodeAnswer, ExternalAnswer, MultiChoiceAnswer, SelfCheckAnswer } from '../types'
 
 interface InputProps<A> {
   answer: A
@@ -25,12 +25,14 @@ export function AnswerInput(props: InputProps<Answer>) {
     case 'multi_choice':
       return <MultiChoiceInput {...props} answer={answer} />
     case 'external':
+    // Until the workspace exists, a code problem is also solved on LeetCode and marked done.
+    case 'code':
       return <ExternalProblem answer={answer} />
   }
 }
 
 /** A LeetCode problem: solved in the browser, then marked done here. Nothing to type. */
-function ExternalProblem({ answer }: { answer: ExternalAnswer }) {
+function ExternalProblem({ answer }: { answer: ExternalAnswer | CodeAnswer }) {
   const [error, setError] = useState<string | null>(null)
   return (
     <div className="answer-actions external">

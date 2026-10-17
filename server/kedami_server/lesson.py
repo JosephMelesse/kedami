@@ -154,8 +154,42 @@ class ExternalAnswer(Model):
         return f"https://leetcode.com/problems/{self.slug}/"
 
 
+class CodeTest(Model):
+    """One test from LeetCodeDataset: Python source for the arguments and the expected value, evaluated
+    only in the sandboxed runner. See architecture/code-problems.md."""
+
+    args: str
+    expected: Annotated[str, StringConstraints(min_length=1)]
+    compare: Literal["equal", "same_list", "same_tree"]
+
+
+class CodeAnswer(Model):
+    """A LeetCode problem solved in the workspace against tests from LeetCodeDataset. The tests run in
+    the sandboxed runner, which reports the result; the server never runs them and never verifies them."""
+
+    kind: Literal["code"]
+    platform: Literal["leetcode"]
+    number: Annotated[int, Field(ge=1)]
+    title: Annotated[str, StringConstraints(min_length=1, max_length=200)]
+    slug: Id
+    difficulty: Literal["Easy", "Medium", "Hard"]
+    method: Annotated[str, StringConstraints(pattern=r"^[A-Za-z_][A-Za-z0-9_]*$")]
+    starter_code: Annotated[str, StringConstraints(min_length=1)]
+    tests: Annotated[list[CodeTest], Field(min_length=1)]
+
+    @property
+    def url(self) -> str:
+        return f"https://leetcode.com/problems/{self.slug}/"
+
+
 Answer = Annotated[
-    NumericAnswer | ExpressionAnswer | SelfCheckAnswer | ChoiceAnswer | MultiChoiceAnswer | ExternalAnswer,
+    NumericAnswer
+    | ExpressionAnswer
+    | SelfCheckAnswer
+    | ChoiceAnswer
+    | MultiChoiceAnswer
+    | ExternalAnswer
+    | CodeAnswer,
     Field(discriminator="kind"),
 ]
 
@@ -258,8 +292,8 @@ class CheckpointBlock(Model):
 
     @model_validator(mode="after")
     def answered_here(self) -> "CheckpointBlock":
-        if isinstance(self.answer, ExternalAnswer):
-            raise ValueError("a checkpoint is answered in the lesson, not on an external site")
+        if isinstance(self.answer, ExternalAnswer | CodeAnswer):
+            raise ValueError("a checkpoint is answered in the lesson; LeetCode problems are homework only")
         return self
 
 

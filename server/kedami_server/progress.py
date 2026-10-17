@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from .checking import InvalidResponse, check
-from .lesson import Lesson, ProblemBlock, SelfCheckAnswer
+from .lesson import CodeAnswer, Lesson, ProblemBlock, SelfCheckAnswer
 from .targets import find_target
 
 NOT_STARTED = "not_started"
@@ -88,7 +88,8 @@ def carried_over(record: Record, lesson: Lesson) -> Record | None:
     - Checkpoint progress resets, and progress for parts that no longer exist is deleted.
     - Parts that were marked done stay marked done.
     - A saved response is rechecked against the new stored answer. A self check's result
-      is the student's own judgment, so it stands while the answer is still a self check.
+      is the student's own judgment, so it stands while the answer is still a self check. A
+      code part's code and state stand while it is still a code part: the server can't run it.
     - Hints used is capped at the new number of hints.
     """
     if record.part_id is None:
@@ -101,7 +102,7 @@ def carried_over(record: Record, lesson: Lesson) -> Record | None:
         return record
     if record.last_response is None:
         return replace(record, status=IN_PROGRESS if record.hints_used else NOT_STARTED)
-    if isinstance(target.answer, SelfCheckAnswer) and record.status in (CORRECT, IN_PROGRESS):
+    if isinstance(target.answer, SelfCheckAnswer | CodeAnswer) and record.status in (CORRECT, IN_PROGRESS):
         return record
     try:
         correct = check(target.answer, record.last_response)

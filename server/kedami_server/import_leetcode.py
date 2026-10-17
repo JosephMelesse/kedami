@@ -194,8 +194,31 @@ def _write(path: Path, problems: list[Problem]) -> None:
     partial = path.with_name(path.name + ".partial")
     with partial.open("w", encoding="utf-8") as out:
         for problem in problems:
-            out.write(json.dumps(asdict(problem), ensure_ascii=False) + "\n")
+            # ASCII only: descriptions and tests hold characters such as \x85 that some readers take as line breaks.
+            out.write(json.dumps(asdict(problem)) + "\n")
     os.replace(partial, path)
+
+
+# Each written line starts with its number, so a lookup parses only the problems it asks for.
+_NUMBER_PREFIX = re.compile(r'^\{"number": (\d+),')
+
+
+def read(data_dir: Path, numbers: set[int]) -> dict[int, dict]:
+    """The imported problems with these numbers, as written. Empty if nothing has been imported."""
+    path = data_dir / OUTPUT
+    if not numbers or not path.is_file():
+        return {}
+    found: dict[int, dict] = {}
+    with path.open(encoding="utf-8") as lines:
+        for line in lines:
+            match = _NUMBER_PREFIX.match(line)
+            if not match or int(match[1]) not in numbers:
+                continue
+            try:
+                found[int(match[1])] = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+    return found
 
 
 def main() -> None:

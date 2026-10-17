@@ -55,7 +55,7 @@ export type Type5 = "checkpoint";
 export type Id7 = string;
 export type Prompt1 = string;
 export type Answer =
-  NumericAnswer | ExpressionAnswer | SelfCheckAnswer | ChoiceAnswer | MultiChoiceAnswer | ExternalAnswer;
+  NumericAnswer | ExpressionAnswer | SelfCheckAnswer | ChoiceAnswer | MultiChoiceAnswer | ExternalAnswer | CodeAnswer;
 export type Kind = "numeric";
 export type Value = number;
 export type RelTolerance = number;
@@ -84,6 +84,21 @@ export type Platform = "leetcode";
 export type Number = number;
 export type Title2 = string;
 export type Slug = string;
+export type Kind6 = "code";
+export type Platform1 = "leetcode";
+export type Number1 = number;
+export type Title3 = string;
+export type Slug1 = string;
+export type Difficulty = "Easy" | "Medium" | "Hard";
+export type Method = string;
+export type StarterCode = string;
+/**
+ * @minItems 1
+ */
+export type Tests = [CodeTest, ...CodeTest[]];
+export type Args = string;
+export type Expected = string;
+export type Compare = "equal" | "same_list" | "same_tree";
 /**
  * @maxItems 3
  */
@@ -101,7 +116,7 @@ export type Id9 = string;
 export type Label1 = string;
 export type Prompt3 = string;
 export type Answer1 =
-  NumericAnswer | ExpressionAnswer | SelfCheckAnswer | ChoiceAnswer | MultiChoiceAnswer | ExternalAnswer;
+  NumericAnswer | ExpressionAnswer | SelfCheckAnswer | ChoiceAnswer | MultiChoiceAnswer | ExternalAnswer | CodeAnswer;
 /**
  * @maxItems 3
  */
@@ -268,6 +283,36 @@ export interface ExternalAnswer {
   number: Number;
   title: Title2;
   slug: Slug;
+}
+/**
+ * A LeetCode problem solved in the workspace against tests from LeetCodeDataset. The tests run in
+ * the sandboxed runner, which reports the result; the server never runs them and never verifies them.
+ *
+ * This interface was referenced by `Lesson`'s JSON-Schema
+ * via the `definition` "CodeAnswer".
+ */
+export interface CodeAnswer {
+  kind: Kind6;
+  platform: Platform1;
+  number: Number1;
+  title: Title3;
+  slug: Slug1;
+  difficulty: Difficulty;
+  method: Method;
+  starter_code: StarterCode;
+  tests: Tests;
+}
+/**
+ * One test from LeetCodeDataset: Python source for the arguments and the expected value, evaluated
+ * only in the sandboxed runner. See architecture/code-problems.md.
+ *
+ * This interface was referenced by `Lesson`'s JSON-Schema
+ * via the `definition` "CodeTest".
+ */
+export interface CodeTest {
+  args: Args;
+  expected: Expected;
+  compare: Compare;
 }
 /**
  * This interface was referenced by `Lesson`'s JSON-Schema

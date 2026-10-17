@@ -6,9 +6,9 @@ import source from './harness.py?raw'
 // LeetCode provides sortedcontainers, so the runner does too. This is PyPI's wheel, checked by its hash in the tests.
 import sortedContainers from './vendor/sortedcontainers-2.4.0-py2.py3-none-any.whl?inline'
 
-export type Comparison = 'equal' | 'same_list' | 'same_tree'
+import type { CodeTest } from '../lesson/types'
 
-export type CodeTest = { args: string; expected: string; compare: Comparison }
+export type { CodeTest }
 
 export type RunRequest = {
   code: string

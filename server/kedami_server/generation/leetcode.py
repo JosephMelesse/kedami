@@ -4,13 +4,20 @@ One problem per line, with its number and title: "1. Two Sum", "#15 3Sum", "Leet
 Climbing Stairs", "- 1. Two Sum". Blank lines, Markdown headings, and the page markers
 added in stage 1 are ignored. Any other line, a missing title, or a repeated number is an
 error, so a typo can't silently become the wrong problem.
+
+A listed problem that is in the imported LeetCodeDataset is solved in the workspace against
+its tests; any other is solved on LeetCode and marked done. See architecture/code-problems.md.
 """
 
 import re
 from dataclasses import dataclass
+from pathlib import Path
 
+from pydantic import ValidationError
+
+from .. import import_leetcode
 from ..ids import slugify
-from ..lesson import ExternalAnswer
+from ..lesson import CodeAnswer, ExternalAnswer
 from .schemas import ConceptMap, ExtractedPart, ExtractedProblem, Extraction
 
 MAX_TITLE = 200
@@ -86,8 +93,58 @@ def parse_problem_list(text: str) -> list[ListedProblem]:
     return problems
 
 
-def build_extraction(listed: list[ListedProblem], concept_map: ConceptMap) -> Extraction:
+@dataclass(frozen=True)
+class DatasetProblem:
+    answer: CodeAnswer
+    description: str
+
+
+def find_in_dataset(data_dir: Path, listed: list[ListedProblem]) -> dict[int, DatasetProblem]:
+    """The listed problems that are in the imported dataset, by number.
+
+    Raises ProblemListError for a title that names a different problem than its number, since the
+    number is probably wrong. A damaged entry is left out, so that problem is solved on LeetCode.
+    """
+    records = import_leetcode.read(data_dir, {p.number for p in listed})
+    found: dict[int, DatasetProblem] = {}
+    wrong: list[str] = []
+    for problem in listed:
+        record = records.get(problem.number)
+        if record is None:
+            continue
+        if record.get("slug") != problem.slug:
+            wrong.append(f"#{problem.number} is {record.get('slug')!r}, not {problem.title!r}")
+            continue
+        try:
+            answer = CodeAnswer(
+                kind="code",
+                platform="leetcode",
+                number=problem.number,
+                title=problem.title,
+                slug=record["slug"],
+                difficulty=record["difficulty"],
+                method=record["method"],
+                starter_code=record["starter_code"],
+                tests=record["tests"],
+            )
+            description = record["description"]
+        except (KeyError, TypeError, ValidationError):
+            continue
+        if isinstance(description, str) and description.strip():
+            found[problem.number] = DatasetProblem(answer, description)
+    if wrong:
+        raise ProblemListError(
+            f"The LeetCode problem list names problems by the wrong number: {'; '.join(wrong)}. "
+            "Check each number and title against LeetCode."
+        )
+    return found
+
+
+def build_extraction(
+    listed: list[ListedProblem], concept_map: ConceptMap, found: dict[int, DatasetProblem] | None = None
+) -> Extraction:
     """The stage 2 output for a computer science lesson: the listed problems, with the model's concepts.
+    Problems in `found` are solved in the workspace; the rest on LeetCode.
 
     Raises ConceptMapError if the model didn't cover every listed problem exactly once.
     """
@@ -106,23 +163,26 @@ def build_extraction(listed: list[ListedProblem], concept_map: ConceptMap) -> Ex
     if problems_found:
         raise ConceptMapError("Map every listed problem exactly once; " + "; ".join(problems_found))
 
+    found = found or {}
     concepts_for = {p.number: p.concepts for p in concept_map.problems}
-    problems = [
-        ExtractedProblem(
-            source_ref=p.source_ref,
-            prompt="",
-            parts=[ExtractedPart(label=str(p.number), prompt=f"Complete LeetCode #{p.number}: {p.title}.")],
-            concepts=concepts_for[p.number],
+    problems, answers = [], {}
+    for p in listed:
+        in_dataset = found.get(p.number)
+        prompt = in_dataset.description if in_dataset else f"Complete LeetCode #{p.number}: {p.title}."
+        problems.append(
+            ExtractedProblem(
+                source_ref=p.source_ref,
+                prompt="",
+                parts=[ExtractedPart(label=str(p.number), prompt=prompt)],
+                concepts=concepts_for[p.number],
+            )
         )
-        for p in listed
-    ]
-    externals = {
-        slugify(p.source_ref): ExternalAnswer(
-            kind="external", platform="leetcode", number=p.number, title=p.title, slug=p.slug
+        answers[slugify(p.source_ref)] = (
+            in_dataset.answer
+            if in_dataset
+            else ExternalAnswer(kind="external", platform="leetcode", number=p.number, title=p.title, slug=p.slug)
         )
-        for p in listed
-    }
-    return Extraction(concepts=concept_map.concepts, problems=problems, externals=externals)
+    return Extraction(concepts=concept_map.concepts, problems=problems, answers=answers)
 
 
 class ConceptMapError(ValueError):

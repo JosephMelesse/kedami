@@ -7,10 +7,20 @@ later call, and sets verified only in the verification pass.
 
 from typing import Annotated, Literal
 
-from pydantic import Field, PrivateAttr, TypeAdapter, ValidationError, field_validator, model_validator
+from pydantic import AliasChoices, Field, PrivateAttr, TypeAdapter, ValidationError, field_validator, model_validator
 
 from ..ids import slugify
-from ..lesson import MAX_HINTS, Answer, ExternalAnswer, Model, PlainText, PlotFunction, PlotParameter, Range
+from ..lesson import (
+    MAX_HINTS,
+    Answer,
+    CodeAnswer,
+    ExternalAnswer,
+    Model,
+    PlainText,
+    PlotFunction,
+    PlotParameter,
+    Range,
+)
 
 # Stage 1: ingestion
 
@@ -79,15 +89,17 @@ class ProblemsAndConcepts(Model):
 class Extraction(ProblemsAndConcepts):
     """The stage 2 output saved to disk and used by later stages."""
 
-    # Problems solved on another site, keyed by problem ID. The server sets these for
-    # computer science lessons; the model never writes them.
-    externals: dict[str, ExternalAnswer] = {}
+    # LeetCode problems' answers, keyed by problem ID: solved in the workspace, or on LeetCode. The server
+    # sets these for computer science lessons; the model never writes them. Read under their old name too.
+    answers: dict[str, Annotated[CodeAnswer | ExternalAnswer, Field(discriminator="kind")]] = Field(
+        default={}, validation_alias=AliasChoices("answers", "externals")
+    )
 
     @model_validator(mode="after")
-    def externals_name_problems(self) -> "Extraction":
-        unknown = set(self.externals) - {slugify(p.source_ref) for p in self.problems}
+    def answers_name_problems(self) -> "Extraction":
+        unknown = set(self.answers) - {slugify(p.source_ref) for p in self.problems}
         if unknown:
-            raise ValueError(f"external answers for unknown problems: {', '.join(sorted(unknown))}")
+            raise ValueError(f"LeetCode answers for unknown problems: {', '.join(sorted(unknown))}")
         return self
 
 

@@ -36,8 +36,8 @@ export function AnswerField({ blockId, partId, name, answer, hints, verified }: 
   const canMark = partId !== null && state !== 'correct'
   const [error, setError] = useState<string | null>(null)
 
-  // Self checks and problems solved elsewhere are never verified, so they never show the label.
-  const showUnverified = !verified && answer.kind !== 'self_check' && answer.kind !== 'external'
+  // Self checks and LeetCode problems are never verified, so they never show the label.
+  const showUnverified = !verified && !['self_check', 'external', 'code'].includes(answer.kind)
   const label = STATE_LABELS[state]
 
   const submit = async (response: unknown) => setError(await progress.check(blockId, partId, response))

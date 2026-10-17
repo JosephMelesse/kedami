@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from kedami_server.import_leetcode import OUTPUT, CodeTest, Dropped, convert, import_files, parse_tests
+from kedami_server.import_leetcode import OUTPUT, CodeTest, Dropped, convert, import_files, parse_tests, read
 
 
 def record(**overrides) -> dict:
@@ -217,6 +217,13 @@ def test_import_writes_kept_problems_by_number_and_counts_every_drop(tmp_path):
     assert "\xa0" in problems[0]["description"]
 
 
+def test_each_problem_is_written_on_one_ascii_line(tmp_path):
+    import_files(tmp_path, [write_jsonl(tmp_path / "a.jsonl", record(problem_description="a\x85b\u2028c\xa0d"))])
+    raw = (tmp_path / OUTPUT).read_bytes()
+    assert raw.isascii() and raw.count(b"\n") == 1
+    assert read_output(tmp_path)[0]["description"] == "a\x85b\u2028c\xa0d"
+
+
 def test_a_second_import_replaces_the_first(tmp_path):
     import_files(tmp_path, [write_jsonl(tmp_path / "a.jsonl", record(), record(question_id=15, task_id="3sum"))])
     summary = import_files(tmp_path, [write_jsonl(tmp_path / "b.jsonl", record(question_id=20, task_id="valid"))])
@@ -236,3 +243,22 @@ def test_an_import_with_nothing_kept_writes_an_empty_file(tmp_path):
     summary = import_files(tmp_path, [write_jsonl(tmp_path / "a.jsonl", "{bad")])
     assert summary.kept == 0
     assert (tmp_path / OUTPUT).read_text() == ""
+
+
+def test_read_returns_only_the_problems_asked_for(tmp_path):
+    import_files(tmp_path, [write_jsonl(tmp_path / "a.jsonl", record(), record(question_id=15, task_id="3sum"),
+                                        record(question_id=150, task_id="evaluate"))])
+    found = read(tmp_path, {15, 1, 99})
+    assert sorted(found) == [1, 15]
+    assert found[15]["slug"] == "3sum" and found[1]["tests"][0]["expected"] == "[0, 1]"
+
+
+def test_read_without_an_import_or_numbers_finds_nothing(tmp_path):
+    assert read(tmp_path, {1}) == {}
+    import_files(tmp_path, [write_jsonl(tmp_path / "a.jsonl", record())])
+    assert read(tmp_path, set()) == {}
+
+
+def test_read_skips_damaged_lines(tmp_path):
+    (tmp_path / OUTPUT).write_text('{"number": 1, "slug": "two-su\n{"number": 2, "slug": "add"}\nnot json\n')
+    assert read(tmp_path, {1, 2}) == {2: {"number": 2, "slug": "add"}}

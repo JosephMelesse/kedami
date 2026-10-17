@@ -103,7 +103,7 @@ def extract_request(feedback: str | None = None) -> dict:
 
 
 CS_EXTRACT_SYSTEM = f"""You map the problems of a data structures and algorithms assignment to the concepts a lesson
-must teach. The problems are LeetCode problems, given by number and title.
+must teach. The problems are LeetCode problems, given by number and title, and with their descriptions when known.
 
 For each listed problem, give its number and the IDs of the concepts a student needs to solve it, such as hash maps,
 two pointers, or binary search on the answer. Draw the concepts from the reference material when it is given,
@@ -113,8 +113,11 @@ once, and cover every listed problem exactly once using the numbers given.
 {MARKDOWN}"""
 
 
-def cs_extract_request(problems: list, feedback: str | None = None) -> dict:
-    data = [{"number": p.number, "title": p.title} for p in problems]
+def cs_extract_request(problems: list, descriptions: dict[int, str], feedback: str | None = None) -> dict:
+    data = [
+        {"number": p.number, "title": p.title} | ({"description": descriptions[p.number]} if p.number in descriptions else {})
+        for p in problems
+    ]
     return _with_feedback(
         f"Map these LeetCode problems to the concepts they need:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}",
         feedback,
@@ -197,7 +200,7 @@ def section_request(section: SectionPlan, outline: list[SectionPlan], feedback: 
 CS_SECTION_RULES = """
 
 For this computer science lesson:
-- The homework problems are LeetCode problems the student solves on LeetCode. Place each like any homework problem,
+- The homework problems are LeetCode problems the student solves in a code editor or on LeetCode. Place each like any homework problem,
   with `parts` as an empty list. Never solve, outline, or give code for an assigned LeetCode problem anywhere in the
   section, including worked examples.
 - Write all code in Python, in fenced ```python blocks, short and runnable.
@@ -224,8 +227,16 @@ or the correct option, and it never works the problem through to the end.
 {MARKDOWN}"""
 
 
+def shown_answer(answer) -> dict:
+    """An answer as the hint calls see it. A code answer's tests and starter code are left out: the
+    description in the question is what a hint is written from."""
+    if answer.kind == "code":
+        return answer.model_dump(exclude={"tests", "starter_code"})
+    return answer.model_dump()
+
+
 def hints_request(found: list["Target"]) -> dict:
-    data = [{"target": t.key, "question": t.question, "answer": t.answer.model_dump()} for t in found]
+    data = [{"target": t.key, "question": t.question, "answer": shown_answer(t.answer)} for t in found]
     return {
         "type": "text",
         "text": f"Write hints for each of these questions, using the target IDs as given:\n\n"
@@ -239,7 +250,7 @@ def replacement_request(failing: dict, by_key: dict, hints: dict) -> dict:
             "target": key,
             "index": index,
             "question": by_key[key].question,
-            "answer": by_key[key].answer.model_dump(),
+            "answer": shown_answer(by_key[key].answer),
             "rejected_hint": hints[key][index],
             "reason": reason,
         }
@@ -266,7 +277,7 @@ def judge_request(to_judge: list[tuple[str, int, str]], by_key: dict) -> dict:
             "target": key,
             "index": index,
             "question": by_key[key].question,
-            "answer": by_key[key].answer.model_dump(),
+            "answer": shown_answer(by_key[key].answer),
             "hint": hint,
         }
         for key, index, hint in to_judge

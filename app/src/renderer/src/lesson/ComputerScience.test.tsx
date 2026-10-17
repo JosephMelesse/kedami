@@ -40,6 +40,32 @@ const lesson = {
               verified: false
             }
           ]
+        },
+        {
+          type: 'problem',
+          id: 'leetcode-15',
+          source_ref: 'LeetCode #15',
+          prompt: '',
+          parts: [
+            {
+              id: '15',
+              label: '15',
+              prompt: 'Given an integer array nums, return all the triplets...',
+              answer: {
+                kind: 'code',
+                platform: 'leetcode',
+                number: 15,
+                title: '3Sum',
+                slug: '3sum',
+                difficulty: 'Medium',
+                method: 'threeSum',
+                starter_code: 'class Solution:\n    def threeSum(self, nums): ...',
+                tests: [{ args: 'nums = [0, 0, 0]', expected: '[[0, 0, 0]]', compare: 'equal' }]
+              },
+              hints: [],
+              verified: false
+            }
+          ]
         }
       ]
     }
@@ -69,6 +95,12 @@ describe('a computer science lesson', () => {
     const buttons = [...problem.querySelectorAll('button')].map((b) => b.textContent)
     expect(buttons).toEqual(['Open on LeetCode', 'Show hint 1 of 1', 'Mark done'])
     expect(problem.querySelector('input, textarea')).toBeNull()
+  })
+
+  it('until the workspace exists, sends a code problem to LeetCode too, with no solution or unverified label', () => {
+    const code = [...root.querySelectorAll<HTMLElement>('.card')].find((c) => c.textContent?.includes('LeetCode #15'))!
+    expect([...code.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Open on LeetCode', 'Mark done'])
+    expect(code.textContent).not.toContain('Unverified answer')
   })
 
   it('never calls a LeetCode problem unverified', () => {

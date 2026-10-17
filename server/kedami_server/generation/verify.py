@@ -32,8 +32,9 @@ class Result:
     verified: bool
 
 
-# Self checks are the student's own judgment, and external problems are solved elsewhere.
-NOT_VERIFIED = ("self_check", "external")
+# Self checks are the student's own judgment, external problems are solved elsewhere, and code problems'
+# tests come from the imported dataset.
+NOT_VERIFIED = ("self_check", "external", "code")
 
 
 def verifiable(section: Section) -> list[Target]:

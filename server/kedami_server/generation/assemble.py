@@ -8,7 +8,7 @@ which sends the section back to the model with the message.
 from pydantic import ValidationError
 
 from ..ids import slugify
-from ..lesson import ChoiceAnswer, ExternalAnswer, Lesson, MultiChoiceAnswer, Part, ProblemBlock, Section
+from ..lesson import ChoiceAnswer, CodeAnswer, ExternalAnswer, Lesson, MultiChoiceAnswer, Part, ProblemBlock, Section
 from .plan import SectionPlan
 from .schemas import ProblemDraft, SectionDraft, SimulationDraft
 
@@ -17,9 +17,11 @@ class SectionError(ValueError):
     pass
 
 
-def assemble_section(plan: SectionPlan, draft: SectionDraft, externals: dict[str, ExternalAnswer] | None = None) -> Section:
-    """Build a section. Problems in `externals` are solved elsewhere, so their parts get that answer."""
-    externals = externals or {}
+def assemble_section(
+    plan: SectionPlan, draft: SectionDraft, fixed: dict[str, CodeAnswer | ExternalAnswer] | None = None
+) -> Section:
+    """Build a section. Problems in `fixed` are LeetCode problems, so their parts get that answer."""
+    fixed = fixed or {}
     targets = {slugify(p.source_ref): p for p in plan.problems}
     typed = [block.typed for block in draft.blocks]
     placed = [_problem_id(block) for block in typed if isinstance(block, ProblemDraft)]
@@ -33,7 +35,7 @@ def assemble_section(plan: SectionPlan, draft: SectionDraft, externals: dict[str
     for index, block in enumerate(typed, start=1):
         if isinstance(block, ProblemDraft):
             problem_id = _problem_id(block)
-            blocks.append(_problem(block, targets[problem_id], externals.get(problem_id)))
+            blocks.append(_problem(block, targets[problem_id], fixed.get(problem_id)))
         elif isinstance(block, SimulationDraft):
             # The code is written on request, after the lesson is ready.
             blocks.append(
@@ -73,10 +75,10 @@ def _check_problems(placed: list[str], targets: dict) -> None:
         raise SectionError(f"these problems are missing from the section: {', '.join(missing)}")
 
 
-def _problem(draft: ProblemDraft, extracted, external: ExternalAnswer | None = None) -> dict:
-    if external is not None:
-        # Solved on another site: every part takes that answer, whatever the draft gave.
-        answers = {slugify(part.label): external for part in extracted.parts}
+def _problem(draft: ProblemDraft, extracted, fixed: CodeAnswer | ExternalAnswer | None = None) -> dict:
+    if fixed is not None:
+        # A LeetCode problem: every part takes the server's answer, whatever the draft gave.
+        answers = {slugify(part.label): fixed for part in extracted.parts}
         return _problem_block(extracted, answers)
     answers = {}
     for part in draft.parts:

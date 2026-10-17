@@ -21,6 +21,7 @@
           "discriminator": {
             "mapping": {
               "choice": "#/$defs/ChoiceAnswer",
+              "code": "#/$defs/CodeAnswer",
               "expression": "#/$defs/ExpressionAnswer",
               "external": "#/$defs/ExternalAnswer",
               "multi_choice": "#/$defs/MultiChoiceAnswer",
@@ -47,6 +48,9 @@
             },
             {
               "$ref": "#/$defs/ExternalAnswer"
+            },
+            {
+              "$ref": "#/$defs/CodeAnswer"
             }
           ],
           "title": "Answer"
@@ -104,6 +108,109 @@
         "correct_index"
       ],
       "title": "ChoiceAnswer",
+      "type": "object"
+    },
+    "CodeAnswer": {
+      "additionalProperties": false,
+      "description": "A LeetCode problem solved in the workspace against tests from LeetCodeDataset. The tests run in\nthe sandboxed runner, which reports the result; the server never runs them and never verifies them.",
+      "properties": {
+        "kind": {
+          "const": "code",
+          "title": "Kind",
+          "type": "string"
+        },
+        "platform": {
+          "const": "leetcode",
+          "title": "Platform",
+          "type": "string"
+        },
+        "number": {
+          "minimum": 1,
+          "title": "Number",
+          "type": "integer"
+        },
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "slug": {
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "title": "Slug",
+          "type": "string"
+        },
+        "difficulty": {
+          "enum": [
+            "Easy",
+            "Medium",
+            "Hard"
+          ],
+          "title": "Difficulty",
+          "type": "string"
+        },
+        "method": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Method",
+          "type": "string"
+        },
+        "starter_code": {
+          "minLength": 1,
+          "title": "Starter Code",
+          "type": "string"
+        },
+        "tests": {
+          "items": {
+            "$ref": "#/$defs/CodeTest"
+          },
+          "minItems": 1,
+          "title": "Tests",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "platform",
+        "number",
+        "title",
+        "slug",
+        "difficulty",
+        "method",
+        "starter_code",
+        "tests"
+      ],
+      "title": "CodeAnswer",
+      "type": "object"
+    },
+    "CodeTest": {
+      "additionalProperties": false,
+      "description": "One test from LeetCodeDataset: Python source for the arguments and the expected value, evaluated\nonly in the sandboxed runner. See architecture/code-problems.md.",
+      "properties": {
+        "args": {
+          "title": "Args",
+          "type": "string"
+        },
+        "expected": {
+          "minLength": 1,
+          "title": "Expected",
+          "type": "string"
+        },
+        "compare": {
+          "enum": [
+            "equal",
+            "same_list",
+            "same_tree"
+          ],
+          "title": "Compare",
+          "type": "string"
+        }
+      },
+      "required": [
+        "args",
+        "expected",
+        "compare"
+      ],
+      "title": "CodeTest",
       "type": "object"
     },
     "DiagramBlock": {
@@ -317,6 +424,7 @@
           "discriminator": {
             "mapping": {
               "choice": "#/$defs/ChoiceAnswer",
+              "code": "#/$defs/CodeAnswer",
               "expression": "#/$defs/ExpressionAnswer",
               "external": "#/$defs/ExternalAnswer",
               "multi_choice": "#/$defs/MultiChoiceAnswer",
@@ -343,6 +451,9 @@
             },
             {
               "$ref": "#/$defs/ExternalAnswer"
+            },
+            {
+              "$ref": "#/$defs/CodeAnswer"
             }
           ],
           "title": "Answer"
