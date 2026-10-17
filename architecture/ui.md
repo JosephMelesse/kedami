@@ -46,7 +46,7 @@ Dark is the only theme in the MVP. All colors come from these tokens so a light 
 | Generating | Current pipeline stage, with a 2048 game below it while the lesson generates; a failed lesson shows the reason and a Rerun button |
 | Lesson | Sections and blocks in order, with a progress indicator in the accent color. A Rerun button opens a dialog with the start stage and force-transcription toggles; a failed rerun shows its reason above the lesson. A Days button splits the lesson into days; see Finish lines. Opening a lesson returns to the block last read; see Reading position |
 
-The app header is visible on every screen and holds the music player and the Pomodoro timer.
+The app header is visible on every screen and holds the music player and the Pomodoro timer. Clicking Kedami in it opens the Library home page from any screen, including from inside a folder.
 
 ## Active lessons
 
