@@ -33,8 +33,9 @@ A DSA lesson's problem set comes from a search box on the Upload screen, not fro
 - **Titles:** the dataset has slugs, not titles, so a title is made from the slug: hyphens become spaces, each word is capitalized, and Roman numerals are upper case ("two-sum-ii-input-array-is-sorted" is "Two Sum II Input Array Is Sorted"). LeetCode's punctuation is lost ("powx-n" is "Powx N"), but a made title always derives back to its slug, so it passes the title check.
 - **Bubbles:** Enter, Tab, a comma, or a click turns the highlighted match into a bubble showing "#1 Two Sum", its difficulty, and a remove button. Arrow keys move through the matches, and Backspace in an empty box removes the last bubble. Bubbles keep the order they were picked in; a problem already picked can't be picked again.
 - **Pasting:** pasted text is split at commas and line breaks. A piece that is a number in the dataset, or a slug's exact title, becomes a bubble; any other piece stays in the box to be searched.
+- **Wrong titles:** a number followed by a title that names a different problem than the dataset's for that number is refused with both names, such as "#1 is Two Sum, not Add Two Numbers", as the server would refuse it.
 - **Problems not in the dataset:** a number followed by a title, such as "146 LRU Cache" or "146. LRU Cache", becomes a bubble marked "Solved on LeetCode" when the number isn't in the dataset. A number alone that isn't in the dataset shows a message saying to add its title.
-- With nothing imported, search finds nothing, and every problem is entered with its number and title and solved on LeetCode.
+- With nothing imported, search finds nothing and the picker says so, pointing to the import. Every problem is then entered with its number and title and solved on LeetCode.
 - At least one bubble is needed to create the lesson. Reference files can be added beside the picker as for any lesson.
 - The server keeps the number, slug, title, and difficulty of every imported problem in memory for search, read from `leetcode.jsonl` the first time it is searched and again whenever the file changes.
 
