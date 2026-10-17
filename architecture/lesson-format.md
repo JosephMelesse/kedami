@@ -46,13 +46,16 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 | `self_check` | `rubric` | The rubric is shown after the student commits; they grade themselves |
 | `choice` | `options` (at least 2), `correct_index` | Index match |
 | `multi_choice` | `options` (at least 2), `correct_indexes` (at least 1, no duplicates) | Exact set match, for "select all that apply" |
-| `external` | `platform` (`leetcode`), `number`, `title`, `slug` | Not checked. The student solves it on LeetCode and marks it done. Problem parts only |
+| `code` | `platform` (`leetcode`), `number`, `title`, `slug`, `method`, `starter_code`, `tests` (each `args`, `expected`, `compare`) | Run in the sandboxed runner against its tests; see `code-problems.md`. Problem parts only |
+| `external` | `platform` (`leetcode`), `number`, `title`, `slug` | Not checked. For a LeetCode problem not in the imported dataset: the student solves it on LeetCode and marks it done. Problem parts only |
 
 ## Computer science lessons
 
 - The problem set is a list of LeetCode problems, one per line, each with its number and title, such as `1. Two Sum`. Blank lines and Markdown headings are ignored; any other line is an error, as are a missing title and a repeated number.
-- Each listed problem becomes a problem block with source reference `LeetCode #N` and one part with an `external` answer. Its text is "Complete LeetCode #N: Title." and it links to `https://leetcode.com/problems/{slug}/`, where the slug is the title lowercased, with characters other than letters, digits, spaces, and hyphens removed and spaces turned into hyphens (`Pow(x, n)` becomes `powx-n`).
-- The problem list is parsed by the server, not the model. The model maps each problem to the concepts it needs, and must cover every listed number exactly once.
+- Each listed problem becomes a problem block with source reference `LeetCode #N` and one part. A problem in the imported dataset gets a `code` answer, and its part text is the problem's description. Any other gets an `external` answer, and its text is "Complete LeetCode #N: Title." See `code-problems.md`.
+- Every problem links to `https://leetcode.com/problems/{slug}/`. The slug is the dataset's when the problem is in it. Otherwise it is the title lowercased, with characters other than letters, digits, spaces, and hyphens removed and spaces turned into hyphens (`Pow(x, n)` becomes `powx-n`).
+- The problem list is parsed by the server, not the model. The model maps each problem to the concepts it needs, from its title and, when the problem is in the dataset, its description. It must cover every listed number exactly once.
+- Problem parts in computer science lessons have no hints.
 - Comprehension checks use the existing answer kinds: `choice` and `multi_choice` for complexity and approach, `numeric` for questions such as what a snippet prints, and `self_check` for explanations.
 - Code in lessons is Python, in fenced `python` blocks. No lesson content walks through a solution to an assigned LeetCode problem.
 
@@ -82,7 +85,7 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 - The call sees the course material and the whole problem, with the part to solve and the form its answer takes. It doesn't see the stored answer, hints, or lesson content.
 - The reply also gives its final answer in that form, which the server compares with the stored answer the way verification does. On a disagreement the call is repeated once with the stored answer shown; if they still disagree, the solution shows with a "Doesn't match the stored answer" label. `self_check` parts aren't compared.
 - A solution is stored apart from the lesson JSON, in the `solutions` table, keyed by block and part ID. A rerun replaces the lesson and clears these rows.
-- `external` parts (computer science) have no solutions.
+- `code` and `external` parts (computer science) have no solutions.
 
 ## Simulations
 

@@ -41,6 +41,7 @@
 - Numeric: a stored value of zero uses the tolerance as an absolute one.
 - Expression: the response may use only the names in the stored answer. SymPy simplification is tried first; otherwise both sides are compared at 8 points with every name drawn from 0.5 to 3 with a fixed seed, so a response always gets the same result.
 - For `self_check`, the student's own judgment after seeing the rubric is recorded as the result.
+- For `code`, the sandboxed runner checks the code in the renderer and reports the result, which the server records as given. See `code-problems.md`.
 
 ## Verifying stored answers
 
@@ -51,4 +52,5 @@
 - Each section's results, with both answers, are saved to `work/{lesson_id}/verification-{n}.json`.
 - If not, it shows an "Unverified answer" label. For problem parts, mark done is the way past it.
 - `self_check` answers are not verified.
-- `external` answers (LeetCode problems in computer science lessons) are not checked or verified, and show no "Unverified answer" label. Mark done is the only way to finish them.
+- `code` answers are not verified: their tests come from the imported dataset. They show no "Unverified answer" label.
+- `external` answers (LeetCode problems not in the dataset) are not checked or verified, and show no "Unverified answer" label. Mark done is the only way to finish them.

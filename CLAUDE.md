@@ -38,7 +38,7 @@ Before writing code, read `README.md` and every file in `architecture/`. Those d
 - That function adds every call that gets a reply to the usage log. Prices live in config beside the model names; update them when a model or its price changes.
 
 **Untrusted content**
-- Model-written code runs only in a sandboxed frame with no network, no Node access, and no access to app data.
+- Model-written code runs only in a sandboxed frame with no network, no Node access, and no access to app data. So do the student's code and the imported LeetCode tests, in the runner frame; the server never runs them.
 - Diagram SVG is sanitized with DOMPurify before rendering.
 - Math strings are parsed only with the restricted, whitelisted parser. Never pass model or user input to SymPy's default string parsing or to `eval`.
 
@@ -59,7 +59,7 @@ Before writing code, read `README.md` and every file in `architecture/`. Those d
 
 ## Most likely to be wrong
 
-The lesson schema and ID derivation (`server/kedami_server/lesson.py`, `ids.py`) and the restricted math parser (`mathparse.py`). Every later step depends on them, so they get tests first and changes to them come with tests.
+The lesson schema and ID derivation (`server/kedami_server/lesson.py`, `ids.py`), the restricted math parser (`mathparse.py`), and the code problem harness (see `architecture/code-problems.md`). Every later step depends on them, so they get tests first and changes to them come with tests.
 
 ## Commands
 
@@ -73,6 +73,7 @@ python3 -m venv .venv
 .venv/bin/python -m kedami_server.export_schema   # after changing lesson models, then run gen:types in app/
 .venv/bin/python -m kedami_server.usage_report ../data   # time, tokens, and cost per lesson and stage
 .venv/bin/python -m kedami_server.run_report ../data     # every pipeline run as Markdown, from data/runs.jsonl
+.venv/bin/python -m kedami_server.import_leetcode ../data LeetCodeDataset-*.jsonl   # LeetCode tests for computer science lessons
 ```
 
 The server will not start without `KEDAMI_PORT`, `KEDAMI_TOKEN`, and `KEDAMI_DATA_DIR`. Electron main sets them. Lesson generation also needs `ANTHROPIC_API_KEY`, which the server loads from `server/.env`; without it the server runs but new lessons fail. If the key is not scoped to a workspace, also set `ANTHROPIC_WORKSPACE_ID` there. To start it by hand:

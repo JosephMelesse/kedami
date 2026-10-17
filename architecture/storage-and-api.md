@@ -7,9 +7,10 @@ Everything lives in one app data folder, which main passes to the server at laun
 | Item | Location |
 |---|---|
 | Original files | `materials/{lesson_id}/` |
-| Stage outputs | `work/{lesson_id}/`: `pages.json` (routes and text per page), `normalized/`, `extraction.json`, `plan.json`, `outline.json`, `section-{n}.json`, `verification-{n}.json` |
+| Stage outputs | `work/{lesson_id}/`: `pages.json` (routes and text per page), `normalized/`, `extraction.json`, `leetcode.json` (matched dataset entries, computer science only), `plan.json`, `outline.json`, `section-{n}.json`, `verification-{n}.json` |
 | Lessons | `lessons/{lesson_id}.json` |
 | Music player tracks | `music/`, written and read only by Electron main |
+| LeetCode tests | `leetcode.jsonl`: the imported dataset (see `code-problems.md`). Written only by the import command; a lesson copies what it needs into its lesson JSON |
 | Run log | `runs.jsonl`: one line per pipeline run (see Run log in `system.md`). Deleting a lesson or the database keeps it |
 | Index and progress | SQLite database |
 
@@ -24,13 +25,14 @@ Everything lives in one app data folder, which main passes to the server at laun
 | `progress` | lesson id, block id, part id, status, last response, attempts, hints used, updated |
 | `simulations` | lesson id, block id, regenerated code, flagged, error, updated |
 | `solutions` | lesson id, block id, part id, solution JSON, matches stored answer, updated |
+| `test_flags` | lesson id, block id, part id, test (arguments and expected value), created |
 | `model_calls` | id, lesson id, stage, role, model, started, latency in ms, input tokens, output tokens, cache write tokens, cache read tokens, cost in USD |
 
 - Lesson status is one of: generating, ready, failed. Only a ready lesson has lesson JSON to serve.
 - A lesson's title is the plan's until the student renames it. The custom title is kept in the index and served in place of the lesson JSON's title, which is never edited, and a rerun keeps it.
 - Material role is problem set or reference.
 - Progress status is one of: not started, in progress, correct, marked done.
-- Progress is stored apart from the lesson JSON and keyed by block and part ID. A checkpoint has no part and is stored with an empty part ID.
+- Progress is stored apart from the lesson JSON and keyed by block and part ID. A checkpoint has no part and is stored with an empty part ID. For a code part, the last response is the saved code.
 - The reading block is the ID of the block the student was last reading (see Reading position in `ui.md`). A rerun keeps it, and deleting the lesson removes it.
 - Day starts are the IDs of the blocks that begin day 2 onward, in lesson order (see Finish lines in `ui.md`). Splitting again replaces them, a rerun drops any whose block is gone, and deleting the lesson removes them.
 - Active marks a lesson the student is working through (see Active lessons in `ui.md`). New lessons start inactive, a rerun keeps it, and deleting the lesson removes it.
@@ -44,7 +46,7 @@ All routes require the session token.
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/lessons` | Multipart upload: `subject`, optional `folder`, and per file `files`, `roles`, `force`; starts the pipeline |
-| DELETE | `/lessons/{id}` | Delete a lesson that isn't generating: its JSON, files, stage outputs, progress, simulations, solutions, and usage log |
+| DELETE | `/lessons/{id}` | Delete a lesson that isn't generating: its JSON, files, stage outputs, progress, simulations, solutions, test flags, and usage log |
 | POST | `/lessons/{id}/rename` | Rename a lesson |
 | POST | `/lessons/{id}/active` | Mark a ready lesson active or not |
 | POST | `/lessons/{id}/move` | Move a lesson to a folder, or home with `null` |
@@ -59,11 +61,14 @@ All routes require the session token.
 | POST | `/lessons/{id}/rerun` | Rerun from a given stage, with force transcription per material ID |
 | GET | `/lessons/{id}/blocks/{block_id}/points` | Sampled points for a static plot |
 | POST | `/lessons/{id}/blocks/{block_id}/check` | Check a response for a part; records progress and returns the new state |
+| POST | `/lessons/{id}/blocks/{block_id}/code` | Save a code part's code; returns the new state |
+| POST | `/lessons/{id}/blocks/{block_id}/submit` | Record a code part's Submit: the code and whether every unflagged test passed; returns the new state |
+| POST | `/lessons/{id}/blocks/{block_id}/flags` | Flag or unflag a code part's test, or clear its flags |
 | POST | `/lessons/{id}/blocks/{block_id}/hint` | Record hints revealed for a part or checkpoint; returns the new state |
 | POST | `/lessons/{id}/blocks/{block_id}/mark-done` | Mark a part done, or undo it |
 | GET | `/lessons/{id}/blocks/{block_id}/simulation` | A simulation's current code (regenerated, or from the lesson JSON) and whether it is flagged |
 | POST | `/lessons/{id}/blocks/{block_id}/simulation-status` | Record whether a simulation loaded; a failure flags it |
 | POST | `/lessons/{id}/blocks/{block_id}/regenerate` | Write a simulation's code on request, or rewrite it; a flagged one's error is passed to the model |
 | POST | `/lessons/{id}/blocks/{block_id}/solution` | A problem part's solution: the stored one, or written on request the first time |
-| GET | `/lessons/{id}/progress` | Progress for all blocks and parts |
+| GET | `/lessons/{id}/progress` | Progress for all blocks and parts, with code parts' saved code and test flags |
 | GET | `/health` | Used by main to detect server readiness |
