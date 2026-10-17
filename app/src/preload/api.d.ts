@@ -15,6 +15,8 @@ export interface KedamiApi {
   serverConnection(): Promise<ServerConnection>
   /** Open a LeetCode problem in the default browser. */
   openLeetCode(slug: string): Promise<void>
+  /** Open a pgexercises page, named by its section and page, such as "joins/self2.html". */
+  openPgExercises(path: string): Promise<void>
   /** The music player's tracks, by name. */
   musicTracks(): Promise<MusicTrack[]>
   /** Pick audio files and copy them into the music folder. Returns the new list and the added names. */

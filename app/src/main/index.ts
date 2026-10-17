@@ -1,7 +1,7 @@
 import { BrowserWindow, app, dialog, ipcMain, protocol, session, shell } from 'electron'
 import { join, resolve } from 'node:path'
 import type { MusicTrack, ServerConnection } from '../preload/api'
-import { leetcodeProblemUrl } from './links'
+import { leetcodeProblemUrl, pgexercisesPageUrl } from './links'
 import {
   addTrack,
   listTracks,
@@ -79,6 +79,12 @@ async function launch(): Promise<void> {
   ipcMain.handle('kedami:open-leetcode', async (_event, slug: unknown) => {
     const url = leetcodeProblemUrl(slug)
     if (!url) throw new Error('Not a LeetCode problem.')
+    await shell.openExternal(url)
+  })
+  // Likewise a pgexercises page, by its section and page name.
+  ipcMain.handle('kedami:open-pgexercises', async (_event, path: unknown) => {
+    const url = pgexercisesPageUrl(path)
+    if (!url) throw new Error('Not a pgexercises page.')
     await shell.openExternal(url)
   })
   serveMusic(join(dataDir, 'music'))
