@@ -31,7 +31,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 
 - Lesson status is one of: generating, ready, failed. Only a ready lesson has lesson JSON to serve.
 - A lesson's title is the plan's until the student renames it. The custom title is kept in the index and served in place of the lesson JSON's title, which is never edited, and a rerun keeps it.
-- Material role is problem set, reference, or, in a SQL lesson, database.
+- Material role is problem set or reference. A SQL lesson's course database is kept beside its materials, not as one (see Course databases in `sql-lessons.md`).
 - Progress status is one of: not started, in progress, correct, marked done.
 - Progress is stored apart from the lesson JSON and keyed by block and part ID. A checkpoint has no part and is stored with an empty part ID. For a code part, the last response is the saved code.
 - The reading block is the ID of the block the student was last reading (see Reading position in `ui.md`). A rerun keeps it, and deleting the lesson removes it.

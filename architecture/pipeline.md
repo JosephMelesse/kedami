@@ -75,7 +75,7 @@ Stages 1 to 4 run as a background job on the server. The renderer polls lesson s
 
 **Progress carries over**
 - Problem block IDs are derived from the source reference and part IDs from the part label, so they stay the same across reruns.
-- Each saved response is rechecked against the new stored answer, and the part's state is updated. A response that no longer fits the answer's form counts as wrong. A self check's result is the student's own judgment, so it stands while the part is still a self check. A code part's saved code and state stand while it is still a code part, since the server can't run it.
+- Each saved response is rechecked against the new stored answer, and the part's state is updated. A response that no longer fits the answer's form counts as wrong. A self check's result is the student's own judgment, so it stands while the part is still a self check. A code part's saved code and state stand while it is still a code part, since the server can't run it, and a query part's do while it is still a query part.
 - Test flags stay while their test still exists.
 - Hints used is capped at the new number of hints.
 - Parts that were marked done stay marked done.

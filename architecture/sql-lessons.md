@@ -18,15 +18,16 @@ A computer science lesson in the `sql` domain teaches querying from a databases 
 
 ## Course databases
 
-- On the Upload screen of a SQL lesson, a file can be tagged as a database: a SQLite file (`.sqlite` or `.db`) or a SQL script (`.sql`), at most 20 MB.
-- A SQLite file must hold at least one table, pass SQLite's quick check, and have every table readable. It is never opened in place: its bytes are loaded into memory, in SQLite's defensive mode, without trusting its schema. A SQL script is run once, at upload, into a fresh in-memory database that it may fill with tables and rows but not attach, pragma, or load extensions from, within 10 seconds. Either way, the result is saved as `materials/{lesson_id}/{name}.sqlite`, and a file that fails is refused with SQLite's message.
+- On the Upload screen of a SQL lesson, one file can be tagged as the database: a SQLite file (`.sqlite` or `.db`) or a SQL script (`.sql`), at most 20 MB.
+- A SQLite file must hold at least one table, pass SQLite's quick check, and have every table readable. It is never opened in place: its bytes are loaded into memory, in SQLite's defensive mode, without trusting its schema. A SQL script is run once, at upload, into a fresh in-memory database that it may fill with tables and rows but not attach, pragma, or load extensions from, within 10 seconds. Either way, the result is saved as `materials/{lesson_id}/databases/{name}.sqlite`, where the name is the file's, without its extension, in letters, digits, underscores, and hyphens. A file that fails is refused with SQLite's message.
+- The database isn't a material: it isn't listed with the lesson's files, read in stage 1, or sent to the model as a file. The model sees its tables: each table's columns, row count, and first 5 rows, with the course material.
 - Its table and column names are kept as the course wrote them.
 
 ## In a lesson
 
 - The pipeline is the general one (see `pipeline.md`), with the SQL rules below.
 - **Homework:** a problem part that asks for a query gets a `query` answer when the lesson has a course database: the model writes the reference query in stage 4, and verification checks it. Without a course database, the part is a `self_check` whose rubric says what a correct query does. Parts that don't ask for a query use the existing kinds: `choice`, `multi_choice`, `numeric`, or `self_check`.
-- **Practice:** the plan (stage 3) names the SQL features each section teaches, from the list above. After stage 4, the server adds up to 3 bank exercises to the end of each section as checkpoints with `query` answers. An exercise is eligible when it uses at least one feature the section teaches and none that isn't taught by then. Selecting counts as taught from the start, since every query selects. Exercises with fewer features come first; a section's exercises come from one database where possible; no exercise appears twice in a lesson. With nothing imported, sections have no practice exercises.
+- **Practice:** the plan (stage 3) names the SQL features each section teaches, from the list above. After stage 4, the server adds up to 3 bank exercises to the end of each section as checkpoints with `query` answers, with IDs `{section_id}-practice-{n}` and no hints. An exercise is eligible when it uses at least one feature the section teaches and none that isn't taught by then. Selecting counts as taught from the start, since every query selects. Exercises with fewer features come first; a section's exercises come from one database where possible; no exercise appears twice in a lesson. With nothing imported, sections have no practice exercises.
 - The model chooses features only. It never writes or chooses a bank exercise's tables, question, or query.
 - Code in lessons is SQL, in fenced `sql` blocks, highlighted with the same neutral tokens as Python.
 
@@ -80,11 +81,12 @@ The workspace from `code-problems.md`, with SQL in its panes. Its layout is unch
 - **Sections** follow the SQL rules: worked examples use the course database when there is one, and no lesson content gives the query for an assigned problem.
 - **Hints** are written from the part's text and the database's tables. Besides the small judge, the cheap check refuses a hint that contains the reference query, compared without case or spacing.
 - **Verification:** for a model-written reference, the second solver sees the problem, the course database's tables, and that the answer is a query. It writes its own query, which is checked against the reference by the rules above. Agreement marks the part verified; disagreement leaves the "Unverified answer" label, and mark done is the way past it. Bank exercises aren't verified, since their references come from the bank, and show no "Unverified answer" label.
-- **Solutions:** query parts have none yet (see Not included).
+- **Solutions:** no part of a SQL lesson has one yet, as in DSA lessons (see Not included).
 
 ## Storage and API
 
-- The data folder gains `sql/databases/` and `sql/exercises.jsonl` from the import. A lesson's course databases are in its materials folder, with the material role `database`.
+- The data folder gains `sql/databases/` and `sql/exercises.jsonl` from the import. A lesson's course database is in `materials/{lesson_id}/databases/`, so deleting the lesson deletes it.
+- After a rerun, a query part's last query and state stand while it is still a query part, as a code part's do: rechecking would need its database.
 - The lesson JSON gains the `query` answer kind. Progress stores the last query as the last response.
 - `GET /lessons/{id}/blocks/{block_id}/tables` returns the tables of a query part's or checkpoint's database: each table's columns, its first 20 rows, and its row count.
 - `POST /lessons/{id}/blocks/{block_id}/run-query` runs a query for a part or checkpoint against its database, without checking it, and returns the columns, the rows (at most 100), the total row count, and any error.
