@@ -30,17 +30,21 @@ In a computer science lesson, each assigned LeetCode problem is shown in Kedami 
 - The problem list is parsed as before (see Computer science lessons in `lesson-format.md`). At stage 2, each listed number is looked up in `leetcode.jsonl`.
 - A problem in the dataset gets a `code` answer, and its part prompt is the problem's description. A problem not in the dataset, or every problem when nothing has been imported, gets an `external` answer: solved on LeetCode and marked done. A missing problem never fails the lesson.
 - If a listed title's slug differs from the dataset's slug for that number, the problem list is rejected with the line named, since the number is probably wrong.
-- The description is shown as plain text with its line breaks kept, not as Markdown, since it contains `*` and `_` in code-like text.
 - Every problem keeps its LeetCode link.
+- In the lesson, a code problem's block shows its title, difficulty, the part's state label, the LeetCode link, mark done, and a Solve button, the primary action, which opens the workspace. The description is shown only in the workspace.
 
-## Editor
+## Workspace
 
-- A Python editor below each code part, opening with the saved code or, if none, the starter code.
-- Code is set in JetBrains Mono with ligatures off, highlighted like Python code blocks (see Consistency in `ui.md`), on `--surface-raised`. Tab inserts four spaces.
+A LeetCode-style screen for one code problem: the description on the left, the editor on the right, and the console below the editor. See Workspace in `ui.md` for the layout.
+
+- **Description:** the problem's description as plain text with its line breaks kept, not as Markdown, since it contains `*` and `_` in code-like text. Above it, the title, difficulty, the part's state label, and the LeetCode link.
+- **Editor:** a Python editor opening with the saved code or, if none, the starter code. Code is set in JetBrains Mono with ligatures off, highlighted like Python code blocks (see Consistency in `ui.md`), on `--surface-raised`. Tab inserts four spaces.
 - The code is saved when typing stops for one second, and on Run and Submit. Reset returns to the starter code after a confirmation popup.
-- **Run** tries the first three tests that aren't flagged. Each shows its input, expected value, what the code returned, and whether it passed. Printed output and any error show below. A Run is not an attempt.
-- **Submit** is the primary action. It runs every test that isn't flagged, in order, showing how many have passed while it runs. It stops at the first failure, showing "Failed test 12 of 100" with that test's input, expected value, and what the code returned. If every test passes, the part is correct.
-- Results show below the editor, colored by the border and a short label per the feedback rule in `ui.md`.
+- **Console:** shows the last Run or Submit. It is output only, with no typed input, so code that reads input gets an error. Before any run it shows a muted line saying results appear here.
+- **Run** tries the first three tests that aren't flagged. The console shows each one's input, expected value, what the code returned, and whether it passed, then any printed output and any error. A Run is not an attempt.
+- **Submit** is the primary action. It runs every test that isn't flagged, in order, and the console shows how many have passed while it runs. It stops at the first failure, showing "Failed test 12 of 100" with that test's input, expected value, and what the code returned. If every test passes, the part is correct.
+- Run and Submit sit along the bottom of the console. While a run is going, both are disabled. Results are colored by the border and a short label per the feedback rule in `ui.md`.
+- The runner starts when a lesson with code parts opens, so the first Run doesn't wait for Pyodide. Until it is ready, Run and Submit show "Starting Python".
 
 ## Runner
 

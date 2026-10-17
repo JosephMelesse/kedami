@@ -45,8 +45,18 @@ Dark is the only theme in the MVP. All colors come from these tokens so a light 
 | Upload | File drop, role tag and force-transcription toggle per file |
 | Generating | Current pipeline stage, with a 2048 game below it while the lesson generates; a failed lesson shows the reason and a Rerun button |
 | Lesson | Sections and blocks in order, with a progress indicator in the accent color. A Rerun button opens a dialog with the start stage and force-transcription toggles; a failed rerun shows its reason above the lesson. A Days button splits the lesson into days; see Finish lines. Opening a lesson returns to the block last read; see Reading position |
+| Workspace | One code problem, opened by its Solve button: description, editor, and console; see Workspace |
 
 The app header is visible on every screen and holds the music player and the Pomodoro timer. Clicking Kedami in it opens the Library home page from any screen, including from inside a folder.
+
+## Workspace
+
+Where a code problem is solved. Its contents are in `code-problems.md`; this is the layout.
+
+- **Placement:** everything below the app header is replaced by the workspace, as the rest screen replaces it. The lesson underneath keeps its state and scroll position, and returns with the Back to lesson button at the top left. The header stays usable, and the rest screen covers the workspace like any other screen.
+- **Top bar:** Back to lesson, then the problem's title and difficulty, then the part's state label.
+- **Panes:** fixed proportions with no dividers to drag. The description pane takes the left 40% of the width and the full height. On the right, the editor takes the top 60% and the console the bottom 40%, with Run and Submit along the console's bottom edge. Each pane is a card on `--surface` with a 1px `--border`, 8px apart, and scrolls on its own; the editor and console fill the window's height.
+- **Narrow windows:** at 720px wide or less, the panes stack in one column: description, then editor, then console, and the page scrolls.
 
 ## Active lessons
 

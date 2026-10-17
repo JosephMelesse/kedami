@@ -46,7 +46,7 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 | `self_check` | `rubric` | The rubric is shown after the student commits; they grade themselves |
 | `choice` | `options` (at least 2), `correct_index` | Index match |
 | `multi_choice` | `options` (at least 2), `correct_indexes` (at least 1, no duplicates) | Exact set match, for "select all that apply" |
-| `code` | `platform` (`leetcode`), `number`, `title`, `slug`, `method`, `starter_code`, `tests` (each `args`, `expected`, `compare`) | Run in the sandboxed runner against its tests; see `code-problems.md`. Problem parts only |
+| `code` | `platform` (`leetcode`), `number`, `title`, `slug`, `difficulty`, `method`, `starter_code`, `tests` (each `args`, `expected`, `compare`) | Run in the sandboxed runner against its tests; see `code-problems.md`. Problem parts only |
 | `external` | `platform` (`leetcode`), `number`, `title`, `slug` | Not checked. For a LeetCode problem not in the imported dataset: the student solves it on LeetCode and marks it done. Problem parts only |
 
 ## Computer science lessons
