@@ -39,6 +39,7 @@ Before writing code, read `README.md` and every file in `architecture/`. Those d
 
 **Untrusted content**
 - Model-written code runs only in a sandboxed frame with no network, no Node access, and no access to app data. So do the student's code and the imported LeetCode tests, in the runner frame; the server never runs them.
+- SQL from the student or the model runs only in a fresh in-memory SQLite database built from the lesson's dataset, with the read-only authorizer. Never run it against `kedami.db`.
 - Diagram SVG is sanitized with DOMPurify before rendering.
 - Math strings are parsed only with the restricted, whitelisted parser. Never pass model or user input to SymPy's default string parsing or to `eval`.
 
@@ -59,7 +60,7 @@ Before writing code, read `README.md` and every file in `architecture/`. Those d
 
 ## Most likely to be wrong
 
-The lesson schema and ID derivation (`server/kedami_server/lesson.py`, `ids.py`), the restricted math parser (`mathparse.py`), and the code problem harness (see `architecture/code-problems.md`). Every later step depends on them, so they get tests first and changes to them come with tests.
+The lesson schema and ID derivation (`server/kedami_server/lesson.py`, `ids.py`), the restricted math parser (`mathparse.py`), the code problem harness (see `architecture/code-problems.md`), and SQL result comparison and the read-only authorizer (see `architecture/sql-lessons.md`). Every later step depends on them, so they get tests first and changes to them come with tests.
 
 ## Commands
 

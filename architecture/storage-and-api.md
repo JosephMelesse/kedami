@@ -61,10 +61,11 @@ All routes require the session token.
 | POST | `/lessons/{id}/days` | Replace the day starts; each must be a block in the lesson other than the first, in lesson order, with no repeats. An empty list removes them |
 | POST | `/lessons/{id}/rerun` | Rerun from a given stage, with force transcription per material ID |
 | GET | `/lessons/{id}/blocks/{block_id}/points` | Sampled points for a static plot |
-| POST | `/lessons/{id}/blocks/{block_id}/check` | Check a response for a part; records progress and returns the new state |
+| POST | `/lessons/{id}/blocks/{block_id}/check` | Check a response for a part; records progress and returns the new state. For a query, also the reason it is wrong and the student's result |
 | POST | `/lessons/{id}/blocks/{block_id}/code` | Save a code part's code; returns the new state |
 | POST | `/lessons/{id}/blocks/{block_id}/submit` | Record a code part's Submit: the code and whether every unflagged test passed; returns the new state |
 | POST | `/lessons/{id}/blocks/{block_id}/flags` | Flag or unflag a code part's test, or clear its flags |
+| POST | `/lessons/{id}/blocks/{block_id}/run-query` | Run a query part's or checkpoint's query against its dataset without checking it; returns columns, at most 100 rows, the row count, and any error |
 | POST | `/lessons/{id}/blocks/{block_id}/hint` | Record hints revealed for a part or checkpoint; returns the new state |
 | POST | `/lessons/{id}/blocks/{block_id}/mark-done` | Mark a part done, or undo it |
 | GET | `/lessons/{id}/blocks/{block_id}/simulation` | A simulation's current code (regenerated, or from the lesson JSON) and whether it is flagged |

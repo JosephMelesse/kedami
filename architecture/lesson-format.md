@@ -8,7 +8,7 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 
 | Level | Fields |
 |---|---|
-| Lesson | `schema_version` (currently 1), `id`, `title`, `subject` (`math`, `physics`, `computer_science`, or `general`), `domain` (computer science only: `dsa`, and `sql` once built; null otherwise), `source_files`, `sections` |
+| Lesson | `schema_version` (currently 1), `id`, `title`, `subject` (`math`, `physics`, `computer_science`, or `general`), `domain` (computer science only: `dsa` or `sql`; null otherwise), `datasets` (SQL lessons only, empty otherwise; see `sql-lessons.md`), `source_files`, `sections` |
 | Section | `id`, `title`, `goal` (one line), `blocks` |
 | Block | `id`, `type`, plus the fields for that type |
 
@@ -48,10 +48,11 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 | `multi_choice` | `options` (at least 2), `correct_indexes` (at least 1, no duplicates) | Exact set match, for "select all that apply" |
 | `code` | `platform` (`leetcode`), `number`, `title`, `slug`, `difficulty`, `method`, `starter_code`, `tests` (each `args`, `expected`, `compare`) | Run in the sandboxed runner against its tests; see `code-problems.md`. Problem parts only |
 | `external` | `platform` (`leetcode`), `number`, `title`, `slug` | Not checked. For a LeetCode problem not in the imported dataset: the student solves it on LeetCode and marks it done. Problem parts only |
+| `query` | `dataset`, `reference`, `ordered` | The student's query and the reference run on a fresh copy of the dataset and their results are compared; see `sql-lessons.md`. SQL lessons only |
 
 ## Computer science lessons
 
-- A computer science lesson has a domain, which decides how it is built and shown. `dsa` (data structures and algorithms) is described below and in `code-problems.md`. `sql` is the next roadmap step and is designed in its own document first. A computer science lesson saved before domains existed has no `domain` and reads as `dsa`.
+- A computer science lesson has a domain, which decides how it is built and shown. `dsa` (data structures and algorithms) is described below and in `code-problems.md`. `sql` is described in `sql-lessons.md`. A computer science lesson saved before domains existed has no `domain` and reads as `dsa`.
 - In a DSA lesson, the student picks the problems in the problem picker (see Picking problems in `code-problems.md`). The renderer writes the picks as the problem set, a text file `problems.md` with one problem per line, each with its number and title, such as `1. Two Sum`, and the pipeline reads it like any problem set.
 - The server reads the list strictly: blank lines and Markdown headings are ignored; any other line is an error, as are a missing title and a repeated number.
 - Each listed problem becomes a problem block with source reference `LeetCode #N` and one part. A problem in the imported dataset gets a `code` answer, and its part text is the problem's description. Any other gets an `external` answer, and its text is "Complete LeetCode #N: Title." See `code-problems.md`.
