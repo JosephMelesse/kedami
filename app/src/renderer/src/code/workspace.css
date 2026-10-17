@@ -195,3 +195,55 @@
     height: 240px;
   }
 }
+
+/* Tables beside a query exercise and query results in the console. */
+
+.result-table {
+  display: grid;
+  gap: 8px;
+  max-width: 100%;
+  font-size: 14px;
+}
+
+.result-caption {
+  margin: 0;
+  font-weight: 500;
+}
+
+.result-scroll {
+  /* Hugs the table, so its header and row lines reach the border; a wide one scrolls inside the pane. */
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.result-table table {
+  border-collapse: collapse;
+  font-family: 'JetBrains Mono', monospace;
+  font-variant-ligatures: none;
+}
+
+.result-table th,
+.result-table td {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.result-table th {
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.result-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.result-table td[data-null='true'] {
+  color: var(--text-muted);
+  font-style: italic;
+}

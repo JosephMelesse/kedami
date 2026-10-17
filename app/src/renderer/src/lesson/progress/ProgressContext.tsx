@@ -1,10 +1,12 @@
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from 'react'
 import {
   ApiError,
+  checkQuery,
   checkResponse,
   flagTest,
   markDone,
   type ProgressRecord,
+  type QueryResult,
   revealHints,
   saveCode,
   submitCode,
@@ -21,7 +23,9 @@ export interface Progress {
   markDone(blockId: string, partId: string, done: boolean): Promise<string | null>
   /** The tests flagged as broken on a code part. */
   flags(blockId: string, partId: string): TestFlag[]
-  saveCode(blockId: string, partId: string, code: string): Promise<string | null>
+  saveCode(blockId: string, partId: string | null, code: string): Promise<string | null>
+  /** Check a query; resolves to the server's verdict, or an error message for a query that can't run. */
+  checkQuery(blockId: string, partId: string | null, query: string): Promise<QueryCheck>
   submit(blockId: string, partId: string, code: string, passed: boolean): Promise<string | null>
   flag(
     blockId: string,
@@ -30,6 +34,10 @@ export interface Progress {
     test?: { args: string; expected: string }
   ): Promise<string | null>
 }
+
+export type QueryCheck =
+  | { error: string }
+  | { error: null; correct: boolean; reason: string | null; result: QueryResult }
 
 const ProgressContext = createContext<Progress | null>(null)
 
@@ -77,6 +85,15 @@ export function ProgressProvider({ lessonId, initial, initialFlags = [], childre
       flags: (blockId, partId) => flags.filter((f) => f.block_id === blockId && f.part_id === partId),
       saveCode: (blockId, partId, code) => run(() => saveCode(lessonId, blockId, partId, code)),
       submit: (blockId, partId, code, passed) => run(() => submitCode(lessonId, blockId, partId, code, passed)),
+      checkQuery: async (blockId, partId, query) => {
+        try {
+          const checked = await checkQuery(lessonId, blockId, partId, query)
+          store(checked.progress)
+          return { error: null, correct: checked.correct, reason: checked.reason, result: checked.result }
+        } catch (error) {
+          return { error: error instanceof ApiError ? error.message : 'Could not reach the server.' }
+        }
+      },
       flag: async (blockId, partId, action, test) => {
         try {
           const partFlags = await flagTest(lessonId, blockId, partId, action, test)
@@ -90,7 +107,7 @@ export function ProgressProvider({ lessonId, initial, initialFlags = [], childre
         }
       }
     }),
-    [lessonId, map, run, flags]
+    [lessonId, map, run, flags, store]
   )
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>

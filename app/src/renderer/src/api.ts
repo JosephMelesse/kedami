@@ -3,7 +3,8 @@ import type { Lesson } from './lesson/types'
 
 export type LessonStatus = 'generating' | 'ready' | 'failed'
 
-export type MaterialRole = 'problem_set' | 'reference'
+// A SQL lesson's course database is uploaded with the role 'database' and kept apart from the material that is read.
+export type MaterialRole = 'problem_set' | 'reference' | 'database'
 
 export interface Material {
   id: number
@@ -145,6 +146,49 @@ export function searchLeetCode(query: string): Promise<{ problems: LeetCodeMatch
   return request('GET', `/leetcode/search?q=${encodeURIComponent(query)}`)
 }
 
+/** A database table beside a query exercise: its columns, first rows, and how many rows it has. */
+export interface TableView {
+  name: string
+  columns: string[]
+  rows: unknown[][]
+  count: number
+}
+
+/** A query's result as the workspace shows it: at most 100 rows of `count`, with `truncated` past 1,000. */
+export interface QueryResult {
+  columns: string[]
+  rows: unknown[][]
+  count: number
+  truncated: boolean
+}
+
+const partQuery = (partId: string | null) => (partId === null ? '' : `?part_id=${encodeURIComponent(partId)}`)
+
+export async function getTables(lessonId: string, blockId: string, partId: string | null): Promise<TableView[]> {
+  const body = await request<{ tables: TableView[] }>('GET', `${blockPath(lessonId, blockId)}/tables${partQuery(partId)}`)
+  return body.tables
+}
+
+/** Run a query without checking it. A query that can't run comes back with its error, not as a failure. */
+export function runQuery(
+  lessonId: string,
+  blockId: string,
+  partId: string | null,
+  query: string
+): Promise<QueryResult & { error: string | null }> {
+  return request('POST', `${blockPath(lessonId, blockId)}/run-query`, { part_id: partId, query })
+}
+
+/** Check a query. Wrong comes with the reason and the student's own result. */
+export function checkQuery(
+  lessonId: string,
+  blockId: string,
+  partId: string | null,
+  query: string
+): Promise<{ correct: boolean; progress: ProgressRecord; reason: string | null; result: QueryResult }> {
+  return request('POST', `${blockPath(lessonId, blockId)}/check`, { part_id: partId, response: query })
+}
+
 export async function rerunLesson(lessonId: string, stage: number, force: Record<number, boolean>): Promise<void> {
   await request('POST', `${lessonPath(lessonId)}/rerun`, { stage, force })
 }
@@ -200,7 +244,13 @@ export async function revealHints(
   return body.progress
 }
 
-export async function saveCode(lessonId: string, blockId: string, partId: string, code: string): Promise<ProgressRecord> {
+/** Save a code part's code, or a query part's or checkpoint's query (partId null), as it is typed. */
+export async function saveCode(
+  lessonId: string,
+  blockId: string,
+  partId: string | null,
+  code: string
+): Promise<ProgressRecord> {
   const body = await request<{ progress: ProgressRecord }>('POST', `${blockPath(lessonId, blockId)}/code`, {
     part_id: partId,
     code

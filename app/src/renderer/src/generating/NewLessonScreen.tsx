@@ -2,15 +2,16 @@ import { type DragEvent, type FormEvent, useRef, useState } from 'react'
 import { ApiError, createLesson, type MaterialRole, type NewFile } from '../api'
 import type { Lesson } from '../lesson/types'
 import { SUBJECT_LABELS } from '../subjects'
-import { ACCEPT, canForce, kindOf } from './files'
+import { ACCEPT, canForce, DATABASE_ACCEPT, isDatabaseFile, kindOf } from './files'
 import { type Pick, problemList } from './picks'
 import { ProblemPicker } from './ProblemPicker'
 
 const SUBJECTS = Object.entries(SUBJECT_LABELS).map(([value, label]) => ({ value: value as Lesson['subject'], label }))
 
-// Computer science domains, which decide how a lesson is built. SQL comes next.
+// Computer science domains, which decide how a lesson is built.
 const DOMAINS: { value: NonNullable<Lesson['domain']>; label: string }[] = [
-  { value: 'dsa', label: 'Data structures and algorithms' }
+  { value: 'dsa', label: 'Data structures and algorithms' },
+  { value: 'sql', label: 'SQL' }
 ]
 
 interface NewLessonProps {
@@ -31,7 +32,11 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
   const hasProblemSet = files.some((f) => f.role === 'problem_set')
   // A DSA lesson's problem set is the picked problems, so its files are reference material.
   const dsa = subject === 'computer_science' && domain === 'dsa'
-  const ready = subject !== null && (dsa ? picks.length > 0 : hasProblemSet) && !pending
+  // A SQL lesson can also take its course's database, one at most.
+  const sql = subject === 'computer_science' && domain === 'sql'
+  const databaseCount = files.filter((f) => f.role === 'database').length
+  const ready =
+    subject !== null && (dsa ? picks.length > 0 : hasProblemSet) && (sql ? databaseCount <= 1 : databaseCount === 0) && !pending
 
   const chooseSubject = (value: Lesson['subject']) => {
     setSubject(value)
@@ -42,12 +47,14 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
   const add = (list: FileList | null) => {
     if (!list) return
     const incoming = [...list]
-    setRejected(incoming.filter((f) => !kindOf(f.name)).map((f) => f.name))
+    const usable = (f: File) => kindOf(f.name) !== null || (sql && isDatabaseFile(f.name))
+    setRejected(incoming.filter((f) => !usable(f)).map((f) => f.name))
     setFiles((current) => {
       let problemSet = current.some((f) => f.role === 'problem_set')
       const added = incoming
-        .filter((f) => kindOf(f.name))
+        .filter(usable)
         .map((file): NewFile => {
+          if (isDatabaseFile(file.name)) return { file, role: 'database', force: false }
           // The first file is assumed to be the problem set; later ones, reference material.
           const role: MaterialRole = problemSet ? 'reference' : 'problem_set'
           problemSet = true
@@ -133,7 +140,17 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
             <ProblemPicker picks={picks} onChange={setPicks} />
           </div>
         )}
-        <FileDrop onFiles={add} label={dsa ? 'Drop reference PDFs, images, or text files here' : undefined} />
+        <FileDrop
+          onFiles={add}
+          accept={sql ? `${ACCEPT},${DATABASE_ACCEPT}` : ACCEPT}
+          label={
+            dsa
+              ? 'Drop reference PDFs, images, or text files here'
+              : sql
+                ? "Drop the problem set, reference material, and the course's database (.sqlite, .db, or .sql) here"
+                : undefined
+          }
+        />
         {rejected.length > 0 && (
           <p className="answer-error">Not supported, so not added: {rejected.join(', ')}</p>
         )}
@@ -148,6 +165,10 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
         {!dsa && files.length > 0 && !hasProblemSet && (
           <p className="answer-error">Tag at least one file as a problem set.</p>
         )}
+        {sql && databaseCount > 1 && <p className="answer-error">A SQL lesson takes one database. Remove the others.</p>}
+        {!sql && databaseCount > 0 && (
+          <p className="answer-error">Only a SQL lesson takes a database. Remove it, or choose SQL.</p>
+        )}
         {error && <p className="answer-error">{error}</p>}
         <div className="answer-actions">
           <button type="submit" className="button button-primary" disabled={!ready}>
@@ -159,7 +180,13 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
   )
 }
 
-function FileDrop({ onFiles, label }: { onFiles: (files: FileList | null) => void; label?: string }) {
+interface FileDropProps {
+  onFiles: (files: FileList | null) => void
+  accept: string
+  label?: string
+}
+
+function FileDrop({ onFiles, accept, label }: FileDropProps) {
   const input = useRef<HTMLInputElement>(null)
   const [over, setOver] = useState(false)
   const drop = (event: DragEvent) => {
@@ -186,7 +213,7 @@ function FileDrop({ onFiles, label }: { onFiles: (files: FileList | null) => voi
         ref={input}
         type="file"
         multiple
-        accept={ACCEPT}
+        accept={accept}
         hidden
         onChange={(event) => {
           onFiles(event.target.files)
@@ -211,7 +238,9 @@ export function FileList({ files, referenceOnly = false, onChange, onRemove }: F
       {files.map(({ file, role, force }, index) => (
         <li key={`${file.name}-${index}`} className="file-row">
           <span className="file-name">{file.name}</span>
-          {referenceOnly ? (
+          {role === 'database' ? (
+            <span className="muted">Database</span>
+          ) : referenceOnly ? (
             <span className="muted">Reference</span>
           ) : (
             <select

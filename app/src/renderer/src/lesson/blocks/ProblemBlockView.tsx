@@ -1,4 +1,5 @@
 import { CodeProblemSummary } from '../../code/CodeProblemSummary'
+import { QuerySummary } from '../../code/QuerySummary'
 import { AnswerField } from '../answers/AnswerField'
 import { ShowSolution } from '../answers/ShowSolution'
 import { Markdown } from '../Markdown'
@@ -57,6 +58,9 @@ interface PartAnswerProps {
 }
 
 function PartAnswer({ block, part, name, lessonId }: PartAnswerProps) {
+  if (part.answer.kind === 'query') {
+    return <QuerySummary blockId={block.id} partId={part.id} answer={part.answer} verified={part.verified} name={name} />
+  }
   return (
     <>
       <AnswerField

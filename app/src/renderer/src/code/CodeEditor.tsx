@@ -2,6 +2,7 @@
 
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { python } from '@codemirror/lang-python'
+import { SQLite, sql } from '@codemirror/lang-sql'
 import { HighlightStyle, indentOnInput, indentUnit, syntaxHighlighting } from '@codemirror/language'
 import { EditorState } from '@codemirror/state'
 import { drawSelection, EditorView, keymap, lineNumbers } from '@codemirror/view'
@@ -48,9 +49,10 @@ interface CodeEditorProps {
   value: string
   onChange: (value: string) => void
   label: string
+  language?: 'python' | 'sql'
 }
 
-export function CodeEditor({ value, onChange, label }: CodeEditorProps) {
+export function CodeEditor({ value, onChange, label, language = 'python' }: CodeEditorProps) {
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
   const changed = useRef(onChange)
@@ -69,7 +71,8 @@ export function CodeEditor({ value, onChange, label }: CodeEditorProps) {
           indentOnInput(),
           indentUnit.of(INDENT),
           EditorState.tabSize.of(4),
-          python(),
+          // Queries are often one long line, so SQL wraps; Python keeps its lines as written.
+          ...(language === 'sql' ? [sql({ dialect: SQLite }), EditorView.lineWrapping] : [python()]),
           syntaxHighlighting(highlight),
           theme,
           tabKeys,

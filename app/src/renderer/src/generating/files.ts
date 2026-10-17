@@ -16,6 +16,16 @@ const KINDS: Record<string, FileKind> = {
 
 export const ACCEPT = Object.keys(KINDS).join(',')
 
+// A SQL lesson's course database: a SQLite file or a SQL script. See Course databases in architecture/sql-lessons.md.
+const DATABASE_EXTENSIONS = ['.sqlite', '.db', '.sql']
+
+export const DATABASE_ACCEPT = DATABASE_EXTENSIONS.join(',')
+
+export function isDatabaseFile(filename: string): boolean {
+  const dot = filename.lastIndexOf('.')
+  return dot >= 0 && DATABASE_EXTENSIONS.includes(filename.slice(dot).toLowerCase())
+}
+
 export function kindOf(filename: string): FileKind | null {
   const dot = filename.lastIndexOf('.')
   return dot < 0 ? null : (KINDS[filename.slice(dot).toLowerCase()] ?? null)

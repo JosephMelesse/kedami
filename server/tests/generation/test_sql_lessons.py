@@ -353,3 +353,14 @@ def test_a_rerun_keeps_a_query_parts_state_and_query(ready, data_dir):
     with connect(data_dir) as conn:
         record = progress.load(conn, lesson_id, "ps2-1", "a")
     assert (record.status, record.last_response) == ("correct", "SELECT name FROM student WHERE year = 3")
+
+
+def test_a_query_is_saved_as_it_is_typed_for_a_part_or_a_checkpoint(ready, data_dir):
+    client, lesson_id, lesson, _ = ready
+    saved = post(client, lesson_id, "ps2-1/code", {"part_id": "a", "code": "SELECT name"}).json()["progress"]
+    assert (saved["status"], saved["last_response"], saved["attempts"]) == ("in_progress", "SELECT name", 0)
+    checkpoint = next(b for b in lesson.sections[0].blocks if b.id.endswith("-practice-1"))
+    saved = post(client, lesson_id, f"{checkpoint.id}/code", {"code": "SELECT"}).json()["progress"]
+    assert (saved["part_id"], saved["last_response"]) == (None, "SELECT")
+    # Once started, clearing the editor is saved too.
+    assert post(client, lesson_id, f"{checkpoint.id}/code", {"code": ""}).json()["progress"]["last_response"] == ""

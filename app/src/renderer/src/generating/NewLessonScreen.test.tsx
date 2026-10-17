@@ -94,3 +94,46 @@ describe('a new computer science lesson', () => {
     expect(container.querySelector('.file-drop')!.textContent).toContain('Drop PDFs')
   })
 })
+
+describe('a new SQL lesson', () => {
+  async function chooseSql() {
+    await act(async () => radio('Computer Science').click())
+    await act(async () => radio('SQL').click())
+  }
+
+  async function addFiles(...files: File[]) {
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]')!
+    Object.defineProperty(input, 'files', { value: files, configurable: true })
+    await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })))
+  }
+
+  const text = (name: string) => new File(['x'], name, { type: 'text/plain' })
+
+  it('takes a problem set and the course database, sent with the SQL domain', async () => {
+    await chooseSql()
+    expect(container.querySelector('.problem-picker')).toBeNull()
+    expect(container.querySelector('input[type="file"]')!.getAttribute('accept')).toContain('.sqlite')
+    await addFiles(text('ps2.md'), text('school.sql'))
+    const rows = [...container.querySelectorAll('.file-row')].map((r) => r.textContent)
+    expect(rows[1]).toContain('Database')
+    await act(async () => generate().click())
+    await settle()
+    const [, init] = fetchMock.mock.calls.find(([url]) => new URL(url).pathname === '/lessons')!
+    const form = init.body as FormData
+    expect(form.get('domain')).toBe('sql')
+    expect(form.getAll('roles')).toEqual(['problem_set', 'database'])
+  })
+
+  it('takes one database at most', async () => {
+    await chooseSql()
+    await addFiles(text('ps2.md'), text('a.sqlite'), text('b.db'))
+    expect(container.textContent).toContain('A SQL lesson takes one database.')
+    expect(generate().disabled).toBe(true)
+  })
+
+  it('refuses a database file outside a SQL lesson', async () => {
+    await act(async () => radio('Math').click())
+    await addFiles(text('ps.md'), text('school.sql'))
+    expect(container.textContent).toContain('Not supported, so not added: school.sql')
+  })
+})

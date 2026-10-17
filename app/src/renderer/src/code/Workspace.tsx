@@ -1,7 +1,7 @@
 // A LeetCode-style screen for one code problem: description on the left, editor and console on the right.
 // See architecture/code-problems.md, Workspace, and the Workspace layout in architecture/ui.md.
 
-import { createContext, useContext, useEffect, useRef, useState } from 'react'
+import { createContext, useContext, useState } from 'react'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { STATE_LABELS } from '../lesson/answers/AnswerField'
 import { Hints } from '../lesson/answers/Hints'
@@ -12,9 +12,7 @@ import { CodeEditor } from './CodeEditor'
 import { ConsoleOutput, type ConsoleState, type NumberedTest } from './Console'
 import { useCodeRunner } from './RunnerContext'
 import { RUN_TESTS, submitPassed, unflagged } from './tests'
-
-/** How long typing must stop before the code is saved. */
-const SAVE_DELAY_MS = 1000
+import { useAutosave } from './useAutosave'
 
 
 /** LeetCode's text as scraped: where it had images, it has runs of blank lines. Shown with one at most. */
@@ -22,10 +20,12 @@ export function shownDescription(text: string): string {
   return text.replace(/\n(?:[ \t\u00a0]*\n){2,}/g, '\n\n').trim()
 }
 
-/** Opens a code part's workspace; null where there is none, such as in tests of the lesson alone. */
-export const OpenWorkspace = createContext<((blockId: string, partId: string) => void) | null>(null)
+/** Opens the workspace for a code part, or a query part or checkpoint (partId null); null where there is
+ * none, such as in tests of the lesson alone. */
+export type OpenWorkspaceFn = (blockId: string, partId: string | null) => void
+export const OpenWorkspace = createContext<OpenWorkspaceFn | null>(null)
 
-export function useOpenWorkspace(): ((blockId: string, partId: string) => void) | null {
+export function useOpenWorkspace(): OpenWorkspaceFn | null {
   return useContext(OpenWorkspace)
 }
 
@@ -54,27 +54,10 @@ export function Workspace({ block, part, onBack }: WorkspaceProps) {
   const running = output.kind === 'running'
 
   // Saved when typing stops, on Run and Submit, and on leaving with unsaved changes.
-  const saved = useRef(code)
-  const latest = useRef({ code, progress })
-  latest.current = { code, progress }
-  const save = async (value: string): Promise<void> => {
-    if (value === saved.current) return
-    saved.current = value
-    const failed = await latest.current.progress.saveCode(block.id, part.id, value)
+  const autosave = useAutosave(code, async (value) => {
+    const failed = await progress.saveCode(block.id, part.id, value)
     if (failed) setError(failed)
-  }
-  useEffect(() => {
-    if (code === saved.current) return
-    const timer = setTimeout(() => save(code), SAVE_DELAY_MS)
-    return () => clearTimeout(timer)
   })
-  useEffect(
-    () => () => {
-      const { code: last, progress: current } = latest.current
-      if (last !== saved.current) current.saveCode(block.id, part.id, last)
-    },
-    [block.id, part.id]
-  )
 
   const start = async (mode: 'run' | 'submit'): Promise<void> => {
     if (!runner || running) return
@@ -82,7 +65,7 @@ export function Workspace({ block, part, onBack }: WorkspaceProps) {
     const all = unflagged(answer.tests, flags)
     const chosen: NumberedTest[] = mode === 'run' ? all.slice(0, RUN_TESTS) : all
     const submitted = code
-    if (mode === 'run') await save(submitted)
+    if (mode === 'run') await autosave.saveNow(submitted)
     setOutput({ kind: 'running', mode, done: 0, total: chosen.length })
     let result
     try {
@@ -100,7 +83,7 @@ export function Workspace({ block, part, onBack }: WorkspaceProps) {
     }
     const passed = submitPassed(result, chosen.length)
     setOutput({ kind: 'submit', result, tests: chosen, passed })
-    saved.current = submitted
+    autosave.markSaved(submitted)
     setError(await progress.submit(block.id, part.id, submitted, passed))
   }
 

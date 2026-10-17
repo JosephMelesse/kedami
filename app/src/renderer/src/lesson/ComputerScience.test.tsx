@@ -1,6 +1,6 @@
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { OpenWorkspace } from '../code/Workspace'
+import { OpenWorkspace, type OpenWorkspaceFn } from '../code/Workspace'
 import { LessonView } from './LessonView'
 import { ProgressProvider } from './progress/ProgressContext'
 import type { Lesson } from './types'
@@ -73,7 +73,7 @@ const lesson = {
   ]
 } as unknown as Lesson
 
-function render(openWorkspace: ((blockId: string, partId: string) => void) | null = null): HTMLElement {
+function render(openWorkspace: OpenWorkspaceFn | null = null): HTMLElement {
   const root = document.createElement('div')
   root.innerHTML = renderToString(
     <ProgressProvider lessonId="cs" initial={[]}>

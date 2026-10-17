@@ -106,7 +106,8 @@ MAX_CODE = 100_000
 
 
 class CodeRequest(Body):
-    part_id: str
+    # Null for a query checkpoint.
+    part_id: str | None = None
     code: Annotated[str, StringConstraints(max_length=MAX_CODE)]
 
 
@@ -430,7 +431,7 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         record = update(lesson_id, target, lambda r: progress.after_mark_done(r, body.done))
         return {"progress": asdict(record)}
 
-    def get_code_target(lesson_id: str, block_id: str, part_id: str) -> tuple[Target, CodeAnswer]:
+    def get_code_target(lesson_id: str, block_id: str, part_id: str | None) -> tuple[Target, CodeAnswer]:
         target = get_target(get_lesson(lesson_id), block_id, part_id)
         if not isinstance(target.answer, CodeAnswer):
             raise HTTPException(422, "This part isn't a code problem.")
@@ -438,8 +439,16 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
 
     @app.post("/lessons/{lesson_id}/blocks/{block_id}/code")
     def save_code(lesson_id: str, block_id: str, body: CodeRequest):
-        target, answer = get_code_target(lesson_id, block_id, body.part_id)
-        record = update(lesson_id, target, lambda r: progress.after_code_saved(r, body.code, answer.starter_code))
+        """Save a code part's code, or a query part's or checkpoint's query, as it is typed."""
+        target = get_target(get_lesson(lesson_id), block_id, body.part_id)
+        match target.answer:
+            case CodeAnswer():
+                starter = target.answer.starter_code
+            case QueryAnswer():
+                starter = ""
+            case _:
+                raise HTTPException(422, "This part isn't a code problem or a query.")
+        record = update(lesson_id, target, lambda r: progress.after_code_saved(r, body.code, starter))
         return {"progress": asdict(record)}
 
     @app.post("/lessons/{lesson_id}/blocks/{block_id}/submit")
