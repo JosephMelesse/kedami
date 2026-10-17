@@ -32,7 +32,7 @@ SQL querying in 15 chapters, in the order courses usually teach it. A lesson cov
 | 15 | Dates and times | | Yes |
 
 - A chapter's problems come from Spider when it has features there, and from pgexercises otherwise: Spider has no exercise with an outer join, `IS NULL`, `CASE`, a CTE, a window function, or date arithmetic.
-- The chapters, their features, and their pgexercises pages are kept in the server's code. Each pgexercises page is checked to practice its chapter when it is added to the list. When this was written: nulls had 1 page, outer and self joins 2, expressions 1, CTEs 3, window functions 4, and dates its section's pages.
+- The chapters, their features, and their pgexercises pages are kept in the server's code. Each pgexercises page is checked to practice its chapter when it is added to the list. When this was written: nulls had 1 page, expressions 1, outer and self joins 2, CTEs 3, window functions 3, and dates 11 (one in Basic and the 10 of the Date section). A page whose main answer doesn't use its chapter's feature, such as the rolling average, which offers a window function only as an alternative, is left out.
 
 ## Recommending problems
 
