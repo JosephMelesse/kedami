@@ -14,10 +14,16 @@
   --correct: #81C995;
   --retry: #F28B82;
   --in-progress: #E5C07B;
+  --syntax-keyword: #C099FF;
+  --syntax-string: #C3E88D;
+  --syntax-number: #FF9E64;
+  --syntax-name: #4FD6BE;
 }
 ```
 
 Dark is the only theme in the MVP. All colors come from these tokens so a light theme can be added later.
+
+The syntax tokens color code and nothing else. Each reads at 5.9:1 or more on `--surface-raised`, and none shares a hue with the accent or the feedback colors, so code never looks like a link or a result.
 
 ## Rules
 
@@ -33,7 +39,7 @@ Dark is the only theme in the MVP. All colors come from these tokens so a light 
 
 - Inter, KaTeX, and JetBrains Mono (for code, with ligatures off so code shows as typed) fonts are bundled with the app.
 - The music player's ▶ and ⏸ come from `app/src/renderer/src/assets/media-symbols.woff2`, a two-glyph subset of Noto Sans Symbols2 (SIL OFL, license alongside it), so both symbols match in size.
-- Python code blocks are highlighted with neutral tokens only: keywords in medium weight, strings and comments in `--text-muted` (comments in italic), on `--surface-raised`.
+- Code is highlighted the same way in lesson code blocks and in the workspace editor, in Python and SQL, on `--surface-raised`: keywords in `--syntax-keyword`, strings in `--syntax-string`, numbers and constants (such as `True`, `None`, and `NULL`) in `--syntax-number`, the names of functions and classes, built-ins, and SQL types in `--syntax-name`, comments in `--text-muted` italic, and everything else in `--text`.
 - Plots, diagrams, and simulations take their colors from the tokens.
 - The app icon is ፩ (U+1369, Ethiopic digit one) in `--accent` on a `--bg` rounded square, rendered from Noto Sans Ethiopic Medium to `app/resources/icon.png`. The same glyph, as an inline SVG outline in `--accent`, sits before "Kedami" in the app header.
 
@@ -55,6 +61,7 @@ Where a code problem is solved. Its contents are in `code-problems.md`; this is 
 
 - **Placement:** everything below the app header is replaced by the workspace, as the rest screen replaces it. The lesson underneath keeps its state and scroll position, and returns with the Back to lesson button at the top left. The header stays usable, and the rest screen covers the workspace like any other screen.
 - **Top bar:** Back to lesson, then the problem's title and difficulty, then the part's state label.
+- **Editor bar:** above the editor, the language, a Vim checkbox, the Vim mode while Vim is on, and, for code, Reset.
 - **Panes:** fixed proportions with no dividers to drag. The description pane takes the left 40% of the width and the full height. On the right, the editor takes the top 60% and the console the bottom 40%, with Run and Submit along the console's bottom edge. Each pane is a card on `--surface` with a 1px `--border`, 8px apart, and scrolls on its own; the editor and console fill the window's height.
 - **Narrow windows:** at 720px wide or less, the panes stack in one column: description, then editor, then console, and the page scrolls.
 

@@ -32,7 +32,7 @@ Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the s
 - **Similar-problem generation:** replace or supplement problems whose stored answer is unverified.
 - **Per-page re-transcribe:** a page review screen with a control to re-transcribe a single page.
 - **Short text answers:** an answer kind for a term or name, matched against a list of accepted answers ignoring case and spacing, in place of a self check for questions such as "Which flag is set on unsigned overflow?"
-- **Light theme:** same token names, same accent and feedback hues, darkened to reach at least 4.5:1 contrast on white.
+- **Light theme:** same token names, same accent, feedback, and syntax hues, darkened to reach at least 4.5:1 contrast on white.
 - **Workspace panes:** draggable dividers between the panes, and previous and next problem buttons.
 - **More SQL:** solutions for query parts on request, showing a database's tables beside the lesson's explanations, flagging a bank exercise as broken, and Spider's three databases over 5 MB.
 - **More code problems:** design problems (a class tested by a sequence of calls), answers accepted in any order, and problems that change their input in place.
