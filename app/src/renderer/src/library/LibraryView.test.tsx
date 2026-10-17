@@ -16,6 +16,7 @@ function summary(overrides: Partial<LessonSummary>): LessonSummary {
     created: '2026-10-03T00:00:00+00:00',
     problems_total: 2,
     problems_done: 1,
+    active: false,
     ...overrides
   }
 }
@@ -40,6 +41,7 @@ function render(lessons: LessonSummary[], folders: Folder[] = [], folder: Folder
       onDeleteFolder={noop}
       onRename={noop}
       onMove={noop}
+      onSetActive={noop}
       onDelete={noop}
     />
   )
@@ -96,6 +98,109 @@ describe('LibraryView', () => {
   it('gives every lesson an options button', () => {
     const root = render([summary({ id: 'a', title: 'First' })])
     expect(root.querySelector('.tile-menu-button')?.getAttribute('aria-label')).toBe('Options for First')
+  })
+})
+
+describe('Active lessons', () => {
+  const active = (root: HTMLElement) => root.querySelector<HTMLElement>('.active-lessons')
+  const cards = (root: HTMLElement) => [...root.querySelectorAll<HTMLElement>('.active-tile')]
+  const boxes = (card: HTMLElement) =>
+    [...card.querySelectorAll('.problem-box')].map((box) => (box.classList.contains('problem-box-done') ? 'done' : 'left'))
+
+  it('shows no heading or grid when no lesson is active', () => {
+    expect(active(render([summary({})]))).toBeNull()
+  })
+
+  it('lists the active lessons from every folder on the home page, before the folders', () => {
+    const lessons = [
+      summary({ id: 'a', title: 'First', active: true }),
+      summary({ id: 'b', title: 'Filed', folder_id: 3, active: true }),
+      summary({ id: 'c', title: 'Idle' })
+    ]
+    const root = render(lessons, [WEEK3])
+    expect(active(root)?.querySelector('h2')?.textContent).toBe('Active')
+    expect(cards(root).map((card) => card.querySelector('.tile-title')?.textContent)).toEqual(['First', 'Filed'])
+    expect(titles(root)).toEqual(['First', 'Filed', 'Week 3', 'First', 'Idle', 'New lesson'])
+  })
+
+  it('is not shown inside a folder', () => {
+    const root = render([summary({ folder_id: 3, active: true })], [WEEK3], WEEK3)
+    expect(active(root)).toBeNull()
+  })
+
+  it('fills a box for each done problem, from the left, and counts the rest', () => {
+    const [card] = cards(render([summary({ active: true, problems_total: 4, problems_done: 1 })]))
+    expect(boxes(card)).toEqual(['done', 'left', 'left', 'left'])
+    expect(card.textContent).toContain('3 problems left')
+    expect(card.querySelector('.problem-boxes')?.getAttribute('aria-label')).toBe('1 of 4 problems done')
+  })
+
+  it('says one problem left, and all problems done once none are', () => {
+    const root = render([
+      summary({ id: 'a', active: true, problems_total: 2, problems_done: 1 }),
+      summary({ id: 'b', active: true, problems_total: 2, problems_done: 2 })
+    ])
+    const [one, all] = cards(root)
+    expect(one.textContent).toContain('1 problem left')
+    expect(boxes(all)).toEqual(['done', 'done'])
+    expect(all.textContent).toContain('All problems done')
+  })
+
+  it('shows Generating instead of boxes while an active lesson reruns', () => {
+    const [card] = cards(render([summary({ active: true, status: 'generating', problems_total: 0, problems_done: 0 })]))
+    expect(card.textContent).toContain('Generating')
+    expect(card.querySelector('.problem-boxes')).toBeNull()
+  })
+
+  it('gives only ready lessons an Active checkbox, checked when active', () => {
+    const root = render([
+      summary({ id: 'a', title: 'On', active: true }),
+      summary({ id: 'b', title: 'Off' }),
+      summary({ id: 'c', title: 'New', status: 'generating' }),
+      summary({ id: 'd', title: 'Broken', status: 'failed' })
+    ])
+    const checkboxes = [...root.querySelectorAll<HTMLInputElement>('.tile-active input')]
+    expect(checkboxes.map((box) => [box.getAttribute('aria-label'), box.checked])).toEqual([
+      ['Active: On', true],
+      ['Active: Off', false]
+    ])
+  })
+
+  it('marks a lesson active without opening it, and opens it from its card', async () => {
+    const { createRoot } = await import('react-dom/client')
+    const { act } = await import('react')
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+    const calls: string[] = []
+    const view = (lesson: LessonSummary) => (
+      <LibraryView
+        lessons={[lesson]}
+        folders={[]}
+        folder={null}
+        problem={null}
+        onOpen={(l) => calls.push(`open ${l.id}`)}
+        onNew={noop}
+        onOpenFolder={noop}
+        onHome={noop}
+        onNewFolder={noop}
+        onRenameFolder={noop}
+        onDeleteFolder={noop}
+        onRename={noop}
+        onMove={noop}
+        onSetActive={(l, value) => calls.push(`active ${l.id} ${value}`)}
+        onDelete={noop}
+      />
+    )
+    await act(async () => root.render(view(summary({}))))
+    await act(async () => container.querySelector<HTMLInputElement>('.tile-active input')!.click())
+    expect(calls).toEqual(['active sample true'])
+    await act(async () => root.render(view(summary({ active: true }))))
+    await act(async () => container.querySelector<HTMLButtonElement>('.active-tile')!.click())
+    await act(async () => container.querySelector<HTMLInputElement>('.tile-active input')!.click())
+    expect(calls).toEqual(['active sample true', 'open sample', 'active sample false'])
+    await act(async () => root.unmount())
+    container.remove()
   })
 })
 

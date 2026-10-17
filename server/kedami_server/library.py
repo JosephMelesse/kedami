@@ -29,6 +29,8 @@ class LessonRow:
     reading_block: str | None = None
     # The blocks that begin day 2 onward, as a JSON list. A rerun keeps them; see `day_starts`.
     day_starts: str | None = None
+    # Whether the student is working through it, shown in the home page's Active grid. A rerun keeps it.
+    active: bool = False
 
     @property
     def shown_title(self) -> str:
@@ -210,6 +212,10 @@ def day_starts(row: LessonRow, lesson: Lesson) -> list[str]:
     saved = set(json.loads(row.day_starts)) if row.day_starts else set()
     block_ids = [block.id for section in lesson.sections for block in section.blocks]
     return [block_id for block_id in block_ids[1:] if block_id in saved]
+
+
+def set_active(conn: sqlite3.Connection, lesson_id: str, active: bool) -> None:
+    conn.execute("UPDATE lessons SET active = ? WHERE id = ?", (int(active), lesson_id))
 
 
 def move_lesson(conn: sqlite3.Connection, lesson_id: str, folder_id: int | None) -> None:

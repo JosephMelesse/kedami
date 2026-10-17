@@ -81,6 +81,10 @@ class MoveRequest(Body):
     folder_id: StrictInt | None
 
 
+class ActiveRequest(Body):
+    active: StrictBool
+
+
 class ReadingPositionRequest(Body):
     block_id: Annotated[str, StringConstraints(min_length=1, max_length=200)]
 
@@ -160,6 +164,7 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
             "created": row.created,
             "problems_total": len(problem_ids(lesson)) if lesson else 0,
             "problems_done": done,
+            "active": bool(row.active),
         }
 
     @app.get("/health")
@@ -383,6 +388,13 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         with db.connect(settings.data_dir) as conn:
             library.rename_lesson(conn, lesson_id, body.title)
         return {"id": lesson_id, "title": body.title}
+
+    @app.post("/lessons/{lesson_id}/active")
+    def set_active(lesson_id: str, body: ActiveRequest):
+        get_lesson(lesson_id)
+        with db.connect(settings.data_dir) as conn:
+            library.set_active(conn, lesson_id, body.active)
+        return {"id": lesson_id, "active": body.active}
 
     @app.post("/lessons/{lesson_id}/move")
     def move_lesson(lesson_id: str, body: MoveRequest):

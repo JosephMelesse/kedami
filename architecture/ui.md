@@ -54,7 +54,7 @@ The student marks the lessons they are working through as active, and the home p
 
 - **Marking:** a ready lesson's tile has an Active checkbox in its top right corner, left of the options button. Checking or unchecking it doesn't open the lesson. A generating lesson, or a new lesson that failed, has none.
 - **Grid:** at the top of the home page, an "Active" heading over a grid of cards, one per active lesson from any folder, oldest first. With no active lesson there is no heading or grid. Folders don't show it.
-- **Card:** the lesson title, then a row of boxes, one per problem, wrapping as needed, then "3 problems left" in `--text-muted`, or "All problems done" once none are. Clicking the card opens the lesson.
+- **Card:** the lesson title, then a row of boxes, one per problem, wrapping as needed, then "3 problems left" in `--text-muted`, or "All problems done" once none are. While the lesson reruns, "Generating" shows in place of the boxes. Clicking the card opens the lesson.
 - **Boxes:** one fills for each done problem, from the left, in `--correct`. The rest are `--surface-raised` with a 1px `--border`. A problem is done as defined in `completion-and-verification.md`, so undoing a mark done empties a box again.
 - **Persistence:** whether a lesson is active is saved on the server. New lessons start inactive, a rerun keeps it, and deleting the lesson removes it.
 

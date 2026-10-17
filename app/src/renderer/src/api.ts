@@ -44,6 +44,8 @@ export interface LessonSummary {
   created: string
   problems_total: number
   problems_done: number
+  /** Shown in the home page's Active grid. */
+  active: boolean
 }
 
 export type TreeNode =
@@ -243,6 +245,10 @@ export async function renameLesson(lessonId: string, title: string): Promise<voi
 
 export async function moveLesson(lessonId: string, folderId: number | null): Promise<void> {
   await request('POST', `${lessonPath(lessonId)}/move`, { folder_id: folderId })
+}
+
+export async function setLessonActive(lessonId: string, active: boolean): Promise<void> {
+  await request('POST', `${lessonPath(lessonId)}/active`, { active })
 }
 
 export async function deleteLesson(lessonId: string): Promise<void> {

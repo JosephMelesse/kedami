@@ -34,10 +34,37 @@
   font-size: 14px;
 }
 
-.tile-menu {
+.tile-corner {
   position: absolute;
   top: 16px;
   right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Keep the subject clear of the Active checkbox and options button beside it. */
+.tile-wrap .eyebrow {
+  padding-right: 96px;
+}
+
+.tile-active {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.tile-active input {
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.tile-menu {
+  position: relative;
 }
 
 .tile-menu-button {
@@ -155,4 +182,36 @@
   height: 100%;
   background: var(--accent);
   transition: width 200ms ease-out;
+}
+
+.active-lessons {
+  margin-bottom: 48px;
+}
+
+.active-lessons h2 {
+  margin-bottom: 16px;
+  font-size: 20px;
+}
+
+.active-tile {
+  min-height: 0;
+}
+
+.problem-boxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.problem-box {
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface-raised);
+}
+
+.problem-box-done {
+  border-color: var(--correct);
+  background: var(--correct);
 }

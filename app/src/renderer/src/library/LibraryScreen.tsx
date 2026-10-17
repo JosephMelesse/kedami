@@ -10,9 +10,11 @@ import {
   listLessons,
   moveLesson,
   renameFolder,
-  renameLesson
+  renameLesson,
+  setLessonActive
 } from '../api'
 import { ConfirmDialog } from '../ConfirmDialog'
+import { ActiveLessons } from './ActiveLessons'
 import { FolderTile } from './FolderTile'
 import { LessonMenu } from './LessonMenu'
 import { LessonTile } from './LessonTile'
@@ -104,6 +106,7 @@ export function LibraryScreen({ onOpen, onNew }: LibraryProps) {
         onDeleteFolder={(f) => setDialog({ kind: 'delete-folder', folder: f })}
         onRename={(lesson) => setDialog({ kind: 'rename-lesson', lesson })}
         onMove={(lesson, target) => act(() => moveLesson(lesson.id, target))}
+        onSetActive={(lesson, active) => act(() => setLessonActive(lesson.id, active))}
         onDelete={(lesson) => setDialog({ kind: 'delete-lesson', lesson })}
       />
       {dialog?.kind === 'new-folder' && (
@@ -183,10 +186,11 @@ interface LibraryViewProps {
   onDeleteFolder: (folder: Folder) => void
   onRename: (lesson: LessonSummary) => void
   onMove: (lesson: LessonSummary, folderId: number | null) => void
+  onSetActive: (lesson: LessonSummary, active: boolean) => void
   onDelete: (lesson: LessonSummary) => void
 }
 
-/** Home shows folders, then the lessons in no folder, then the new lesson tile. A folder shows its lessons. */
+/** Home shows the active lessons, then folders, then the lessons in no folder, then the new lesson tile. A folder shows its lessons. */
 export function LibraryView(props: LibraryViewProps) {
   const { lessons, folders, folder, problem } = props
   const shown = lessons.filter((lesson) => lesson.folder_id === (folder?.id ?? null))
@@ -218,6 +222,7 @@ export function LibraryView(props: LibraryViewProps) {
         )}
       </header>
       {problem && <p className="answer-error">{problem}</p>}
+      {!folder && <ActiveLessons lessons={lessons} onOpen={props.onOpen} />}
       <ul className="tile-grid">
         {!folder &&
           folders.map((f) => (
@@ -228,13 +233,26 @@ export function LibraryView(props: LibraryViewProps) {
         {shown.map((lesson) => (
           <li key={lesson.id} className="tile-wrap">
             <LessonTile lesson={lesson} onOpen={() => props.onOpen(lesson)} />
-            <LessonMenu
-              lesson={lesson}
-              folders={folders}
-              onRename={() => props.onRename(lesson)}
-              onMove={(target) => props.onMove(lesson, target)}
-              onDelete={() => props.onDelete(lesson)}
-            />
+            <div className="tile-corner">
+              {lesson.status === 'ready' && (
+                <label className="tile-active">
+                  <input
+                    type="checkbox"
+                    checked={lesson.active}
+                    aria-label={`Active: ${lesson.title}`}
+                    onChange={(event) => props.onSetActive(lesson, event.target.checked)}
+                  />
+                  Active
+                </label>
+              )}
+              <LessonMenu
+                lesson={lesson}
+                folders={folders}
+                onRename={() => props.onRename(lesson)}
+                onMove={(target) => props.onMove(lesson, target)}
+                onDelete={() => props.onDelete(lesson)}
+              />
+            </div>
           </li>
         ))}
         <li>
