@@ -15,7 +15,7 @@ A computer science lesson in the `sql` domain teaches querying from a databases 
 The tables a lesson's queries run against.
 
 - A SQL lesson has `datasets`: each with an `id`, a `title`, and `tables`. A table has a `name`, `columns` (each a `name` and a `type`: `INTEGER`, `REAL`, or `TEXT`), and `rows`, each a list of values matching the columns, where a value may be null. Dates are ISO text, as SQLite keeps them.
-- Limits: at most 4 datasets, 8 tables in a dataset, 12 columns in a table, and 40 rows in a table. Names are SQL identifiers: letters, digits, and underscores, not starting with a digit, and not SQL keywords.
+- Limits: at most 4 datasets, 8 tables in a dataset, 12 columns in a table, 40 rows in a table, and 200 characters in a text value. Names are letters, digits, and underscores, not starting with a digit, unique in their table or dataset ignoring case, and usable in a query without quotes: the server queries each one plainly, so `order` is refused but `first` or `date`, which SQLite accepts, are kept.
 - Datasets are written in stage 2. The model takes each schema from the problem set where it gives one, keeping its table and column names, and writes the rows. Where the course works on a database too large to carry, such as a sample database, the model writes a small one with the same schema and says so in the dataset's title.
 - Rows are written to tell right queries from wrong ones: they include nulls, ties, duplicates, rows that a join leaves unmatched, and values on each side of any boundary an exercise mentions.
 - The server builds every dataset in a fresh in-memory database when stage 2 ends. A dataset that won't build (a row of the wrong length, a value of the wrong type) sends the reason back to the model, as for any rejected reply.
@@ -27,7 +27,7 @@ The tables a lesson's queries run against.
 |---|---|
 | `dataset` | The `id` of the dataset the query runs against |
 | `reference` | The reference query, in SQLite |
-| `ordered` | Whether row order matters. Set by the server, never the model: true when the reference ends with `ORDER BY` outside any parentheses |
+| `ordered` | Whether row order matters. Set by the server, never the model: true when the reference has an `ORDER BY` outside any parentheses, strings, and comments, so one in a window, subquery, or CTE doesn't count |
 
 - A reference must run, return between 1 and 200 rows, and take under the time limit. One that doesn't is sent back to the model as a rejected reply. An empty result is refused because almost any wrong query also returns nothing.
 
@@ -36,7 +36,7 @@ The tables a lesson's queries run against.
 - The student's query and the reference each run in a fresh in-memory copy of the dataset.
 - **Columns:** the results must have the same number of columns, compared by position. Column names are ignored, so an alias doesn't matter.
 - **Rows:** compared as lists when `ordered`, otherwise as multisets, so duplicates count and order doesn't.
-- **Values:** null equals null. An integer equals a real of the same value (`2` and `2.0`), and reals are equal within a relative 1e-9. Text is compared exactly, case included.
+- **Values:** null equals null. An integer equals a real of the same value (`2` and `2.0`), and reals are compared to 12 significant digits, so `0.1 + 0.2` equals `0.3`. Text is compared exactly, case included.
 - A wrong result comes with one short reason, the first that applies: a different number of columns, a different number of rows, the same rows in the wrong order, or different rows. The reference's result is never shown.
 - A query that fails to run (a syntax error, an unknown column, a write, a timeout) is rejected with SQLite's message and is not an attempt, like any malformed response (see `completion-and-verification.md`).
 
@@ -45,7 +45,9 @@ The tables a lesson's queries run against.
 SQL from the student and from the model runs on the server, so it is confined there.
 
 - Every query runs in a fresh `:memory:` database built from its dataset, never in `kedami.db`, and the connection is closed after.
-- An authorizer allows only reading: selects, reads of the dataset's columns, and functions. It denies everything else, including writes, schema changes, transactions, `ATTACH`, and `PRAGMA`. Extension loading stays off.
+- A statement that starts with a word that begins no query, such as `INSERT`, `CREATE`, `PRAGMA`, `REINDEX`, or `VACUUM`, is refused before it is prepared, since SQLite doesn't ask the authorizer about every statement. Other words are left to SQLite, so a typo gets its syntax error.
+- An authorizer allows only reading: selects, reads of the dataset's columns, functions, and recursive CTEs. It denies everything else, including writes inside a `WITH`, schema changes, transactions, `ATTACH` (which `VACUUM` also uses), and `PRAGMA` (which pragma table functions also use). Extension loading stays off.
+- No database can be attached, and a string or blob is at most 1,000,000 bytes, so functions such as `randomblob()` can't use much memory.
 - Only one statement runs: text with a second statement is refused.
 - A progress handler stops a query after 2 seconds, which ends runaway recursive queries and huge joins.
 - At most 1,000 rows are fetched. A result with more can't match any reference, so it is wrong. Text values are cut to 1,000 characters when shown.
