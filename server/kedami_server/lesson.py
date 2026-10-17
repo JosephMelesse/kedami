@@ -3,6 +3,7 @@
 See architecture/lesson-format.md.
 """
 
+import math
 import re
 from typing import Annotated, Any, Literal
 
@@ -11,6 +12,9 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    StrictFloat,
+    StrictInt,
+    StrictStr,
     StringConstraints,
     WithJsonSchema,
     field_validator,
@@ -180,6 +184,70 @@ class CodeAnswer(Model):
     @property
     def url(self) -> str:
         return f"https://leetcode.com/problems/{self.slug}/"
+
+
+# SQL lessons: the tables a lesson's queries run against. See architecture/sql-lessons.md, Datasets.
+
+MAX_TABLES = 8
+MAX_COLUMNS = 12
+MAX_TABLE_ROWS = 40
+MAX_TEXT_VALUE = 200
+
+SqlName = Annotated[str, StringConstraints(pattern=r"^[A-Za-z_][A-Za-z0-9_]*$", max_length=64)]
+SqlValue = StrictInt | StrictFloat | Annotated[StrictStr, StringConstraints(max_length=MAX_TEXT_VALUE)] | None
+
+
+class Column(Model):
+    name: SqlName
+    type: Literal["INTEGER", "REAL", "TEXT"]
+
+
+class Table(Model):
+    name: SqlName
+    columns: Annotated[list[Column], Field(min_length=1, max_length=MAX_COLUMNS)]
+    rows: Annotated[list[list[SqlValue]], Field(max_length=MAX_TABLE_ROWS)]
+
+    @model_validator(mode="after")
+    def rows_fit_columns(self) -> "Table":
+        # SQL names ignore case, so "Name" and "name" would be the same column.
+        names = [c.name.lower() for c in self.columns]
+        if len(set(names)) != len(names):
+            raise ValueError(f"table {self.name} has repeated column names")
+        for number, row in enumerate(self.rows, start=1):
+            if len(row) != len(self.columns):
+                raise ValueError(f"row {number} of {self.name} has {len(row)} values for {len(self.columns)} columns")
+            for column, value in zip(self.columns, row):
+                if not _fits(column.type, value):
+                    raise ValueError(f"row {number} of {self.name} has {value!r} in {column.type} column {column.name}")
+        return self
+
+
+def _fits(sql_type: str, value: Any) -> bool:
+    match value:
+        case None:
+            return True
+        case bool():
+            return False
+        case int():
+            return sql_type in ("INTEGER", "REAL")
+        case float():
+            return sql_type == "REAL" and math.isfinite(value)
+        case str():
+            return sql_type == "TEXT"
+    return False
+
+
+class Dataset(Model):
+    id: Id
+    title: PlainText
+    tables: Annotated[list[Table], Field(min_length=1, max_length=MAX_TABLES)]
+
+    @model_validator(mode="after")
+    def table_names_unique(self) -> "Dataset":
+        names = [t.name.lower() for t in self.tables]
+        if len(set(names)) != len(names):
+            raise ValueError(f"dataset {self.id} has repeated table names")
+        return self
 
 
 Answer = Annotated[
