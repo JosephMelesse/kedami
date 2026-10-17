@@ -18,6 +18,7 @@
 14. 2048
 15. Usage log
 16. Run log
+17. Active lessons
 
 Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the sequencing. Each later step is independent of the ones after it.
 

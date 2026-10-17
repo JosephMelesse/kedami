@@ -17,7 +17,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 
 | Table | Key fields |
 |---|---|
-| `lessons` | id, title, custom title, subject, status, current stage, schema version, revision, created, error, folder id, reading block, day starts |
+| `lessons` | id, title, custom title, subject, status, current stage, schema version, revision, created, error, folder id, reading block, day starts, active |
 | `folders` | id, name (unique, ignoring case), created |
 | `settings` | key, value (for example, that the sample lesson was added on the first start) |
 | `materials` | id, lesson id, filename, role, force transcription |
@@ -33,6 +33,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 - Progress is stored apart from the lesson JSON and keyed by block and part ID. A checkpoint has no part and is stored with an empty part ID.
 - The reading block is the ID of the block the student was last reading (see Reading position in `ui.md`). A rerun keeps it, and deleting the lesson removes it.
 - Day starts are the IDs of the blocks that begin day 2 onward, in lesson order (see Finish lines in `ui.md`). Splitting again replaces them, a rerun drops any whose block is gone, and deleting the lesson removes them.
+- Active marks a lesson the student is working through (see Active lessons in `ui.md`). New lessons start inactive, a rerun keeps it, and deleting the lesson removes it.
 - `model_calls` is the usage log: one row per model call that got a reply (see Usage log in `system.md`). Cost is empty when a model has no listed price. Rows are only added, never changed, and a rerun keeps them.
 - The database is `kedami.db` in the app data folder.
 
@@ -45,12 +46,13 @@ All routes require the session token.
 | POST | `/lessons` | Multipart upload: `subject`, optional `folder`, and per file `files`, `roles`, `force`; starts the pipeline |
 | DELETE | `/lessons/{id}` | Delete a lesson that isn't generating: its JSON, files, stage outputs, progress, simulations, solutions, and usage log |
 | POST | `/lessons/{id}/rename` | Rename a lesson |
+| POST | `/lessons/{id}/active` | Mark a ready lesson active or not |
 | POST | `/lessons/{id}/move` | Move a lesson to a folder, or home with `null` |
 | GET | `/folders` | Folders with their lesson counts |
 | POST | `/folders` | Create a folder |
 | POST | `/folders/{id}/rename` | Rename a folder |
 | DELETE | `/folders/{id}` | Delete a folder; its lessons move home |
-| GET | `/lessons` | List lessons with status and progress |
+| GET | `/lessons` | List lessons with status, progress, and whether each is active |
 | GET | `/lessons/{id}` | Lesson JSON plus generation status, current stage, error, materials, the stages a rerun can start from, the reading block, and the day starts |
 | POST | `/lessons/{id}/reading-position` | Record the block being read; it must be a block in the lesson |
 | POST | `/lessons/{id}/days` | Replace the day starts; each must be a block in the lesson other than the first, in lesson order, with no repeats. An empty list removes them |
