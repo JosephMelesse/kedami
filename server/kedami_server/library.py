@@ -29,7 +29,7 @@ class LessonRow:
     reading_block: str | None = None
     # The blocks that begin day 2 onward, as a JSON list. A rerun keeps them; see `day_starts`.
     day_starts: str | None = None
-    # Whether the student is working through it, shown in the home page's Active grid. A rerun keeps it.
+    # Whether the student is working through it, shown in the home page's Active card. A rerun keeps it.
     active: bool = False
 
     @property

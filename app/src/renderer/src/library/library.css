@@ -186,15 +186,59 @@
 
 .active-lessons {
   margin-bottom: 48px;
+  /* The rows' own padding makes up the rest at the bottom. */
+  padding: 24px 24px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
 }
 
 .active-lessons h2 {
-  margin-bottom: 16px;
-  font-size: 20px;
+  margin-bottom: 8px;
+  font-size: 18px;
 }
 
-.active-tile {
-  min-height: 0;
+.active-rows {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.active-row {
+  display: grid;
+  grid-template-columns: minmax(0, 240px) 1fr auto;
+  align-items: center;
+  gap: 8px 16px;
+  width: 100%;
+  padding: 8px;
+  margin: 0 -8px;
+  box-sizing: content-box;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 150ms ease-out;
+}
+
+.active-row:hover {
+  background: var(--surface);
+}
+
+.active-title {
+  font-weight: 500;
+}
+
+@media (max-width: 720px) {
+  .active-row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .active-title {
+    grid-column: 1 / -1;
+  }
 }
 
 .problem-boxes {

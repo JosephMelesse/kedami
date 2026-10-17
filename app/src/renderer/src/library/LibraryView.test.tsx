@@ -103,15 +103,15 @@ describe('LibraryView', () => {
 
 describe('Active lessons', () => {
   const active = (root: HTMLElement) => root.querySelector<HTMLElement>('.active-lessons')
-  const cards = (root: HTMLElement) => [...root.querySelectorAll<HTMLElement>('.active-tile')]
-  const boxes = (card: HTMLElement) =>
-    [...card.querySelectorAll('.problem-box')].map((box) => (box.classList.contains('problem-box-done') ? 'done' : 'left'))
+  const rows = (root: HTMLElement) => [...root.querySelectorAll<HTMLElement>('.active-row')]
+  const boxes = (row: HTMLElement) =>
+    [...row.querySelectorAll('.problem-box')].map((box) => (box.classList.contains('problem-box-done') ? 'done' : 'left'))
 
-  it('shows no heading or grid when no lesson is active', () => {
+  it('shows no card when no lesson is active', () => {
     expect(active(render([summary({})]))).toBeNull()
   })
 
-  it('lists the active lessons from every folder on the home page, before the folders', () => {
+  it('lists the active lessons from every folder in one card on the home page, before the folders', () => {
     const lessons = [
       summary({ id: 'a', title: 'First', active: true }),
       summary({ id: 'b', title: 'Filed', folder_id: 3, active: true }),
@@ -119,8 +119,9 @@ describe('Active lessons', () => {
     ]
     const root = render(lessons, [WEEK3])
     expect(active(root)?.querySelector('h2')?.textContent).toBe('Active')
-    expect(cards(root).map((card) => card.querySelector('.tile-title')?.textContent)).toEqual(['First', 'Filed'])
-    expect(titles(root)).toEqual(['First', 'Filed', 'Week 3', 'First', 'Idle', 'New lesson'])
+    expect(rows(root).map((row) => row.querySelector('.active-title')?.textContent)).toEqual(['First', 'Filed'])
+    expect(titles(root)).toEqual(['Week 3', 'First', 'Idle', 'New lesson'])
+    expect(root.querySelector('.library > :nth-child(2)')?.className).toBe('active-lessons')
   })
 
   it('is not shown inside a folder', () => {
@@ -129,10 +130,10 @@ describe('Active lessons', () => {
   })
 
   it('fills a box for each done problem, from the left, and counts the rest', () => {
-    const [card] = cards(render([summary({ active: true, problems_total: 4, problems_done: 1 })]))
-    expect(boxes(card)).toEqual(['done', 'left', 'left', 'left'])
-    expect(card.textContent).toContain('3 problems left')
-    expect(card.querySelector('.problem-boxes')?.getAttribute('aria-label')).toBe('1 of 4 problems done')
+    const [row] = rows(render([summary({ active: true, problems_total: 4, problems_done: 1 })]))
+    expect(boxes(row)).toEqual(['done', 'left', 'left', 'left'])
+    expect(row.textContent).toContain('3 problems left')
+    expect(row.querySelector('.problem-boxes')?.getAttribute('aria-label')).toBe('1 of 4 problems done')
   })
 
   it('says one problem left, and all problems done once none are', () => {
@@ -140,16 +141,16 @@ describe('Active lessons', () => {
       summary({ id: 'a', active: true, problems_total: 2, problems_done: 1 }),
       summary({ id: 'b', active: true, problems_total: 2, problems_done: 2 })
     ])
-    const [one, all] = cards(root)
+    const [one, all] = rows(root)
     expect(one.textContent).toContain('1 problem left')
     expect(boxes(all)).toEqual(['done', 'done'])
     expect(all.textContent).toContain('All problems done')
   })
 
   it('shows Generating instead of boxes while an active lesson reruns', () => {
-    const [card] = cards(render([summary({ active: true, status: 'generating', problems_total: 0, problems_done: 0 })]))
-    expect(card.textContent).toContain('Generating')
-    expect(card.querySelector('.problem-boxes')).toBeNull()
+    const [row] = rows(render([summary({ active: true, status: 'generating', problems_total: 0, problems_done: 0 })]))
+    expect(row.textContent).toContain('Generating')
+    expect(row.querySelector('.problem-boxes')).toBeNull()
   })
 
   it('gives only ready lessons an Active checkbox, checked when active', () => {
@@ -166,7 +167,7 @@ describe('Active lessons', () => {
     ])
   })
 
-  it('marks a lesson active without opening it, and opens it from its card', async () => {
+  it('marks a lesson active without opening it, and opens it from its row', async () => {
     const { createRoot } = await import('react-dom/client')
     const { act } = await import('react')
     const container = document.createElement('div')
@@ -196,7 +197,7 @@ describe('Active lessons', () => {
     await act(async () => container.querySelector<HTMLInputElement>('.tile-active input')!.click())
     expect(calls).toEqual(['active sample true'])
     await act(async () => root.render(view(summary({ active: true }))))
-    await act(async () => container.querySelector<HTMLButtonElement>('.active-tile')!.click())
+    await act(async () => container.querySelector<HTMLButtonElement>('.active-row')!.click())
     await act(async () => container.querySelector<HTMLInputElement>('.tile-active input')!.click())
     expect(calls).toEqual(['active sample true', 'open sample', 'active sample false'])
     await act(async () => root.unmount())

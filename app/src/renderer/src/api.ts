@@ -44,7 +44,7 @@ export interface LessonSummary {
   created: string
   problems_total: number
   problems_done: number
-  /** Shown in the home page's Active grid. */
+  /** Shown in the home page's Active card. */
   active: boolean
 }
 
