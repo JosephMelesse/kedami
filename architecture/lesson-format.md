@@ -55,7 +55,7 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 - Each listed problem becomes a problem block with source reference `LeetCode #N` and one part. A problem in the imported dataset gets a `code` answer, and its part text is the problem's description. Any other gets an `external` answer, and its text is "Complete LeetCode #N: Title." See `code-problems.md`.
 - Every problem links to `https://leetcode.com/problems/{slug}/`. The slug is the dataset's when the problem is in it. Otherwise it is the title lowercased, with characters other than letters, digits, spaces, and hyphens removed and spaces turned into hyphens (`Pow(x, n)` becomes `powx-n`).
 - The problem list is parsed by the server, not the model. The model maps each problem to the concepts it needs, from its title and, when the problem is in the dataset, its description. It must cover every listed number exactly once.
-- Problem parts in computer science lessons have no hints.
+- Hints for a computer science problem part are written from its title and, for a `code` part, its description. The tests are never sent to the model.
 - Comprehension checks use the existing answer kinds: `choice` and `multi_choice` for complexity and approach, `numeric` for questions such as what a snippet prints, and `self_check` for explanations.
 - Code in lessons is Python, in fenced `python` blocks. No lesson content walks through a solution to an assigned LeetCode problem.
 
