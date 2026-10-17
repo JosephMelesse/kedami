@@ -19,7 +19,7 @@ Stages 1 to 4 run as a background job on the server. The renderer polls lesson s
 
 ## Upload rules
 
-- At least one file must be tagged as a problem set.
+- At least one file must be tagged as a problem set. For a DSA lesson it is the `problems.md` the renderer writes from the picked problems.
 - Supported inputs are PDF, images, plain text, and Markdown.
 - Each file has a "force transcription" toggle.
 

@@ -18,7 +18,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 
 | Table | Key fields |
 |---|---|
-| `lessons` | id, title, custom title, subject, status, current stage, schema version, revision, created, error, folder id, reading block, day starts, active |
+| `lessons` | id, title, custom title, subject, domain, status, current stage, schema version, revision, created, error, folder id, reading block, day starts, active |
 | `folders` | id, name (unique, ignoring case), created |
 | `settings` | key, value (for example, that the sample lesson was added on the first start) |
 | `materials` | id, lesson id, filename, role, force transcription |
@@ -45,7 +45,8 @@ All routes require the session token.
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/lessons` | Multipart upload: `subject`, optional `folder`, and per file `files`, `roles`, `force`; starts the pipeline |
+| POST | `/lessons` | Multipart upload: `subject`, `domain` for computer science, optional `folder`, and per file `files`, `roles`, `force`; starts the pipeline |
+| GET | `/leetcode/search?q=` | Up to 8 imported LeetCode problems matching a number or words, each with number, slug, title, and difficulty |
 | DELETE | `/lessons/{id}` | Delete a lesson that isn't generating: its JSON, files, stage outputs, progress, simulations, solutions, test flags, and usage log |
 | POST | `/lessons/{id}/rename` | Rename a lesson |
 | POST | `/lessons/{id}/active` | Mark a ready lesson active or not |

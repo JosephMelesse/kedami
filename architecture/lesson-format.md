@@ -8,7 +8,7 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 
 | Level | Fields |
 |---|---|
-| Lesson | `schema_version` (currently 1), `id`, `title`, `subject` (`math`, `physics`, `computer_science`, or `general`), `source_files`, `sections` |
+| Lesson | `schema_version` (currently 1), `id`, `title`, `subject` (`math`, `physics`, `computer_science`, or `general`), `domain` (computer science only: `dsa`, and `sql` once built; null otherwise), `source_files`, `sections` |
 | Section | `id`, `title`, `goal` (one line), `blocks` |
 | Block | `id`, `type`, plus the fields for that type |
 
@@ -51,7 +51,9 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 
 ## Computer science lessons
 
-- The problem set is a list of LeetCode problems, one per line, each with its number and title, such as `1. Two Sum`. Blank lines and Markdown headings are ignored; any other line is an error, as are a missing title and a repeated number.
+- A computer science lesson has a domain, which decides how it is built and shown. `dsa` (data structures and algorithms) is described below and in `code-problems.md`. `sql` is the next roadmap step and is designed in its own document first. A computer science lesson saved before domains existed has no `domain` and reads as `dsa`.
+- In a DSA lesson, the student picks the problems in the problem picker (see Picking problems in `code-problems.md`). The renderer writes the picks as the problem set, a text file `problems.md` with one problem per line, each with its number and title, such as `1. Two Sum`, and the pipeline reads it like any problem set.
+- The server reads the list strictly: blank lines and Markdown headings are ignored; any other line is an error, as are a missing title and a repeated number.
 - Each listed problem becomes a problem block with source reference `LeetCode #N` and one part. A problem in the imported dataset gets a `code` answer, and its part text is the problem's description. Any other gets an `external` answer, and its text is "Complete LeetCode #N: Title." See `code-problems.md`.
 - Every problem links to `https://leetcode.com/problems/{slug}/`. The slug is the dataset's when the problem is in it. Otherwise it is the title lowercased, with characters other than letters, digits, spaces, and hyphens removed and spaces turned into hyphens (`Pow(x, n)` becomes `powx-n`).
 - The problem list is parsed by the server, not the model. The model maps each problem to the concepts it needs, from its title and, when the problem is in the dataset, its description. It must cover every listed number exactly once.
