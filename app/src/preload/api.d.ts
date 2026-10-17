@@ -19,6 +19,8 @@ export interface KedamiApi {
   musicTracks(): Promise<MusicTrack[]>
   /** Pick audio files and copy them into the music folder. Returns the new list and the added names. */
   addMusic(): Promise<{ tracks: MusicTrack[]; added: string[] }>
+  /** Pyodide's binaries for the code runner, which its frame can't load itself. */
+  runnerFiles(): Promise<{ wasm: ArrayBuffer; stdlib: ArrayBuffer }>
 }
 
 declare global {

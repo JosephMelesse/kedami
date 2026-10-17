@@ -13,6 +13,7 @@ import {
   trackUrl
 } from './music'
 import { isAllowedRequest } from './requests'
+import { readRunnerFiles } from './runner'
 import { type ServerHandle, startServer } from './server'
 
 const repoRoot = resolve(app.getAppPath(), '..')
@@ -81,6 +82,7 @@ async function launch(): Promise<void> {
     await shell.openExternal(url)
   })
   serveMusic(join(dataDir, 'music'))
+  ipcMain.handle('kedami:runner-files', readRunnerFiles)
   createWindow()
 }
 

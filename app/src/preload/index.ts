@@ -6,7 +6,8 @@ const api: KedamiApi = {
   serverConnection: () => ipcRenderer.invoke('kedami:server-connection'),
   openLeetCode: (slug) => ipcRenderer.invoke('kedami:open-leetcode', slug),
   musicTracks: () => ipcRenderer.invoke('kedami:music-tracks'),
-  addMusic: () => ipcRenderer.invoke('kedami:music-add')
+  addMusic: () => ipcRenderer.invoke('kedami:music-add'),
+  runnerFiles: () => ipcRenderer.invoke('kedami:runner-files')
 }
 
 contextBridge.exposeInMainWorld('kedami', api)

@@ -1,8 +1,9 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
+import { bundlePlugin } from './scripts/bundle-plugin'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), bundlePlugin()],
   // The code runner's vendored Python package; see src/renderer/src/code/harness.ts.
   assetsInclude: ['**/*.whl'],
   test: {
