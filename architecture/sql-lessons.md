@@ -6,10 +6,11 @@ A computer science lesson in the `sql` domain teaches querying from a databases 
 
 - Source: Spider (`yale-lily.github.io/spider`), whose data is CC BY-SA 4.0. Its databases are SQLite files, each with questions written by people and a reference query for each.
 - The student downloads the Spider release and runs `python -m kedami_server.import_spider {data folder} {spider_data folder}`. The import copies each database of at most 5 MB to `sql/databases/{db_id}.sqlite` in the data folder and writes `sql/exercises.jsonl`, replacing any earlier import, and prints how many exercises it kept and dropped, and why. Kedami never fetches Spider.
+- The import takes Spider's train, dev, and test questions. It leaves out `train_others.json`, whose databases come from other datasets with their own terms.
 - Every reference query runs at import under the rules in Running SQL safely. An exercise is kept when its query runs and returns between 1 and 200 rows. Spider phrases most queries twice; each distinct query on a database is kept once, with its first question.
 - An exercise's ID is its database and a hash of its query, so it is the same after any import of the same release.
-- The server reads each exercise's SQL features from its reference query: filtering (`WHERE`), sorting (`ORDER BY`), limiting (`LIMIT`), distinct (`DISTINCT`), aggregates (`COUNT`, `SUM`, `AVG`, `MIN`, `MAX`), grouping (`GROUP BY`), having (`HAVING`), joins (`JOIN`), subqueries (a second `SELECT`), set operations (`UNION`, `INTERSECT`, `EXCEPT`), and patterns (`LIKE`).
-- When this was written, the import kept about 5,300 exercises on 196 databases, and left out three databases over 5 MB.
+- The server reads each exercise's SQL features from its reference query: selecting (every query), filtering (`WHERE`), sorting (`ORDER BY`), limiting (`LIMIT`), distinct (`DISTINCT`), aggregates (`COUNT`, `SUM`, `AVG`, `MIN`, `MAX`), grouping (`GROUP BY`), having (`HAVING`), joins (`JOIN`), subqueries (a `SELECT` inside parentheses), set operations (`UNION`, `INTERSECT`, `EXCEPT`), and patterns (`LIKE`).
+- When this was written, the import kept 5,325 exercises on 196 databases (24 MB). Of the questions it dropped, 4,148 repeated another's query, 344 returned no rows, 248 were on the three databases over 5 MB, 113 returned over 200 rows, and 3 didn't run.
 
 **Known gaps, accepted**
 - Spider's questions were written to test programs that turn questions into SQL, so they are plain and sometimes ambiguous about naming or order. Practice exercises are checkpoints, which don't count toward completion, so a doubtful one can be left.
@@ -18,14 +19,14 @@ A computer science lesson in the `sql` domain teaches querying from a databases 
 ## Course databases
 
 - On the Upload screen of a SQL lesson, a file can be tagged as a database: a SQLite file (`.sqlite` or `.db`) or a SQL script (`.sql`), at most 20 MB.
-- A SQLite file is opened read-only and must hold at least one table. A SQL script is run once, at upload, into a fresh in-memory database that it may fill with tables and rows but not attach, pragma, or load extensions from, within 10 seconds. Either way, the result is saved as `materials/{lesson_id}/{name}.sqlite`, and a file that fails is refused with SQLite's message.
+- A SQLite file must hold at least one table, pass SQLite's quick check, and have every table readable. It is never opened in place: its bytes are loaded into memory, in SQLite's defensive mode, without trusting its schema. A SQL script is run once, at upload, into a fresh in-memory database that it may fill with tables and rows but not attach, pragma, or load extensions from, within 10 seconds. Either way, the result is saved as `materials/{lesson_id}/{name}.sqlite`, and a file that fails is refused with SQLite's message.
 - Its table and column names are kept as the course wrote them.
 
 ## In a lesson
 
 - The pipeline is the general one (see `pipeline.md`), with the SQL rules below.
 - **Homework:** a problem part that asks for a query gets a `query` answer when the lesson has a course database: the model writes the reference query in stage 4, and verification checks it. Without a course database, the part is a `self_check` whose rubric says what a correct query does. Parts that don't ask for a query use the existing kinds: `choice`, `multi_choice`, `numeric`, or `self_check`.
-- **Practice:** the plan (stage 3) names the SQL features each section teaches, from the list above. After stage 4, the server adds up to 3 bank exercises to the end of each section as checkpoints with `query` answers. An exercise is eligible when it uses at least one feature the section teaches and none that isn't taught by then. Exercises with fewer features come first; a section's exercises come from one database where possible; no exercise appears twice in a lesson. With nothing imported, sections have no practice exercises.
+- **Practice:** the plan (stage 3) names the SQL features each section teaches, from the list above. After stage 4, the server adds up to 3 bank exercises to the end of each section as checkpoints with `query` answers. An exercise is eligible when it uses at least one feature the section teaches and none that isn't taught by then. Selecting counts as taught from the start, since every query selects. Exercises with fewer features come first; a section's exercises come from one database where possible; no exercise appears twice in a lesson. With nothing imported, sections have no practice exercises.
 - The model chooses features only. It never writes or chooses a bank exercise's tables, question, or query.
 - Code in lessons is SQL, in fenced `sql` blocks, highlighted with the same neutral tokens as Python.
 
