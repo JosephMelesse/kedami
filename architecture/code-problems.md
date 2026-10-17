@@ -37,7 +37,7 @@ In a computer science lesson, each assigned LeetCode problem is shown in Kedami 
 
 A LeetCode-style screen for one code problem: the description on the left, the editor on the right, and the console below the editor. See Workspace in `ui.md` for the layout.
 
-- **Description:** the problem's description as plain text with its line breaks kept, not as Markdown, since it contains `*` and `_` in code-like text. Above it, the title, difficulty, the part's state label, and the LeetCode link. Below it, the part's hints, revealed one at a time as in the lesson.
+- **Description:** the problem's description as plain text with its line breaks kept, not as Markdown, since it contains `*` and `_` in code-like text. Above it, the LeetCode link; the title, difficulty, and state label are in the top bar. Runs of blank lines, left where LeetCode had images, show as one. Below it, the part's hints, revealed one at a time as in the lesson.
 - **Editor:** a Python editor opening with the saved code or, if none, the starter code. Code is set in JetBrains Mono with ligatures off, highlighted like Python code blocks (see Consistency in `ui.md`), on `--surface-raised`. Tab inserts four spaces.
 - The code is saved when typing stops for one second, and on Run and Submit. Reset returns to the starter code after a confirmation popup.
 - **Console:** shows the last Run or Submit. It is output only, with no typed input, so code that reads input gets an error. Before any run it shows a muted line saying results appear here.

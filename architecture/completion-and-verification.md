@@ -19,7 +19,7 @@
 | Marked done | Confirmed manually | "Marked done" in `--text-muted` | `--border` |
 
 - States apply per part and show on that part's answer field.
-- "In progress, wrong" is not stored separately: it is an in-progress part with a recorded response. A correct response always moves a part to correct.
+- "In progress, wrong" is not stored separately: it is an in-progress part with a recorded attempt. A correct response always moves a part to correct, so the last attempt was wrong. A code part saves its code without an attempt, so saved code alone is not wrong.
 - A multi-part card shows a count in its header, such as "2 of 3 parts done".
 - Checkpoints use the same states, except marked done.
 - Attempts are unlimited until a part is correct. A correct part is locked: no more checks and no mark done.
