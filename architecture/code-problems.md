@@ -22,7 +22,8 @@ In a computer science lesson, each assigned LeetCode problem is shown in Kedami 
 - Design problems (classes such as LRU Cache) and some others (such as Clone Graph) aren't in the dataset. They are solved on LeetCode and marked done, as before.
 - Expected values come from one reference solution and are compared exactly. A problem that accepts answers in any order (Two Sum, Group Anagrams) fails a correct answer given in another order. Mark done and flags are the ways past it. Floats are compared exactly too.
 - Descriptions are text scraped from LeetCode, with superscripts flattened: 10^4 reads "104" and O(n^2) reads "O(n2)". The LeetCode link beside each problem shows the original.
-- The tests' inputs were written by a model, so edge cases may be thin.
+- The tests' inputs were written by a model, so edge cases may be thin, and some go far beyond LeetCode's input limits: one Coin Change test has an amount of 8,675,309 where LeetCode allows 10^4. A correct solution can run past the time limit on such a test. Flags are the way past it.
+- Pyodide is 32-bit, so a `range` longer than 2^31 overflows (as in `bisect_left(range(10**10), ...)`) and memory runs out sooner than on LeetCode. It has no threads. When this was written, the dataset's own reference solutions failed 13 problems this way.
 
 ## In a lesson
 
@@ -38,16 +39,16 @@ In a computer science lesson, each assigned LeetCode problem is shown in Kedami 
 - Code is set in JetBrains Mono with ligatures off, highlighted like Python code blocks (see Consistency in `ui.md`), on `--surface-raised`. Tab inserts four spaces.
 - The code is saved when typing stops for one second, and on Run and Submit. Reset returns to the starter code after a confirmation popup.
 - **Run** tries the first three tests that aren't flagged. Each shows its input, expected value, what the code returned, and whether it passed. Printed output and any error show below. A Run is not an attempt.
-- **Submit** is the primary action. It runs every test that isn't flagged, in order, and stops at the first failure, showing "Failed test 12 of 100" with that test's input, expected value, and what the code returned. If every test passes, the part is correct.
+- **Submit** is the primary action. It runs every test that isn't flagged, in order, showing how many have passed while it runs. It stops at the first failure, showing "Failed test 12 of 100" with that test's input, expected value, and what the code returned. If every test passes, the part is correct.
 - Results show below the editor, colored by the border and a short label per the feedback rule in `ui.md`.
 
 ## Runner
 
 - A separate page, `runner.html`, loaded with `sandbox="allow-scripts"` and no same-origin access. Its CSP allows no network and allows WebAssembly.
-- Python is Pyodide, at a pinned version, bundled with the app with no extra packages. It runs in a worker inside the frame, which is started when a lesson with code parts opens and reused between runs.
-- The renderer posts the code, the method name, and the tests to the frame. Each Run or Submit starts from a fresh namespace: the runner's preamble (the imports LeetCode provides, `ListNode`, `TreeNode`, `list_node`, `tree_node`), then the student's code, then each test calling `Solution().{method}({args})`.
+- Python is Pyodide, at a pinned version, bundled with the app with one package: `sortedcontainers`, which LeetCode provides. It runs in a worker inside the frame, which is started when a lesson with code parts opens and reused between runs.
+- The renderer posts the code, the method name, and the tests to the frame. Each Run or Submit starts from a fresh namespace: the runner's preamble (the imports LeetCode provides, including `SortedList`, then `ListNode`, `TreeNode`, `list_node`, `tree_node`), then the student's code, then each test calling `Solution().{method}({args})`. The worker reports each test's result as it finishes.
 - `equal` compares with Python's `==`. `same_list` and `same_tree` compare node values and shape.
-- A Run or Submit has 10 seconds, not counting Pyodide's startup. Past that, the frame ends the worker, reports "Time limit exceeded", and starts a fresh one. Pyodide is slower than LeetCode's Python, so the limit stops runaway loops; it doesn't judge speed.
+- Each test has 10 seconds, timed from when the previous test finished (or, for the first, from when the code was posted), not counting Pyodide's startup. Past that, the frame ends the worker, reports "Time limit exceeded" as that test's failure, and starts a fresh one. The limit stops runaway loops; it doesn't judge speed. A timed-out test can be flagged like any failed test.
 - Returned values are shown with `repr`, and printed output with its last lines. Each is cut to 1,000 characters.
 
 ## Completion
