@@ -7,7 +7,7 @@ import { Hints } from './Hints'
 import { MarkDoneControl } from './MarkDoneControl'
 
 // State labels and borders from the part states table in completion-and-verification.md.
-const STATE_LABELS: Record<PartState, string | null> = {
+export const STATE_LABELS: Record<PartState, string | null> = {
   not_started: null,
   in_progress: 'In progress',
   wrong: 'In progress',

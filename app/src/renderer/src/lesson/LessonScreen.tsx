@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react'
-import { ApiError, getLesson, getProgress, type LessonResponse, type ProgressRecord, saveDays } from '../api'
+import { ApiError, getLesson, getProgress, type LessonResponse, type ProgressRecord, saveDays, type TestFlag } from '../api'
+import { CodeRunnerProvider } from '../code/RunnerContext'
+import { OpenWorkspace, Workspace } from '../code/Workspace'
 import { RerunDialog } from '../generating/RerunDialog'
 import { boundaries, lessonEnd, MAX_DAYS, splitDays } from './days/days'
 import { DaysDialog } from './days/DaysDialog'
 import { LessonView } from './LessonView'
 import { ProgressProvider } from './progress/ProgressContext'
-import type { Lesson } from './types'
+import type { CodeAnswer, Lesson, Part, ProblemBlock } from './types'
 
 type State =
   | { status: 'loading' }
   | { status: 'error'; message: string }
   | { status: 'unavailable'; message: string }
-  | { status: 'ready'; lesson: Lesson; progress: ProgressRecord[]; response: LessonResponse }
+  | { status: 'ready'; lesson: Lesson; progress: ProgressRecord[]; flags: TestFlag[]; response: LessonResponse }
 
 const UNAVAILABLE = {
   generating: 'This lesson is still being generated.',
@@ -28,6 +30,15 @@ export function LessonScreen({ lessonId, onBack, onRerun }: LessonScreenProps) {
   const [state, setState] = useState<State>({ status: 'loading' })
   const [rerunning, setRerunning] = useState(false)
   const [splitting, setSplitting] = useState(false)
+  const [workspace, setWorkspace] = useState<{ blockId: string; partId: string } | null>(null)
+  const open = state.status === 'ready' && workspace ? findCodePart(state.lesson, workspace.blockId, workspace.partId) : null
+
+  // The page underneath can't scroll while the workspace covers it, so it comes back where it was.
+  useEffect(() => {
+    if (!open) return
+    document.documentElement.classList.add('in-workspace')
+    return () => document.documentElement.classList.remove('in-workspace')
+  }, [open])
 
   useEffect(() => {
     let cancelled = false
@@ -59,7 +70,7 @@ export function LessonScreen({ lessonId, onBack, onRerun }: LessonScreenProps) {
     return null
   }
 
-  return (
+  const screen = (
     <>
       <nav className="screen-nav lesson-nav">
         <button type="button" className="link-button" onClick={onBack}>
@@ -84,13 +95,13 @@ export function LessonScreen({ lessonId, onBack, onRerun }: LessonScreenProps) {
       {state.status === 'ready' && (
         <>
           {state.response.error && <p className="notice">{state.response.error}</p>}
-          <ProgressProvider key={lessonId} lessonId={lessonId} initial={state.progress}>
+          <OpenWorkspace.Provider value={(blockId, partId) => setWorkspace({ blockId, partId })}>
             <LessonView
               lesson={state.lesson}
               readingBlock={state.response.reading_block}
               dayStarts={state.response.day_starts}
             />
-          </ProgressProvider>
+          </OpenWorkspace.Provider>
           {splitting && (
             <DaysDialog
               current={state.response.day_starts.length + 1}
@@ -111,6 +122,44 @@ export function LessonScreen({ lessonId, onBack, onRerun }: LessonScreenProps) {
       )}
     </>
   )
+  if (state.status !== 'ready') return screen
+
+  // The workspace covers the lesson, which stays mounted underneath, inert, and keeps its place.
+  return (
+    <CodeRunnerProvider enabled={hasCodeParts(state.lesson)}>
+      <ProgressProvider key={lessonId} lessonId={lessonId} initial={state.progress} initialFlags={state.flags}>
+        <div inert={open !== null}>{screen}</div>
+        {open && (
+          <Workspace
+            key={`${open.block.id}/${open.part.id}`}
+            block={open.block}
+            part={open.part}
+            onBack={() => setWorkspace(null)}
+          />
+        )}
+      </ProgressProvider>
+    </CodeRunnerProvider>
+  )
+}
+
+function codeParts(lesson: Lesson): { block: ProblemBlock; part: Part & { answer: CodeAnswer } }[] {
+  return lesson.sections.flatMap((section) =>
+    section.blocks.flatMap((block) =>
+      block.type === 'problem'
+        ? block.parts
+            .filter((part): part is Part & { answer: CodeAnswer } => part.answer.kind === 'code')
+            .map((part) => ({ block, part }))
+        : []
+    )
+  )
+}
+
+function hasCodeParts(lesson: Lesson): boolean {
+  return codeParts(lesson).length > 0
+}
+
+function findCodePart(lesson: Lesson, blockId: string, partId: string) {
+  return codeParts(lesson).find(({ block, part }) => block.id === blockId && part.id === partId) ?? null
 }
 
 async function load(lessonId: string): Promise<State> {
@@ -118,5 +167,6 @@ async function load(lessonId: string): Promise<State> {
   if (body.status !== 'ready' || !body.lesson) {
     return { status: 'unavailable', message: UNAVAILABLE[body.status === 'failed' ? 'failed' : 'generating'] }
   }
-  return { status: 'ready', lesson: body.lesson, progress: await getProgress(lessonId), response: body }
+  const { progress, flags } = await getProgress(lessonId)
+  return { status: 'ready', lesson: body.lesson, progress, flags, response: body }
 }

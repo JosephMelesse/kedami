@@ -32,6 +32,12 @@ describe('partState', () => {
     expect(partState(record({ status: 'in_progress', last_response: '3', attempts: 1 }))).toBe('wrong')
   })
 
+  it("isn't wrong for a code part whose code is saved but never submitted", () => {
+    expect(partState(record({ status: 'in_progress', last_response: 'class Solution: ...', attempts: 0 }))).toBe(
+      'in_progress'
+    )
+  })
+
   it('keeps correct and marked done', () => {
     expect(partState(record({ status: 'correct', last_response: '2.36' }))).toBe('correct')
     expect(partState(record({ status: 'marked_done', last_response: '3' }))).toBe('marked_done')

@@ -1,3 +1,4 @@
+import { CodeProblemSummary } from '../../code/CodeProblemSummary'
 import { AnswerField } from '../answers/AnswerField'
 import { ShowSolution } from '../answers/ShowSolution'
 import { Markdown } from '../Markdown'
@@ -20,23 +21,30 @@ export function ProblemBlockView({ block, lessonId }: { block: ProblemBlock; les
         )}
       </header>
       {block.prompt && <Markdown>{block.prompt}</Markdown>}
-      {block.parts.map((part) =>
-        multiPart ? (
-          <section key={part.id} className="part">
-            <div className="part-prompt">
-              <span className="part-label">{part.label}</span>
-              <Markdown>{part.prompt}</Markdown>
-            </div>
-            <PartAnswer block={block} part={part} name={`${block.source_ref} ${part.label}`} lessonId={lessonId} />
-          </section>
-        ) : (
-          // A single-part problem shows its prompt without the part label.
+      {block.parts.map((part) => {
+        if (multiPart) {
+          return (
+            <section key={part.id} className="part">
+              <div className="part-prompt">
+                <span className="part-label">{part.label}</span>
+                <Markdown>{part.prompt}</Markdown>
+              </div>
+              <PartAnswer block={block} part={part} name={`${block.source_ref} ${part.label}`} lessonId={lessonId} />
+            </section>
+          )
+        }
+        // A code problem's description shows in its workspace, not in the lesson.
+        if (part.answer.kind === 'code') {
+          return <CodeProblemSummary key={part.id} block={block} part={part} answer={part.answer} name={block.source_ref} />
+        }
+        // A single-part problem shows its prompt without the part label.
+        return (
           <div key={part.id} className="part-single">
             <Markdown>{part.prompt}</Markdown>
             <PartAnswer block={block} part={part} name={block.source_ref} lessonId={lessonId} />
           </div>
         )
-      )}
+      })}
     </article>
   )
 }

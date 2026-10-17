@@ -369,7 +369,8 @@ input {
 
 .rest-screen {
   position: fixed;
-  z-index: 1;
+  /* Above the code workspace, which also covers the screen below the header. */
+  z-index: 2;
   inset: 56px 0 0;
   display: flex;
   flex-direction: column;

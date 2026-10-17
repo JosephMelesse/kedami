@@ -1,5 +1,6 @@
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
+import { OpenWorkspace } from '../code/Workspace'
 import { LessonView } from './LessonView'
 import { ProgressProvider } from './progress/ProgressContext'
 import type { Lesson } from './types'
@@ -72,11 +73,13 @@ const lesson = {
   ]
 } as unknown as Lesson
 
-function render(): HTMLElement {
+function render(openWorkspace: ((blockId: string, partId: string) => void) | null = null): HTMLElement {
   const root = document.createElement('div')
   root.innerHTML = renderToString(
     <ProgressProvider lessonId="cs" initial={[]}>
-      <LessonView lesson={lesson} />
+      <OpenWorkspace.Provider value={openWorkspace}>
+        <LessonView lesson={lesson} />
+      </OpenWorkspace.Provider>
     </ProgressProvider>
   )
   return root
@@ -97,9 +100,13 @@ describe('a computer science lesson', () => {
     expect(problem.querySelector('input, textarea')).toBeNull()
   })
 
-  it('until the workspace exists, sends a code problem to LeetCode too, with no solution or unverified label', () => {
-    const code = [...root.querySelectorAll<HTMLElement>('.card')].find((c) => c.textContent?.includes('LeetCode #15'))!
-    expect([...code.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Open on LeetCode', 'Mark done'])
+  it('shows a code problem by title and difficulty, with Solve, and keeps its description for the workspace', () => {
+    const withWorkspace = render(() => {})
+    const code = [...withWorkspace.querySelectorAll<HTMLElement>('.card')].find((c) => c.textContent?.includes('LeetCode #15'))!
+    expect(code.querySelector('.code-problem')!.textContent).toBe('3SumMedium')
+    expect([...code.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Solve', 'Open on LeetCode', 'Mark done'])
+    expect(code.querySelector('.button-primary')!.textContent).toBe('Solve')
+    expect(code.textContent).not.toContain('return all the triplets')
     expect(code.textContent).not.toContain('Unverified answer')
   })
 

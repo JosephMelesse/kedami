@@ -14,10 +14,12 @@ export function toProgressMap(records: ProgressRecord[]): ProgressMap {
   return new Map(records.map((record) => [progressKey(record.block_id, record.part_id), record]))
 }
 
-/** "In progress, wrong" is an in-progress part whose last submitted answer was wrong. */
+/** "In progress, wrong" is an in-progress part whose last attempt was wrong. A right attempt makes a
+ * part correct, so an in-progress part with any attempt got its last one wrong. A code part saves its
+ * code without an attempt, so code alone doesn't make it wrong. */
 export function partState(record: ProgressRecord | undefined): PartState {
   if (!record) return 'not_started'
-  if (record.status === 'in_progress' && record.last_response !== null) return 'wrong'
+  if (record.status === 'in_progress' && record.attempts > 0) return 'wrong'
   return record.status
 }
 
