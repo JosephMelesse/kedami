@@ -68,10 +68,10 @@ SQL from the student, the bank, and the model runs on the server, so it is confi
 The workspace from `code-problems.md`, with SQL in its panes. Its layout is unchanged (see Workspace in `ui.md`).
 
 - **Description:** the part's or exercise's text, then the database's tables, each with its columns and its first 20 rows and a count of the rest, then the hints. A bank exercise ends with "From Spider (CC BY-SA 4.0)".
-- **Editor:** SQL, highlighted like SQL code blocks. It opens with the saved query or, if none, empty.
+- **Editor:** SQL, highlighted like SQL code blocks, with long lines wrapped. It opens with the saved query or, if none, empty.
 - **Run** executes the query and shows its result as a table, at most 100 rows with the count of the rest. It is not an attempt.
-- **Submit** checks the query through the usual check route. The console shows Correct, or the reason it is wrong with the student's own result. A correct part is locked as usual; Run still works.
-- The query is saved when typing stops for one second, and on Run and Submit, as code is.
+- **Submit** checks the query through the usual check route. The console shows Correct, or Incorrect with the reason and the student's own result. A query that can't run shows SQLite's message as an error. A correct part is locked as usual; Run still works.
+- The query is saved when typing stops for one second, and on Run and Submit, as code is, through the same save route.
 - In the lesson, a query part or checkpoint shows its text, its state label, and a Solve button that opens the workspace. Mark done works as for any part. A checkpoint can't be marked done.
 
 ## Generation

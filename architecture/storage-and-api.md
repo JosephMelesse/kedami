@@ -63,7 +63,7 @@ All routes require the session token.
 | POST | `/lessons/{id}/rerun` | Rerun from a given stage, with force transcription per material ID |
 | GET | `/lessons/{id}/blocks/{block_id}/points` | Sampled points for a static plot |
 | POST | `/lessons/{id}/blocks/{block_id}/check` | Check a response for a part; records progress and returns the new state. For a query, also the reason it is wrong and the student's result |
-| POST | `/lessons/{id}/blocks/{block_id}/code` | Save a code part's code; returns the new state |
+| POST | `/lessons/{id}/blocks/{block_id}/code` | Save a code part's code, or a query part's or checkpoint's query, as it is typed; returns the new state |
 | POST | `/lessons/{id}/blocks/{block_id}/submit` | Record a code part's Submit: the code and whether every unflagged test passed; returns the new state |
 | POST | `/lessons/{id}/blocks/{block_id}/flags` | Flag or unflag a code part's test, or clear its flags |
 | GET | `/lessons/{id}/blocks/{block_id}/tables` | The tables of a query part's or checkpoint's database: columns, the first 20 rows, and the row count |
