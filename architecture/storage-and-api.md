@@ -11,6 +11,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 | Lessons | `lessons/{lesson_id}.json` |
 | Music player tracks | `music/`, written and read only by Electron main |
 | LeetCode tests | `leetcode.jsonl`: the imported dataset (see `code-problems.md`). Written only by the import command; a lesson copies what it needs into its lesson JSON |
+| SQL exercise bank | `sql/databases/` and `sql/exercises.jsonl`: the imported Spider bank (see `sql-lessons.md`). Written only by the import command |
 | Run log | `runs.jsonl`: one line per pipeline run (see Run log in `system.md`). Deleting a lesson or the database keeps it |
 | Index and progress | SQLite database |
 
@@ -30,7 +31,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 
 - Lesson status is one of: generating, ready, failed. Only a ready lesson has lesson JSON to serve.
 - A lesson's title is the plan's until the student renames it. The custom title is kept in the index and served in place of the lesson JSON's title, which is never edited, and a rerun keeps it.
-- Material role is problem set or reference.
+- Material role is problem set, reference, or, in a SQL lesson, database.
 - Progress status is one of: not started, in progress, correct, marked done.
 - Progress is stored apart from the lesson JSON and keyed by block and part ID. A checkpoint has no part and is stored with an empty part ID. For a code part, the last response is the saved code.
 - The reading block is the ID of the block the student was last reading (see Reading position in `ui.md`). A rerun keeps it, and deleting the lesson removes it.
@@ -65,7 +66,8 @@ All routes require the session token.
 | POST | `/lessons/{id}/blocks/{block_id}/code` | Save a code part's code; returns the new state |
 | POST | `/lessons/{id}/blocks/{block_id}/submit` | Record a code part's Submit: the code and whether every unflagged test passed; returns the new state |
 | POST | `/lessons/{id}/blocks/{block_id}/flags` | Flag or unflag a code part's test, or clear its flags |
-| POST | `/lessons/{id}/blocks/{block_id}/run-query` | Run a query part's or checkpoint's query against its dataset without checking it; returns columns, at most 100 rows, the row count, and any error |
+| GET | `/lessons/{id}/blocks/{block_id}/tables` | The tables of a query part's or checkpoint's database: columns, the first 20 rows, and the row count |
+| POST | `/lessons/{id}/blocks/{block_id}/run-query` | Run a query part's or checkpoint's query against its database without checking it; returns columns, at most 100 rows, the row count, and any error |
 | POST | `/lessons/{id}/blocks/{block_id}/hint` | Record hints revealed for a part or checkpoint; returns the new state |
 | POST | `/lessons/{id}/blocks/{block_id}/mark-done` | Mark a part done, or undo it |
 | GET | `/lessons/{id}/blocks/{block_id}/simulation` | A simulation's current code (regenerated, or from the lesson JSON) and whether it is flagged |

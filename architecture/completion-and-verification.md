@@ -42,7 +42,7 @@
 - Expression: the response may use only the names in the stored answer. SymPy simplification is tried first; otherwise both sides are compared at 8 points with every name drawn from 0.5 to 3 with a fixed seed, so a response always gets the same result.
 - For `self_check`, the student's own judgment after seeing the rubric is recorded as the result.
 - For `code`, the sandboxed runner checks the code in the renderer and reports the result, which the server records as given. See `code-problems.md`.
-- For `query`, the server runs the student's query and the reference in fresh copies of the dataset and compares their results. A query that fails to run is malformed: rejected with SQLite's message and not an attempt. See `sql-lessons.md`.
+- For `query`, the server runs the student's query and the reference in fresh copies of the database and compares their results. A query that fails to run is malformed: rejected with SQLite's message and not an attempt. See `sql-lessons.md`.
 
 ## Verifying stored answers
 
@@ -55,4 +55,4 @@
 - `self_check` answers are not verified.
 - `code` answers are not verified: their tests come from the imported dataset. They show no "Unverified answer" label.
 - `external` answers (LeetCode problems not in the dataset) are not checked or verified, and show no "Unverified answer" label. Mark done is the only way to finish them.
-- `query` answers are verified by a second solve that writes its own query, checked against the reference by the same comparison.
+- `query` answers with a model-written reference are verified by a second solve that writes its own query, checked against the reference by the same comparison. Bank exercises are not verified, since their references come from the bank, and show no "Unverified answer" label.

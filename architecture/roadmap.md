@@ -34,6 +34,6 @@ Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the s
 - **Short text answers:** an answer kind for a term or name, matched against a list of accepted answers ignoring case and spacing, in place of a self check for questions such as "Which flag is set on unsigned overflow?"
 - **Light theme:** same token names, same accent and feedback hues, darkened to reach at least 4.5:1 contrast on white.
 - **Workspace panes:** draggable dividers between the panes, and previous and next problem buttons.
-- **More SQL:** solutions for query parts on request, importing a database from the course files in place of model-written rows, and showing a dataset's tables beside the lesson's explanations.
+- **More SQL:** solutions for query parts on request, showing a database's tables beside the lesson's explanations, flagging a bank exercise as broken, and Spider's three databases over 5 MB.
 - **More code problems:** design problems (a class tested by a sequence of calls), answers accepted in any order, and problems that change their input in place.
 - **Packaging and distribution:** bundling the Python server, plus key handling for other users.

@@ -8,7 +8,7 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 
 | Level | Fields |
 |---|---|
-| Lesson | `schema_version` (currently 1), `id`, `title`, `subject` (`math`, `physics`, `computer_science`, or `general`), `domain` (computer science only: `dsa` or `sql`; null otherwise), `datasets` (SQL lessons only, empty otherwise; see `sql-lessons.md`), `source_files`, `sections` |
+| Lesson | `schema_version` (currently 1), `id`, `title`, `subject` (`math`, `physics`, `computer_science`, or `general`), `domain` (computer science only: `dsa` or `sql`; null otherwise), `source_files`, `sections` |
 | Section | `id`, `title`, `goal` (one line), `blocks` |
 | Block | `id`, `type`, plus the fields for that type |
 
@@ -48,7 +48,7 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 | `multi_choice` | `options` (at least 2), `correct_indexes` (at least 1, no duplicates) | Exact set match, for "select all that apply" |
 | `code` | `platform` (`leetcode`), `number`, `title`, `slug`, `difficulty`, `method`, `starter_code`, `tests` (each `args`, `expected`, `compare`) | Run in the sandboxed runner against its tests; see `code-problems.md`. Problem parts only |
 | `external` | `platform` (`leetcode`), `number`, `title`, `slug` | Not checked. For a LeetCode problem not in the imported dataset: the student solves it on LeetCode and marks it done. Problem parts only |
-| `query` | `dataset`, `reference`, `ordered` | The student's query and the reference run on a fresh copy of the dataset and their results are compared; see `sql-lessons.md`. SQL lessons only |
+| `query` | `database`, `reference`, `ordered`, `exercise` | The student's query and the reference run on a fresh copy of the database and their results are compared; see `sql-lessons.md`. SQL lessons only |
 
 ## Computer science lessons
 

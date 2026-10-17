@@ -7,7 +7,7 @@ Kedami is a desktop app that takes course material for a week, module, or exam a
 **In scope for MVP**
 - Single user, running from source on one machine
 - Math and physics
-- Computer science, in domains that decide how a lesson is built. Data structures and algorithms: lessons with comprehension checks, where the student picks LeetCode problems by number or name, and each is solved in Kedami in Python and checked against tests imported from LeetCodeDataset, or solved on LeetCode and marked done if the dataset lacks it. SQL: lessons from a databases course's material, where each query exercise is solved in Kedami against small tables the lesson carries and checked in SQLite against a reference query
+- Computer science, in domains that decide how a lesson is built. Data structures and algorithms: lessons with comprehension checks, where the student picks LeetCode problems by number or name, and each is solved in Kedami in Python and checked against tests imported from LeetCodeDataset, or solved on LeetCode and marked done if the dataset lacks it. SQL: lessons from a databases course's material, with practice exercises from the Spider bank and the course's homework run against its own database, each query solved in Kedami and checked in SQLite against a reference query
 - General: any other course, such as computer architecture or chemistry, through the math and physics pipeline with no subject-specific rules
 - Local storage; outbound traffic goes only to the Anthropic API
 - Dark theme
@@ -27,7 +27,7 @@ See `roadmap.md` for the backlog.
 | `architecture/lesson-format.md` | Lesson structure, blocks, answers, hints, simulations |
 | `architecture/completion-and-verification.md` | Part states, mark done, answer checking, verification |
 | `architecture/code-problems.md` | LeetCode tests, the code editor, the sandboxed runner, test flags |
-| `architecture/sql-lessons.md` | SQL lessons: datasets, query answers and checking, running SQL safely |
+| `architecture/sql-lessons.md` | SQL lessons: the exercise bank, course databases, query answers and checking, running SQL safely |
 | `architecture/ui.md` | Design tokens, UI rules, screens, Pomodoro timer, music player, 2048 |
 | `architecture/storage-and-api.md` | Files on disk, database tables, server API |
 | `architecture/roadmap.md` | Build order and backlog |

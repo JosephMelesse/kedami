@@ -39,7 +39,7 @@ Before writing code, read `README.md` and every file in `architecture/`. Those d
 
 **Untrusted content**
 - Model-written code runs only in a sandboxed frame with no network, no Node access, and no access to app data. So do the student's code and the imported LeetCode tests, in the runner frame; the server never runs them.
-- SQL from the student or the model runs only in a fresh in-memory SQLite database built from the lesson's dataset, with the read-only authorizer. Never run it against `kedami.db`.
+- SQL from the student, the exercise bank, or the model runs only in a fresh in-memory copy of its database, with the read-only authorizer. Never run it against the database file or `kedami.db`.
 - Diagram SVG is sanitized with DOMPurify before rendering.
 - Math strings are parsed only with the restricted, whitelisted parser. Never pass model or user input to SymPy's default string parsing or to `eval`.
 
