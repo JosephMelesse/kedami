@@ -7,6 +7,8 @@ export default defineConfig({
   preload: {},
   renderer: {
     plugins: [react()],
+    // The code runner's vendored Python package; see src/renderer/src/code/harness.ts.
+    assetsInclude: ['**/*.whl'],
     build: {
       rollupOptions: {
         input: {
