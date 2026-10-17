@@ -3,32 +3,27 @@
 import sqlite3
 
 import pytest
-from pydantic import ValidationError
 
-from kedami_server.lesson import Dataset
-from kedami_server.queries import MAX_ROWS, QueryError, Result, check_names, compare, is_ordered, run
+from kedami_server.queries import MAX_ROWS, QueryError, Result, compare, features, is_ordered, rollback_journal, run
 
-DATASET = Dataset.model_validate({
-    "id": "company",
-    "title": "Company",
-    "tables": [
-        {
-            "name": "employees",
-            "columns": [{"name": "id", "type": "INTEGER"}, {"name": "name", "type": "TEXT"},
-                        {"name": "dept_id", "type": "INTEGER"}, {"name": "salary", "type": "REAL"}],
-            "rows": [[1, "Ada", 1, 120.5], [2, "Grace", 1, 99], [3, "Linus", 2, None], [4, "Ada", None, 80.0]],
-        },
-        {
-            "name": "depts",
-            "columns": [{"name": "id", "type": "INTEGER"}, {"name": "name", "type": "TEXT"}],
-            "rows": [[1, "Engineering"], [2, "Research"], [3, "Empty"]],
-        },
-    ],
-})
+def image(script: str) -> bytes:
+    conn = sqlite3.connect(":memory:")
+    conn.executescript(script)
+    data = conn.serialize()
+    conn.close()
+    return data
+
+
+IMAGE = image("""
+    CREATE TABLE employees (id INTEGER, name TEXT, dept_id INTEGER, salary REAL);
+    INSERT INTO employees VALUES (1, 'Ada', 1, 120.5), (2, 'Grace', 1, 99), (3, 'Linus', 2, NULL), (4, 'Ada', NULL, 80.0);
+    CREATE TABLE depts (id INTEGER, name TEXT);
+    INSERT INTO depts VALUES (1, 'Engineering'), (2, 'Research'), (3, 'Empty');
+""")
 
 
 def rows(query: str) -> list[tuple]:
-    return run(DATASET, query).rows
+    return run(IMAGE, query).rows
 
 
 # What may run
@@ -63,7 +58,7 @@ def test_every_kind_of_read_runs(query, expected):
 
 
 def test_columns_are_named_as_the_query_names_them():
-    assert run(DATASET, "SELECT name AS who, salary FROM employees LIMIT 1").columns == ["who", "salary"]
+    assert run(IMAGE, "SELECT name AS who, salary FROM employees LIMIT 1").columns == ["who", "salary"]
 
 
 # What may not run
@@ -109,19 +104,19 @@ def test_anything_but_reading_is_refused_by_the_authorizer(query, tmp_path, monk
     # databases would also stop them, but they are the second line, not the first.
     monkeypatch.chdir(tmp_path)
     with pytest.raises(QueryError, match="Only queries that read the tables can run here"):
-        run(DATASET, query)
+        run(IMAGE, query)
     assert list(tmp_path.iterdir()) == []
 
 
 def test_a_refused_write_changes_nothing_for_the_next_query():
     with pytest.raises(QueryError):
-        run(DATASET, "DELETE FROM employees")
+        run(IMAGE, "DELETE FROM employees")
     assert rows("SELECT count(*) FROM employees") == [(4,)]
 
 
 def test_extensions_cant_be_loaded():
     with pytest.raises(QueryError):
-        run(DATASET, "SELECT load_extension('/tmp/x.so')")
+        run(IMAGE, "SELECT load_extension('/tmp/x.so')")
 
 
 @pytest.mark.parametrize(
@@ -140,32 +135,32 @@ def test_extensions_cant_be_loaded():
 )
 def test_a_query_that_cant_run_says_why(query, message):
     with pytest.raises(QueryError, match=message):
-        run(DATASET, query)
+        run(IMAGE, query)
 
 
 def test_a_runaway_query_is_stopped_at_the_time_limit():
     forever = "WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM n) SELECT max(x) FROM n"
     with pytest.raises(QueryError, match="took longer than 0.2 seconds"):
-        run(DATASET, forever, time_limit=0.2)
+        run(IMAGE, forever, time_limit=0.2)
 
 
 def test_a_huge_string_or_blob_is_refused():
     with pytest.raises(QueryError, match="too big"):
-        run(DATASET, "SELECT length(randomblob(1000000000))")
+        run(IMAGE, "SELECT length(randomblob(1000000000))")
     with pytest.raises(QueryError, match="too big"):
-        run(DATASET, "SELECT length(zeroblob(2000000))")
+        run(IMAGE, "SELECT length(zeroblob(2000000))")
 
 
 def test_a_very_long_query_is_refused():
     with pytest.raises(QueryError, match="longer than"):
-        run(DATASET, "SELECT 1" + " " * 30_000)
+        run(IMAGE, "SELECT 1" + " " * 30_000)
 
 
 def test_rows_past_the_limit_are_cut_and_flagged():
     many = f"WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM n WHERE x < {MAX_ROWS + 5}) SELECT x FROM n"
-    result = run(DATASET, many)
+    result = run(IMAGE, many)
     assert (len(result.rows), result.truncated) == (MAX_ROWS, True)
-    exact = run(DATASET, many.replace(f"{MAX_ROWS + 5}", str(MAX_ROWS)))
+    exact = run(IMAGE, many.replace(f"{MAX_ROWS + 5}", str(MAX_ROWS)))
     assert (len(exact.rows), exact.truncated) == (MAX_ROWS, False)
 
 
@@ -174,7 +169,7 @@ def test_nothing_touches_the_apps_database(tmp_path, monkeypatch):
     (tmp_path / "kedami.db").write_bytes(b"")
     for query in ["ATTACH DATABASE 'kedami.db' AS k", "SELECT * FROM k.lessons"]:
         with pytest.raises(QueryError):
-            run(DATASET, query)
+            run(IMAGE, query)
     assert (tmp_path / "kedami.db").read_bytes() == b""
 
 
@@ -239,10 +234,10 @@ def test_nulls_sort_alongside_numbers_and_text_without_error():
 
 
 def test_comparing_real_query_results():
-    reference = run(DATASET, "SELECT name, salary FROM employees WHERE salary > 90 ORDER BY salary DESC")
+    reference = run(IMAGE, "SELECT name, salary FROM employees WHERE salary > 90 ORDER BY salary DESC")
     ordered = is_ordered("SELECT name, salary FROM employees WHERE salary > 90 ORDER BY salary DESC")
-    other_order = run(DATASET, "SELECT name, salary FROM employees WHERE salary > 90 ORDER BY salary")
-    cast = run(DATASET, "SELECT name AS n, CAST(salary AS REAL) FROM employees WHERE salary >= 99 ORDER BY 2 DESC")
+    other_order = run(IMAGE, "SELECT name, salary FROM employees WHERE salary > 90 ORDER BY salary")
+    cast = run(IMAGE, "SELECT name AS n, CAST(salary AS REAL) FROM employees WHERE salary >= 99 ORDER BY 2 DESC")
     assert compare(reference, other_order, ordered) == "The right rows, in the wrong order."
     assert compare(reference, cast, ordered) is None
 
@@ -276,64 +271,55 @@ def test_order_matters_only_for_an_order_by_outside_parentheses(query, ordered):
     assert is_ordered(query) is ordered
 
 
-# Datasets
+# The database a query runs against
 
 
-def table(**overrides) -> dict:
-    return {"name": "t", "columns": [{"name": "a", "type": "INTEGER"}, {"name": "b", "type": "TEXT"}],
-            "rows": [[1, "x"]]} | overrides
+def test_a_query_runs_against_a_copy_and_never_changes_the_image():
+    before = bytes(IMAGE)
+    with pytest.raises(QueryError):
+        run(IMAGE, "WITH x AS (SELECT 1) DELETE FROM employees")
+    assert IMAGE == before
 
 
-def dataset(*tables) -> dict:
-    return {"id": "d", "title": "D", "tables": list(tables) or [table()]}
+def test_a_database_saved_with_write_ahead_logging_still_loads(tmp_path):
+    path = tmp_path / "wal.sqlite"
+    conn = sqlite3.connect(path)
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.executescript("CREATE TABLE t (x); INSERT INTO t VALUES (7);")
+    conn.close()
+    data = path.read_bytes()
+    assert data[18:20] == b"\x02\x02"
+    assert rollback_journal(data)[18:20] == b"\x01\x01"
+    assert run(data, "SELECT x FROM t").rows == [(7,)]
+
+
+def test_a_view_in_the_database_is_read_through_the_authorizer():
+    with_view = image("CREATE TABLE t (x); INSERT INTO t VALUES (1), (2); CREATE VIEW big AS SELECT x FROM t WHERE x > 1;")
+    assert run(with_view, "SELECT * FROM big").rows == [(2,)]
+
+
+# Features
 
 
 @pytest.mark.parametrize(
-    "bad",
+    "query, expected",
     [
-        table(rows=[[1]]),
-        table(rows=[[1, "x", 3]]),
-        table(rows=[["1", "x"]]),
-        table(rows=[[True, "x"]]),
-        table(rows=[[1.5, "x"]]),
-        table(rows=[[1, 2]]),
-        table(rows=[[1, "x" * 201]]),
-        table(columns=[{"name": "a", "type": "INTEGER"}, {"name": "A", "type": "TEXT"}]),
-        table(columns=[{"name": "a b", "type": "INTEGER"}, {"name": "b", "type": "TEXT"}]),
-        table(columns=[{"name": "1a", "type": "INTEGER"}, {"name": "b", "type": "TEXT"}]),
-        table(columns=[{"name": "a", "type": "BLOB"}, {"name": "b", "type": "TEXT"}]),
-        table(name="t;drop"),
-        table(rows=[[1, "x"]] * 41),
+        ("SELECT name FROM singer", {"selecting"}),
+        ("SELECT count(*) FROM head WHERE age > 56", {"selecting", "aggregates", "filtering"}),
+        ("SELECT DISTINCT country FROM singer ORDER BY country LIMIT 3", {"selecting", "distinct", "sorting", "limiting"}),
+        ("SELECT dept, avg(age) FROM e GROUP BY dept HAVING count(*) > 2",
+         {"selecting", "aggregates", "grouping", "having"}),
+        ("SELECT T1.name FROM a AS T1 JOIN b AS T2 ON T1.id = T2.a_id", {"selecting", "joins"}),
+        ("SELECT name FROM a WHERE id IN (SELECT a_id FROM b)", {"selecting", "filtering", "subqueries"}),
+        ("SELECT name FROM a UNION SELECT name FROM b", {"selecting", "set operations"}),
+        ("SELECT name FROM a INTERSECT SELECT name FROM b", {"selecting", "set operations"}),
+        ("SELECT name FROM a WHERE name LIKE '%x%'", {"selecting", "filtering", "patterns"}),
+        ("SELECT 'where order by' FROM a -- GROUP BY", {"selecting"}),
+        ("SELECT max_age, counter FROM a", {"selecting"}),
     ],
 )
-def test_a_malformed_table_is_refused(bad):
-    with pytest.raises(ValidationError):
-        Dataset.model_validate(dataset(bad))
-
-
-def test_a_real_column_takes_integers_and_reals_but_not_infinity():
-    real = {"name": "r", "columns": [{"name": "v", "type": "REAL"}], "rows": [[1], [2.5], [None]]}
-    Dataset.model_validate(dataset(real))
-    with pytest.raises(ValidationError):
-        Dataset.model_validate(dataset({**real, "rows": [[float("inf")]]}))
-
-
-def test_table_names_are_unique_ignoring_case():
-    with pytest.raises(ValidationError, match="repeated table names"):
-        Dataset.model_validate(dataset(table(name="t"), table(name="T")))
-
-
-@pytest.mark.parametrize("name", ["order", "select", "group", "where"])
-def test_a_name_that_needs_quotes_in_a_query_is_refused(name):
-    with pytest.raises(ValueError, match="without quotes"):
-        check_names(Dataset.model_validate(dataset(table(name=name))))
-    with pytest.raises(ValueError, match="without quotes"):
-        check_names(Dataset.model_validate(dataset(table(columns=[{"name": name, "type": "INTEGER"}], rows=[[1]]))))
-
-
-@pytest.mark.parametrize("name", ["first", "last", "key", "date", "action", "year", "rank"])
-def test_names_sqlite_takes_without_quotes_are_kept(name):
-    check_names(Dataset.model_validate(dataset(table(columns=[{"name": name, "type": "INTEGER"}], rows=[[1]]))))
+def test_features_are_read_from_the_query(query, expected):
+    assert features(query) == expected
 
 
 def test_values_round_trip_through_the_built_tables():

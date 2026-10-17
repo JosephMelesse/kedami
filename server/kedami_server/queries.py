@@ -1,17 +1,16 @@
 """Running and comparing SQL for SQL lessons. See architecture/sql-lessons.md.
 
-SQL from the student and from the model runs here, on the server, so every query runs in a fresh
-in-memory database built from its dataset, never in kedami.db. An authorizer allows reading only,
-one statement runs, a progress handler stops a query after a time limit, and a length limit keeps
-any one string or blob small.
+SQL from the student, the exercise bank, and the model runs here, on the server, so every query runs in a
+fresh in-memory copy of its database, loaded from the database's bytes: never in the database file, never in
+kedami.db. An authorizer allows reading only, one statement runs, a progress handler stops a query after a
+time limit, and a length limit keeps any one string or blob small. Course databases come from uploads, so
+every connection also runs in SQLite's defensive mode and doesn't trust the schema.
 """
 
 import math
 import sqlite3
 import time
 from dataclasses import dataclass
-
-from .lesson import Dataset
 
 TIME_LIMIT_S = 2.0
 MAX_ROWS = 1000
@@ -20,6 +19,8 @@ MAX_LENGTH = 1_000_000
 MAX_QUERY_LENGTH = 20_000
 # Reals are compared to this many significant digits, so 0.1 + 0.2 equals 0.3.
 DIGITS = 12
+
+SQLITE_HEADER = b"SQLite format 3\x00"
 
 # Statements that aren't queries, refused by their first word before they are prepared, since SQLite doesn't
 # ask the authorizer about every statement (REINDEX with no name, for one). Any other first word is left to
@@ -47,20 +48,8 @@ class Result:
     truncated: bool = False
 
 
-def check_names(dataset: Dataset) -> None:
-    """Raise ValueError unless every table and column can be named in a query without quotes, as the
-    student will name them. A name such as "order" builds when quoted but can't be queried plainly."""
-    with _built(dataset) as conn:
-        for table in dataset.tables:
-            columns = ", ".join(column.name for column in table.columns)
-            try:
-                conn.execute(f"SELECT {columns} FROM {table.name} LIMIT 0")
-            except sqlite3.Error as error:
-                raise ValueError(f"table {table.name} or one of its columns can't be named without quotes") from error
-
-
-def run(dataset: Dataset, query: str, time_limit: float = TIME_LIMIT_S) -> Result:
-    """Run one read-only query against a fresh copy of the dataset."""
+def run(image: bytes, query: str, time_limit: float = TIME_LIMIT_S) -> Result:
+    """Run one read-only query against a fresh in-memory copy of the database whose bytes are `image`."""
     if not query.strip():
         raise QueryError("Write a query.")
     if len(query) > MAX_QUERY_LENGTH:
@@ -68,7 +57,8 @@ def run(dataset: Dataset, query: str, time_limit: float = TIME_LIMIT_S) -> Resul
     first = next((word.upper() for word, _ in _words(query)), None)
     if first in _NOT_QUERIES:
         raise QueryError(_REFUSED)
-    with _built(dataset) as conn:
+    conn = open_copy(image)
+    try:
         conn.set_authorizer(_authorize)
         deadline = time.monotonic() + time_limit
         conn.set_progress_handler(lambda: time.monotonic() > deadline, 1000)
@@ -88,39 +78,64 @@ def run(dataset: Dataset, query: str, time_limit: float = TIME_LIMIT_S) -> Resul
         if cursor.description is None:
             raise QueryError("Write a query that returns rows, such as a SELECT.")
         columns = [d[0] for d in cursor.description]
+    finally:
+        conn.close()
     return Result(columns, rows[:MAX_ROWS], truncated=len(rows) > MAX_ROWS)
 
 
-class _built:
-    """A fresh in-memory database holding the dataset, closed on exit."""
+def open_copy(image: bytes) -> sqlite3.Connection:
+    """A fresh in-memory database holding a copy of `image`, hardened for a schema that may be untrusted."""
+    conn = sqlite3.connect(":memory:", isolation_level=None)
+    conn.setconfig(sqlite3.SQLITE_DBCONFIG_DEFENSIVE, True)
+    conn.setconfig(sqlite3.SQLITE_DBCONFIG_TRUSTED_SCHEMA, False)
+    conn.setlimit(sqlite3.SQLITE_LIMIT_LENGTH, MAX_LENGTH)
+    conn.setlimit(sqlite3.SQLITE_LIMIT_SQL_LENGTH, MAX_QUERY_LENGTH + 1000)
+    conn.setlimit(sqlite3.SQLITE_LIMIT_ATTACHED, 0)
+    conn.deserialize(rollback_journal(image))
+    return conn
 
-    def __init__(self, dataset: Dataset):
-        self.dataset = dataset
 
-    def __enter__(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(":memory:", isolation_level=None)
-        self.conn = conn
-        conn.setlimit(sqlite3.SQLITE_LIMIT_LENGTH, MAX_LENGTH)
-        conn.setlimit(sqlite3.SQLITE_LIMIT_SQL_LENGTH, MAX_QUERY_LENGTH + 1000)
-        conn.setlimit(sqlite3.SQLITE_LIMIT_ATTACHED, 0)
-        for table in self.dataset.tables:
-            columns = ", ".join(f'"{c.name}" {c.type}' for c in table.columns)
-            conn.execute(f'CREATE TABLE "{table.name}" ({columns})')
-            placeholders = ", ".join("?" for _ in table.columns)
-            conn.executemany(f'INSERT INTO "{table.name}" VALUES ({placeholders})', table.rows)
-        return conn
-
-    def __exit__(self, *exc) -> None:
-        self.conn.close()
+def rollback_journal(image: bytes) -> bytes:
+    """The image marked as a rollback-journal database. An in-memory copy can't use write-ahead logging, and a
+    database saved in that mode says so in two header bytes, so they are reset."""
+    if image[:16] == SQLITE_HEADER and image[18:20] == b"\x02\x02":
+        return image[:18] + b"\x01\x01" + image[20:]
+    return image
 
 
 def _authorize(action: int, arg1, arg2, database, trigger) -> int:
     if action not in _ALLOWED:
         return sqlite3.SQLITE_DENY
-    # Reads come only from the dataset's own database.
+    # Reads come only from the database itself.
     if action == sqlite3.SQLITE_READ and database not in ("main", None):
         return sqlite3.SQLITE_DENY
     return sqlite3.SQLITE_OK
+
+
+# SQL features, for choosing practice exercises. See the exercise bank in architecture/sql-lessons.md.
+
+FEATURES = (
+    "selecting", "filtering", "sorting", "limiting", "distinct", "aggregates", "grouping", "having", "joins",
+    "subqueries", "set operations", "patterns",
+)
+_AGGREGATES = {"COUNT", "SUM", "AVG", "MIN", "MAX"}
+_FEATURE_WORDS = {
+    "WHERE": "filtering", "ORDER": "sorting", "LIMIT": "limiting", "DISTINCT": "distinct", "GROUP": "grouping",
+    "HAVING": "having", "JOIN": "joins", "UNION": "set operations", "INTERSECT": "set operations",
+    "EXCEPT": "set operations", "LIKE": "patterns",
+}
+
+
+def features(query: str) -> frozenset[str]:
+    """The SQL features a query uses, anywhere in it. Every query selects; a SELECT inside parentheses is a
+    subquery, while one joined by UNION, INTERSECT, or EXCEPT is not."""
+    words = [(word.upper(), depth) for word, depth in _words(query)]
+    found = {"selecting"} | {_FEATURE_WORDS[w] for w, _ in words if w in _FEATURE_WORDS}
+    if any(w in _AGGREGATES for w, _ in words):
+        found.add("aggregates")
+    if any(w == "SELECT" and depth > 0 for w, depth in words):
+        found.add("subqueries")
+    return frozenset(found)
 
 
 # Comparing results
