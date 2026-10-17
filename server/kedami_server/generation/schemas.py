@@ -134,6 +134,13 @@ def _require_unique(values: list[str], what: str) -> None:
 # Stage 3: plan
 
 
+# The SQL features a section can teach, as queries.FEATURES lists them.
+SqlFeature = Literal[
+    "selecting", "filtering", "sorting", "limiting", "distinct", "aggregates", "grouping", "having", "joins",
+    "subqueries", "set operations", "patterns",
+]
+
+
 class PlannedSection(Model):
     title: PlainText
     goal: PlainText = Field(description="One line: what the student can do after this section.")
@@ -142,6 +149,11 @@ class PlannedSection(Model):
         default=None,
         description="A one-line brief for an interactive simulation, only where one would teach something a static "
         "plot or diagram can't. Otherwise null.",
+    )
+    sql_features: list[SqlFeature] = Field(
+        default=[],
+        description="SQL lessons only: the SQL features this section teaches, which choose its practice exercises. "
+        "Otherwise empty.",
     )
 
 
@@ -222,7 +234,7 @@ _BLOCK = TypeAdapter(TypedBlock)
 class AnswerDraft(Model):
     """One answer, flat. Fill the fields for its kind and leave the others null."""
 
-    kind: Literal["numeric", "expression", "self_check", "choice", "multi_choice"]
+    kind: Literal["numeric", "expression", "self_check", "choice", "multi_choice", "query"]
     value: float | None = Field(default=None, description="numeric: the answer in the unit given.")
     rel_tolerance: float | None = Field(default=None, description="numeric: allowed relative error, such as 0.01.")
     unit: str | None = Field(default=None, description="numeric: the unit shown beside the input, if any.")
@@ -231,6 +243,9 @@ class AnswerDraft(Model):
     options: list[str] | None = Field(default=None, description="choice and multi_choice: the options.")
     correct: list[int] | None = Field(
         default=None, description="choice: the one correct index; multi_choice: every correct index."
+    )
+    reference: str | None = Field(
+        default=None, description="query: one SQLite query against the course database that answers the question."
     )
     _typed: Answer = PrivateAttr()
 
@@ -252,6 +267,9 @@ class AnswerDraft(Model):
                 fields |= {"options": self.options, "correct_index": self.correct[0]}
             case "multi_choice":
                 fields |= {"options": self.options, "correct_indexes": self.correct}
+            case "query":
+                # The server names the course database and decides whether order matters; see generation/sql.py.
+                fields |= {"database": "course/pending", "reference": self.reference}
         try:
             self._typed = _ANSWER.validate_python(fields)
         except ValidationError as error:
@@ -363,6 +381,7 @@ class FinalAnswer(Model):
     value: float | None = Field(default=None, description="number: the answer in the unit given.")
     expression: str | None = Field(default=None, description="expression: the answer in SymPy syntax.")
     correct: list[int] | None = Field(default=None, description="choice: the one correct index; select_all: every correct index.")
+    query: str | None = Field(default=None, description="query: the SQLite query that answers the question.")
 
 
 class Solution(FinalAnswer):

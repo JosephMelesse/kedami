@@ -182,6 +182,26 @@ class CodeAnswer(Model):
         return f"https://leetcode.com/problems/{self.slug}/"
 
 
+class QueryAnswer(Model):
+    """A SQL query, checked by running it and the reference against a fresh copy of the database and comparing
+    their results. See architecture/sql-lessons.md, Query answers."""
+
+    kind: Literal["query"]
+    # "bank/{db_id}" for a bank exercise, or "course/{name}" for the lesson's course database.
+    database: Annotated[str, StringConstraints(pattern=r"^(bank|course)/[A-Za-z0-9_-]{1,64}$")]
+    reference: Annotated[str, StringConstraints(min_length=1, max_length=20_000)]
+    # Whether row order matters. Set by the server from the reference, never by the model.
+    ordered: bool = False
+    # The bank exercise's ID, for a practice exercise; null for course homework.
+    exercise: Annotated[str, StringConstraints(max_length=200)] | None = None
+
+    @model_validator(mode="after")
+    def bank_exercises_name_their_exercise(self) -> "QueryAnswer":
+        if self.database.startswith("bank/") != (self.exercise is not None):
+            raise ValueError("a bank database comes with its exercise, and only a bank database does")
+        return self
+
+
 Answer = Annotated[
     NumericAnswer
     | ExpressionAnswer
@@ -189,14 +209,15 @@ Answer = Annotated[
     | ChoiceAnswer
     | MultiChoiceAnswer
     | ExternalAnswer
-    | CodeAnswer,
+    | CodeAnswer
+    | QueryAnswer,
     Field(discriminator="kind"),
 ]
 
 Subject = Literal["math", "physics", "computer_science", "general"]
 
-# What kind of computer science lesson it is, which decides how it is built and shown. SQL comes next.
-Domain = Literal["dsa"]
+# What kind of computer science lesson it is, which decides how it is built and shown.
+Domain = Literal["dsa", "sql"]
 
 
 # Blocks

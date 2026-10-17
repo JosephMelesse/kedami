@@ -150,3 +150,45 @@ def read(path: Path) -> bytes:
 @lru_cache(maxsize=64)
 def _read(path: Path, mtime_ns: int, size: int) -> bytes:
     return path.read_bytes()
+
+
+# Where a lesson's databases are kept. A query answer names its database as "bank/{db_id}" or "course/{name}".
+
+BANK_DIR = Path("sql") / "databases"
+COURSE_DIR = "databases"
+
+
+class DatabaseMissing(LookupError):
+    """A query's database isn't on disk, such as a bank database after the bank was imported without it."""
+
+
+def course_name(filename: str) -> str:
+    """The name a course database is kept and referred to by: its file name without the extension, as letters,
+    digits, underscores, and hyphens."""
+    stem = Path(filename).stem
+    name = "".join(c if c.isalnum() or c in "_-" else "_" for c in stem if c.isascii())[:64].strip("_-")
+    return name or "course"
+
+
+def save_course(materials: Path, filename: str, image: bytes) -> str:
+    """Keep an uploaded course database with the lesson's materials. Returns its name."""
+    name = course_name(filename)
+    folder = materials / COURSE_DIR
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / f"{name}.sqlite").write_bytes(image)
+    return name
+
+
+def course_databases(materials: Path) -> list[str]:
+    """The names of a lesson's course databases, in name order."""
+    folder = materials / COURSE_DIR
+    return sorted(p.stem for p in folder.glob("*.sqlite")) if folder.is_dir() else []
+
+
+def image_for(data_dir: Path, materials: Path, database: str) -> bytes:
+    """The bytes of the database a query answer names. Raises DatabaseMissing."""
+    source, _, name = database.partition("/")
+    path = (data_dir / BANK_DIR if source == "bank" else materials / COURSE_DIR) / f"{name}.sqlite"
+    if source not in ("bank", "course") or not path.is_file():
+        raise DatabaseMissing(f"The database {database} isn't available.")
+    return read(path)

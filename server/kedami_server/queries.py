@@ -138,6 +138,25 @@ def features(query: str) -> frozenset[str]:
     return frozenset(found)
 
 
+# Checking a student's query
+
+
+class BrokenReference(RuntimeError):
+    """The reference query itself doesn't run: the exercise is broken, not the student's query."""
+
+
+def check(image: bytes, reference: str, ordered: bool, response: str) -> tuple[str | None, Result]:
+    """Run the student's query and the reference against fresh copies of the database. Returns why the result
+    is wrong, or None if it is right, with the student's result. Raises QueryError if the student's query can't
+    run, which isn't an attempt, and BrokenReference if the reference can't."""
+    got = run(image, response)
+    try:
+        expected = run(image, reference)
+    except QueryError as error:
+        raise BrokenReference(str(error)) from None
+    return compare(expected, got, ordered), got
+
+
 # Comparing results
 
 

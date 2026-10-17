@@ -355,7 +355,7 @@ def test_a_computer_science_lesson_saved_without_a_domain_reads_as_dsa(cs_lesson
     assert lesson.domain == "dsa"
 
 
-@pytest.mark.parametrize("subject, domain", [("math", "dsa"), ("computer_science", "sql")])
+@pytest.mark.parametrize("subject, domain", [("math", "dsa"), ("computer_science", "web")])
 def test_only_computer_science_has_a_domain_and_only_known_ones(subject, domain):
     with pytest.raises(ValidationError):
         Lesson.model_validate({"schema_version": 1, "id": "x", "title": "T", "subject": subject, "domain": domain,
@@ -364,7 +364,7 @@ def test_only_computer_science_has_a_domain_and_only_known_ones(subject, domain)
 
 @pytest.mark.parametrize(
     "subject, domain",
-    [("computer_science", None), ("math", "dsa"), ("computer_science", "sql")],
+    [("computer_science", None), ("math", "dsa"), ("computer_science", "web")],
 )
 def test_an_upload_needs_a_domain_exactly_for_computer_science(started, subject, domain):
     client, _, runs = started

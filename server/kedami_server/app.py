@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StringConstraints
 
-from . import db, progress, simulation_state, solution_state, test_flags, usage
+from . import databases, db, progress, queries, simulation_state, solution_state, test_flags, usage
 from .checking import InvalidResponse, check
 from .config import Settings
 from .model import ModelError, call_model
@@ -20,7 +20,7 @@ from .generation.simulations import new_code
 from .generation.solutions import has_solution, write_solution
 from .leetcode_search import entries as leetcode_entries
 from .leetcode_search import search as search_leetcode
-from .lesson import CodeAnswer, Domain, Lesson, PlotBlock, ProblemBlock, SimulationBlock, Subject
+from .lesson import CodeAnswer, Domain, Lesson, PlotBlock, ProblemBlock, QueryAnswer, SimulationBlock, Subject
 from .generation.sources import SourceError
 from . import library
 from .library import (
@@ -113,6 +113,35 @@ class CodeRequest(Body):
 class SubmitRequest(CodeRequest):
     # Whether every unflagged test passed, as the sandboxed runner reported. The server can't run the code.
     passed: StrictBool
+
+
+class QueryRequest(Body):
+    # Null for a checkpoint.
+    part_id: str | None = None
+    query: Annotated[str, StringConstraints(max_length=queries.MAX_QUERY_LENGTH)]
+
+
+# Rows of a query's result sent back for showing.
+SHOWN_ROWS = 100
+SHOWN_TEXT = 1000
+
+
+def shown(result: queries.Result) -> dict:
+    """A query's result as the workspace shows it: at most SHOWN_ROWS rows, long text cut, blobs as hex."""
+
+    def value(v):
+        if isinstance(v, bytes):
+            return f"x'{v[:SHOWN_TEXT // 2].hex()}'"
+        if isinstance(v, str) and len(v) > SHOWN_TEXT:
+            return v[: SHOWN_TEXT - 3] + "..."
+        return v
+
+    return {
+        "columns": result.columns,
+        "rows": [[value(v) for v in row] for row in result.rows[:SHOWN_ROWS]],
+        "count": len(result.rows),
+        "truncated": result.truncated,
+    }
 
 
 class FlaggedTest(Body):
@@ -220,19 +249,29 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         if not len(files) == len(roles) == len(force):
             raise HTTPException(422, "Each file needs a role and a force transcription setting.")
         uploads = [Upload(f.filename or "file", f.file.read(), r, x) for f, r, x in zip(files, roles, force)]
+        # A SQL lesson's course database is checked and kept apart from the material that is read.
+        database_uploads = [u for u in uploads if u.role == "database"]
+        if database_uploads and domain != "sql":
+            raise HTTPException(422, "Only a SQL lesson takes a database.")
+        if len(database_uploads) > 1:
+            raise HTTPException(422, "A SQL lesson takes one database.")
+        uploads = [u for u in uploads if u.role != "database"]
         if folder is not None:
             with db.connect(settings.data_dir) as conn:
                 if not library.folder_exists(conn, folder):
                     raise HTTPException(422, "That folder no longer exists.")
         try:
             check_uploads(uploads)
-            if subject == "computer_science":
+            if subject == "computer_science" and domain == "dsa":
                 check_problem_lists(uploads, settings.data_dir)
-        except (SourceError, ProblemListError) as error:
+            course = [(u.name, databases.from_upload(u.name, u.data)) for u in database_uploads]
+        except (SourceError, ProblemListError, databases.DatabaseFileError) as error:
             raise HTTPException(422, str(error)) from error
 
         lesson_id = str(uuid.uuid4())
         saved = save_uploads(pipeline.materials_dir(settings.data_dir, lesson_id), uploads)
+        for name, image in course:
+            databases.save_course(pipeline.materials_dir(settings.data_dir, lesson_id), name, image)
         with db.connect(settings.data_dir) as conn:
             create_generating(conn, lesson_id, subject, schema_version=1, folder_id=folder, domain=domain)
             for file in saved:
@@ -330,9 +369,48 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
             flags = test_flags.load_all(conn, lesson_id)
         return {"progress": [asdict(record) for record in records], "flags": flags}
 
+    def query_database(lesson_id: str, answer: QueryAnswer) -> bytes:
+        try:
+            return databases.image_for(settings.data_dir, pipeline.materials_dir(settings.data_dir, lesson_id), answer.database)
+        except databases.DatabaseMissing as error:
+            raise HTTPException(409, str(error)) from error
+
+    def query_target(lesson_id: str, block_id: str, part_id: str | None) -> tuple[Target, QueryAnswer, bytes]:
+        target = get_target(get_lesson(lesson_id), block_id, part_id)
+        if not isinstance(target.answer, QueryAnswer):
+            raise HTTPException(422, "This part isn't a query.")
+        return target, target.answer, query_database(lesson_id, target.answer)
+
+    @app.get("/lessons/{lesson_id}/blocks/{block_id}/tables")
+    def query_tables(lesson_id: str, block_id: str, part_id: str | None = None):
+        _, _, image = query_target(lesson_id, block_id, part_id)
+        return {"tables": databases.tables(image)}
+
+    @app.post("/lessons/{lesson_id}/blocks/{block_id}/run-query")
+    def run_query(lesson_id: str, block_id: str, body: QueryRequest):
+        _, _, image = query_target(lesson_id, block_id, body.part_id)
+        try:
+            return shown(queries.run(image, body.query)) | {"error": None}
+        except queries.QueryError as error:
+            return {"columns": [], "rows": [], "count": 0, "truncated": False, "error": str(error)}
+
+    def check_query(lesson_id: str, target: Target, answer: QueryAnswer, response) -> dict:
+        if not isinstance(response, str):
+            raise HTTPException(422, "Write a query.")
+        try:
+            reason, got = queries.check(query_database(lesson_id, answer), answer.reference, answer.ordered, response)
+        except queries.QueryError as error:
+            raise HTTPException(422, str(error)) from error
+        except queries.BrokenReference as error:
+            raise HTTPException(409, f"This exercise's reference query doesn't run: {error}") from error
+        record = update(lesson_id, target, lambda r: progress.after_check(r, reason is None, response))
+        return {"correct": reason is None, "progress": asdict(record), "reason": reason, "result": shown(got)}
+
     @app.post("/lessons/{lesson_id}/blocks/{block_id}/check")
     def check_response(lesson_id: str, block_id: str, body: CheckRequest):
         target = get_target(get_lesson(lesson_id), block_id, body.part_id)
+        if isinstance(target.answer, QueryAnswer):
+            return check_query(lesson_id, target, target.answer, body.response)
         try:
             correct = check(target.answer, body.response)
         except InvalidResponse as error:

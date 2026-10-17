@@ -28,7 +28,7 @@ class WrittenSolution:
 
 
 def has_solution(subject: str, part: Part) -> bool:
-    return subject in OUTPUTS and part.answer.kind not in ("external", "code")
+    return subject in OUTPUTS and part.answer.kind not in ("external", "code", "query")
 
 
 def write_solution(subject: str, block: ProblemBlock, part: Part, materials: list[dict], call: Call) -> WrittenSolution:

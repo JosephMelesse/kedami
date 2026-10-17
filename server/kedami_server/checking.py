@@ -18,6 +18,7 @@ from .lesson import (
     ExternalAnswer,
     MultiChoiceAnswer,
     NumericAnswer,
+    QueryAnswer,
     SelfCheckAnswer,
 )
 from .mathparse import MathParseError, parse_math
@@ -54,6 +55,9 @@ def check(answer: Answer, response: Any) -> bool:
         case CodeAnswer():
             # Its tests run in the sandboxed runner, never on the server.
             raise InvalidResponse("This problem is checked by submitting it in the workspace.")
+        case QueryAnswer():
+            # It needs its database, so the check route runs it with queries.check.
+            raise TypeError("query answers are checked against their database with queries.check")
     raise TypeError(f"unknown answer kind {answer!r}")
 
 

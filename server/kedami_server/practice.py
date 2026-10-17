@@ -5,8 +5,11 @@ eligible for a section when it uses at least one feature the section teaches and
 then. Selecting is taught from the start, since every query selects.
 """
 
+import json
 from collections import defaultdict
 from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
 
 PER_SECTION = 3
 
@@ -49,3 +52,26 @@ def _mostly_one_database(eligible: list[Exercise], count: int) -> list[Exercise]
     best = min(by_database, key=lambda db: (-len(by_database[db]), db))
     picks = by_database[best][:count]
     return picks + [e for e in eligible if e.database != best][: count - len(picks)]
+
+
+BANK_FILE = Path("sql") / "exercises.jsonl"
+
+
+def load_bank(data_dir: Path) -> list[Exercise]:
+    """The imported exercise bank, kept in memory until the file changes. Empty if nothing is imported."""
+    path = data_dir / BANK_FILE
+    try:
+        stat = path.stat()
+    except FileNotFoundError:
+        return []
+    return _load(path, stat.st_mtime_ns, stat.st_size)
+
+
+@lru_cache(maxsize=4)
+def _load(path: Path, mtime_ns: int, size: int) -> list[Exercise]:
+    bank = []
+    with path.open(encoding="utf-8") as lines:
+        for line in lines:
+            e = json.loads(line)
+            bank.append(Exercise(e["id"], e["database"], e["question"], e["query"], frozenset(e["features"])))
+    return bank

@@ -29,12 +29,30 @@ MARKDOWN = (
 )
 
 
-def materials(subject: str, problem_set: str, reference: str) -> list[dict]:
-    """The course material, as the cached opening of every request for a lesson."""
+def materials(subject: str, problem_set: str, reference: str, database: str | None = None) -> list[dict]:
+    """The course material, as the cached opening of every request for a lesson. A SQL lesson's course database
+    comes with it as its tables."""
     text = f"Subject: {subject}\n\n<problem_set>\n{problem_set}\n</problem_set>"
     if reference.strip():
         text += f"\n\n<reference_material>\n{reference}\n</reference_material>"
+    if database:
+        text += f"\n\n<course_database>\n{database}\n</course_database>"
     return [{"type": "text", "text": text, "cache_control": {"type": "ephemeral"}}]
+
+
+# Rows of each course table shown to the model, and the longest value shown.
+DATABASE_ROWS = 5
+DATABASE_VALUE = 80
+
+
+def course_database(name: str, tables: list[dict]) -> str:
+    """A course database as the model sees it: each table's columns, row count, and first rows."""
+    lines = [f"Database `{name}` (SQLite):"]
+    for table in tables:
+        lines.append(f"\nTable {table['name']} ({', '.join(table['columns'])}), {table['count']} rows. First rows:")
+        for row in table["rows"][:DATABASE_ROWS]:
+            lines.append(json.dumps([str(v)[:DATABASE_VALUE] if isinstance(v, str) else v for v in row], default=str))
+    return "\n".join(lines)
 
 
 def _with_feedback(text: str, feedback: str | None) -> dict:
@@ -140,6 +158,15 @@ watching something move would teach what a static plot or diagram can't, such as
 rotates. Most sections should have none. A simulation is illustrative; it never shows a homework answer."""
 
 
+# Added to the plan prompt for SQL lessons.
+SQL_PLAN_RULES = """
+
+This is a SQL lesson. Give each section `sql_features`: the SQL features it teaches, from the list the schema
+allows. The server adds practice exercises to each section from a bank, chosen by these features, so list a feature
+in the section that first teaches it. Selecting counts as taught from the start; list it only for a section that
+teaches plain SELECT."""
+
+
 def plan_request(extraction: Extraction, feedback: str | None = None) -> dict:
     data = {
         "concepts": [c.model_dump() for c in extraction.concepts],
@@ -207,6 +234,29 @@ For this computer science lesson:
 - Use checkpoints as comprehension checks: `choice` or `multi_choice` for time and space complexity and for which
   approach fits, `numeric` for what a snippet prints or how many times a loop runs, and `self_check` with a rubric
   for explaining why an approach works."""
+
+
+def sql_section_rules(course: str | None) -> str:
+    """Added to the section prompt for SQL lessons. `course` is the course database's name, if there is one."""
+    if course:
+        queries = (
+            f"- A homework part or checkpoint that asks the student to write a query has a `query` answer: `reference` is one "
+            f"SQLite query against the course database `{course}` that answers it and returns between 1 and 200 rows. Use "
+            "only its tables and columns, exactly as named.\n"
+            f"- Worked examples and code in explanations query the course database `{course}`."
+        )
+    else:
+        queries = (
+            "- There is no course database, so a homework part that asks for a query is a `self_check` whose rubric "
+            "says what a correct query does, and checkpoints don't ask for queries."
+        )
+    return f"""
+
+For this SQL lesson:
+- Write all SQL in fenced ```sql blocks, in SQLite.
+{queries}
+- Never give the query for an assigned homework problem anywhere in the section, including worked examples.
+- The server adds practice exercises from a bank to the end of each section. Don't write any."""
 
 
 # Added to the section prompt for general lessons.
@@ -295,6 +345,7 @@ For each question, give only the final answer in the form requested:
 - expression: `expression`, using only the names listed.
 - choice: `correct` with the one correct option's index (0-based).
 - select_all: `correct` with the index of every correct option (0-based).
+- query: `query`, one SQLite query against the database named, whose tables are given with the material.
 Set the other fields to null. A question that builds on an earlier part of the same problem uses your own earlier
 results. {MATH_SYNTAX}"""
 

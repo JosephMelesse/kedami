@@ -4,7 +4,7 @@ export type SchemaVersion = 1;
 export type Id = string;
 export type Title = string;
 export type Subject = "math" | "physics" | "computer_science" | "general";
-export type Domain = "dsa" | null;
+export type Domain = ("dsa" | "sql") | null;
 export type SourceFiles = string[];
 /**
  * @minItems 1
@@ -56,7 +56,14 @@ export type Type5 = "checkpoint";
 export type Id7 = string;
 export type Prompt1 = string;
 export type Answer =
-  NumericAnswer | ExpressionAnswer | SelfCheckAnswer | ChoiceAnswer | MultiChoiceAnswer | ExternalAnswer | CodeAnswer;
+  | NumericAnswer
+  | ExpressionAnswer
+  | SelfCheckAnswer
+  | ChoiceAnswer
+  | MultiChoiceAnswer
+  | ExternalAnswer
+  | CodeAnswer
+  | QueryAnswer;
 export type Kind = "numeric";
 export type Value = number;
 export type RelTolerance = number;
@@ -100,6 +107,11 @@ export type Tests = [CodeTest, ...CodeTest[]];
 export type Args = string;
 export type Expected = string;
 export type Compare = "equal" | "same_list" | "same_tree";
+export type Kind7 = "query";
+export type Database = string;
+export type Reference = string;
+export type Ordered = boolean;
+export type Exercise = string | null;
 /**
  * @maxItems 3
  */
@@ -117,7 +129,14 @@ export type Id9 = string;
 export type Label1 = string;
 export type Prompt3 = string;
 export type Answer1 =
-  NumericAnswer | ExpressionAnswer | SelfCheckAnswer | ChoiceAnswer | MultiChoiceAnswer | ExternalAnswer | CodeAnswer;
+  | NumericAnswer
+  | ExpressionAnswer
+  | SelfCheckAnswer
+  | ChoiceAnswer
+  | MultiChoiceAnswer
+  | ExternalAnswer
+  | CodeAnswer
+  | QueryAnswer;
 /**
  * @maxItems 3
  */
@@ -315,6 +334,20 @@ export interface CodeTest {
   args: Args;
   expected: Expected;
   compare: Compare;
+}
+/**
+ * A SQL query, checked by running it and the reference against a fresh copy of the database and comparing
+ * their results. See architecture/sql-lessons.md, Query answers.
+ *
+ * This interface was referenced by `Lesson`'s JSON-Schema
+ * via the `definition` "QueryAnswer".
+ */
+export interface QueryAnswer {
+  kind: Kind7;
+  database: Database;
+  reference: Reference;
+  ordered: Ordered;
+  exercise: Exercise;
 }
 /**
  * This interface was referenced by `Lesson`'s JSON-Schema

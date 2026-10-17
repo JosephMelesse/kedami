@@ -26,6 +26,8 @@ class SectionPlan:
     problems: list[ExtractedProblem]
     # A brief for the section's simulation, if the plan calls for one.
     simulation: str | None = None
+    # SQL lessons: the SQL features the section teaches, which choose its practice exercises.
+    sql_features: frozenset[str] = frozenset()
 
 
 def place_problems(plan: Plan, extraction: Extraction) -> list[SectionPlan]:
@@ -63,6 +65,7 @@ def place_problems(plan: Plan, extraction: Extraction) -> list[SectionPlan]:
                 concepts=[concepts[c] for c in section.concepts],
                 problems=problems_in[index],
                 simulation=section.simulation,
+                sql_features=frozenset(section.sql_features),
             )
         )
     return sections
