@@ -13,6 +13,8 @@ import { ConsoleOutput, type ConsoleState, type NumberedTest } from './Console'
 import { useCodeRunner } from './RunnerContext'
 import { RUN_TESTS, submitPassed, unflagged } from './tests'
 import { useAutosave } from './useAutosave'
+import { useVimSetting } from './useVimSetting'
+import { VimControl } from './VimControl'
 
 
 /** LeetCode's text as scraped: where it had images, it has runs of blank lines. Shown with one at most. */
@@ -51,6 +53,8 @@ export function Workspace({ block, part, onBack }: WorkspaceProps) {
   const [output, setOutput] = useState<ConsoleState>({ kind: 'idle' })
   const [error, setError] = useState<string | null>(null)
   const [resetting, setResetting] = useState(false)
+  const [vimOn, setVimOn] = useVimSetting()
+  const [vimMode, setVimMode] = useState<string | null>(null)
   const running = output.kind === 'running'
 
   // Saved when typing stops, on Run and Submit, and on leaving with unsaved changes.
@@ -123,12 +127,22 @@ export function Workspace({ block, part, onBack }: WorkspaceProps) {
         </article>
         <div className="workspace-pane workspace-editor">
           <div className="workspace-pane-bar">
-            <span className="muted">Python</span>
+            <span className="editor-bar-start">
+              <span className="muted">Python</span>
+              <VimControl on={vimOn} onChange={setVimOn} mode={vimMode} />
+            </span>
             <button type="button" className="link-button" onClick={() => setResetting(true)}>
               Reset
             </button>
           </div>
-          <CodeEditor value={code} onChange={setCode} label={`Code for ${block.source_ref}`} />
+          <CodeEditor
+            value={code}
+            onChange={setCode}
+            label={`Code for ${block.source_ref}`}
+            vimMode={vimOn}
+            onVimMode={setVimMode}
+            onSave={() => autosave.saveNow(code)}
+          />
         </div>
         <div className="workspace-pane workspace-console">
           <div className="console-output">

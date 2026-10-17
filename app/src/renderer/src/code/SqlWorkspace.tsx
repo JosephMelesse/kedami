@@ -11,6 +11,8 @@ import { isDone, partState } from '../lesson/progress/state'
 import type { QueryAnswer } from '../lesson/types'
 import { CodeEditor } from './CodeEditor'
 import { useAutosave } from './useAutosave'
+import { useVimSetting } from './useVimSetting'
+import { VimControl } from './VimControl'
 
 /** What a query exercise needs, whether it is a problem part or a checkpoint (partId null). */
 export interface QueryTarget {
@@ -45,6 +47,8 @@ export function SqlWorkspace({ target, onBack }: { target: QueryTarget; onBack: 
   const [output, setOutput] = useState<Output>({ kind: 'idle' })
   const [error, setError] = useState<string | null>(null)
   const running = output.kind === 'running'
+  const [vimOn, setVimOn] = useVimSetting()
+  const [vimMode, setVimMode] = useState<string | null>(null)
 
   useEffect(() => {
     let current = true
@@ -122,9 +126,20 @@ export function SqlWorkspace({ target, onBack }: { target: QueryTarget; onBack: 
         </article>
         <div className="workspace-pane workspace-editor">
           <div className="workspace-pane-bar">
-            <span className="muted">SQL</span>
+            <span className="editor-bar-start">
+              <span className="muted">SQL</span>
+              <VimControl on={vimOn} onChange={setVimOn} mode={vimMode} />
+            </span>
           </div>
-          <CodeEditor value={query} onChange={setQuery} label={`Query for ${target.title}`} language="sql" />
+          <CodeEditor
+            value={query}
+            onChange={setQuery}
+            label={`Query for ${target.title}`}
+            language="sql"
+            vimMode={vimOn}
+            onVimMode={setVimMode}
+            onSave={() => autosave.saveNow(query)}
+          />
         </div>
         <div className="workspace-pane workspace-console">
           <div className="console-output">

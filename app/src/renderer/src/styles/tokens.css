@@ -10,4 +10,9 @@
   --correct: #81C995;
   --retry: #F28B82;
   --in-progress: #E5C07B;
+  /* For code only. */
+  --syntax-keyword: #C099FF;
+  --syntax-string: #C3E88D;
+  --syntax-number: #FF9E64;
+  --syntax-name: #4FD6BE;
 }

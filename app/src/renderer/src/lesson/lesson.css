@@ -421,19 +421,29 @@ textarea.text-input {
   line-height: 1.5;
 }
 
-.hljs-keyword,
-.hljs-built_in,
-.hljs-literal {
-  font-weight: 500;
+/* Code colors, as in the workspace editor. See Consistency in architecture/ui.md. */
+.hljs-keyword {
+  color: var(--syntax-keyword);
 }
 
-.hljs-string,
-.hljs-comment,
+.hljs-string {
+  color: var(--syntax-string);
+}
+
+.hljs-number,
+.hljs-literal {
+  color: var(--syntax-number);
+}
+
+.hljs-title,
+.hljs-built_in,
+.hljs-type,
 .hljs-meta {
-  color: var(--text-muted);
+  color: var(--syntax-name);
 }
 
 .hljs-comment {
+  color: var(--text-muted);
   font-style: italic;
 }
 

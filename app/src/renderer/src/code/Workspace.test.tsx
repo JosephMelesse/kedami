@@ -317,3 +317,21 @@ describe('hints', () => {
     expect(button('Show hint 1 of 1')).toBeUndefined()
   })
 })
+
+describe('Vim', () => {
+  it('turns on from the editor bar, shows the mode, and is remembered', async () => {
+    localStorage.clear()
+    await mount()
+    const checkbox = () => [...container.querySelectorAll<HTMLLabelElement>('.vim-control label')][0].querySelector('input')!
+    expect(checkbox().checked).toBe(false)
+    expect(container.querySelector('.vim-mode')).toBeNull()
+    await act(async () => checkbox().click())
+    expect(container.querySelector('.vim-mode')!.textContent).toBe('-- NORMAL --')
+    expect(localStorage.getItem('kedami.editor.vim')).toBe('on')
+    await act(async () => root.unmount())
+    root = createRoot(container)
+    await mount()
+    expect(checkbox().checked).toBe(true)
+    localStorage.clear()
+  })
+})

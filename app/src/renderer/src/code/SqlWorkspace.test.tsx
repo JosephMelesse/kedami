@@ -112,6 +112,11 @@ describe('the SQL workspace', () => {
     expect(new URL(calls('tables')[0][0]).search).toBe('?part_id=a')
   })
 
+  it('has the Vim checkbox in its editor bar too', async () => {
+    await mount(part)
+    expect(container.querySelector('.workspace-editor .vim-control')!.textContent).toContain('Vim')
+  })
+
   it('opens empty, or with the saved query', async () => {
     await mount(part)
     expect(editor().state.doc.toString()).toBe('')

@@ -83,6 +83,19 @@
   border-top: 1px solid var(--border);
 }
 
+.editor-bar-start,
+.vim-control {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.vim-mode {
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-variant-ligatures: none;
+}
+
 .workspace-actions {
   display: flex;
   gap: 8px;
