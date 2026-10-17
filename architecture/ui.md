@@ -69,10 +69,11 @@ Where a code problem is solved. Its contents are in `code-problems.md`; this is 
 
 The Upload screen of a SQL lesson, after the domain choice. See Creating a SQL lesson in `sql-lessons.md`.
 
-- **Problems:** a choice of Recommend problems, chosen by default, or Upload a problem set.
-- **Recommend problems:** a chapter dropdown listing the 15 chapters in order, each with how many problems it can recommend; a number of problems from 1 to 10, 5 by default; and a Recommend problems button. The recommended problems show as a list: each problem's text, then its database or "Solved on pgexercises", and a remove button. Recommend again replaces the list with the next set. A chapter that has fewer problems than asked says so. Notes go in a file drop below, as reference material.
+- **How:** a choice of Learn a chapter, chosen by default, or Upload a problem set.
+- **Learn a chapter:** a chapter dropdown listing the 15 chapters in order, each with how many problems it can recommend; a number of problems from 1 to 10, 5 by default; and a Recommend problems button. The recommended problems show as a list: each problem's text, then its database or "Solved on pgexercises", and a remove button. Recommend again replaces the list with the next set. A chapter that has fewer problems than asked says so. A line says the explanations come from the book and the examples use its people database. There is no file drop.
 - **Upload a problem set:** the file drop, with a role tag and force-transcription toggle per file, then a Course database slot with a Choose button. The slot shows the file's name and the tables found with their row counts, or why it was refused, and a Remove button. Below it, a line says homework queries are checked against it, without it they are self checks, and practice comes from Spider either way.
 - Generate lesson needs at least one recommended problem, or a problem set file and a database that passed its check if one was chosen.
+- **In the lesson:** a chapter lesson's header has a muted line crediting the book: "Explanations draw on Structured Query Language, Wikibooks (CC BY-SA)", with the book's URL as plain text.
 
 ## Active lessons
 

@@ -7,7 +7,7 @@ Kedami is a desktop app that takes course material for a week, module, or exam a
 **In scope for MVP**
 - Single user, running from source on one machine
 - Math and physics
-- Computer science, in domains that decide how a lesson is built. Data structures and algorithms: lessons with comprehension checks, where the student picks LeetCode problems by number or name, and each is solved in Kedami in Python and checked against tests imported from LeetCodeDataset, or solved on LeetCode and marked done if the dataset lacks it. SQL: one chapter per lesson, with problems recommended from the Spider bank, or from pgexercises for chapters Spider lacks, or uploaded from the course with its own database; each query solved in Kedami and checked in SQLite against a reference query
+- Computer science, in domains that decide how a lesson is built. Data structures and algorithms: lessons with comprehension checks, where the student picks LeetCode problems by number or name, and each is solved in Kedami in Python and checked against tests imported from LeetCodeDataset, or solved on LeetCode and marked done if the dataset lacks it. SQL: one chapter per lesson, with explanations drawn from a bundled open book and problems recommended from the Spider bank, or from pgexercises for chapters Spider lacks; or uploaded from the course with its own database; each query solved in Kedami and checked in SQLite against a reference query
 - General: any other course, such as computer architecture or chemistry, through the math and physics pipeline with no subject-specific rules
 - Local storage; outbound traffic goes only to the Anthropic API
 - Dark theme

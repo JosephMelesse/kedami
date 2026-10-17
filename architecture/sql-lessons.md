@@ -1,12 +1,12 @@
 # SQL lessons
 
-A computer science lesson in the `sql` domain teaches querying. Its problems come one of two ways: recommended for one chapter of SQL, from Spider, a hand-built bank of databases with questions and reference queries, and from pgexercises for the chapters Spider lacks; or uploaded as the course's problem set, with the course's database if it gives one. Query exercises are solved in the workspace and checked on the server by running the student's query and a reference query against a copy of the database and comparing their results. No model writes tables.
+A computer science lesson in the `sql` domain teaches querying. It is made one of two ways: from one chapter of SQL alone, with everything it needs bundled with Kedami, or from the course's uploaded problem set, with the course's database if it gives one. A chapter lesson's explanations draw on a bundled open book, Wikibooks' Structured Query Language, and its problems are recommended from Spider, a hand-built bank of databases with questions and reference queries, and from pgexercises for the chapters Spider lacks. Query exercises are solved in the workspace and checked on the server by running the student's query and a reference query against a copy of the database and comparing their results. No model writes tables.
 
 ## Creating a SQL lesson
 
 The Upload screen of a SQL lesson asks where its problems come from (see Upload in `ui.md`):
 
-- **Recommend problems** (the default): the student picks one chapter and a number of problems, and the server recommends them (see Recommending problems). The student can remove any, or ask for another set, then generates the lesson with them as its problem set. Notes, such as lecture slides, can be added as reference material, and are optional.
+- **Learn a chapter** (the default): the student picks one chapter and a number of problems, and the server recommends them (see Recommending problems). The student can remove any, or ask for another set, then generates the lesson. Nothing is uploaded: the server attaches the chapter's pages of the book as reference material and the book's example database as the course database (see The book), and the recommended problems become the problem set.
 - **Upload a problem set:** the course's problem set and reference material in a file drop, as for a general lesson, and the course's database, if it gives one, in a slot of its own (see Course databases).
 
 ## Chapters
@@ -33,6 +33,38 @@ SQL querying in 15 chapters, in the order courses usually teach it. A lesson cov
 
 - A chapter's problems come from Spider when it has features there, and from pgexercises otherwise: Spider has no exercise with an outer join, `IS NULL`, `CASE`, a CTE, a window function, or date arithmetic.
 - The chapters, their features, and their pgexercises pages are kept in the server's code. Each pgexercises page is checked to practice its chapter when it is added to the list. When this was written: nulls had 1 page, expressions 1, outer and self joins 2, CTEs 3, window functions 3, and dates 11 (one in Basic and the 10 of the Date section). A page whose main answer doesn't use its chapter's feature, such as the rolling average, which offers a window function only as an alternative, is left out.
+
+## The book
+
+- Source: Structured Query Language, on Wikibooks (`en.wikibooks.org/wiki/Structured_Query_Language`), whose text is CC BY-SA. It teaches standard SQL rather than one system's, and notes where systems differ.
+- Its pages for querying are bundled with Kedami as Markdown in `server/kedami_server/sql_book/`, beside `SOURCES.md`, which gives each page's title, URL, revision, and the license and attribution. They were fetched once with a maintainer tool, `server/tools/fetch_sql_book.py`, which is outside the server package. The app never fetches the book.
+- The tool converts each page's text to Markdown, keeping headings, paragraphs, lists, tables, and code, and drops navigation, images, and edit links.
+- Each chapter takes whole pages:
+
+| # | Chapter | Book pages |
+|---|---|---|
+| 1 | Selecting | SELECT: Fundamentals |
+| 2 | Filtering | SELECT: Fundamentals, Quantified Comparison |
+| 3 | Text and patterns | Pattern Matching, SELECT: Predefined Functions |
+| 4 | Nulls | SELECT: IS NULL Predicate, NULLs and the Three Valued Logic |
+| 5 | Sorting and limiting | SELECT: Fundamentals, Retrieve Top N Rows per Group, Eliminate Duplicates |
+| 6 | Expressions and `CASE` | SELECT: Case Expression, SELECT: Predefined Functions |
+| 7 | Aggregates | SELECT: Grouping |
+| 8 | Grouping | SELECT: Grouping |
+| 9 | Inner joins | SELECT: Join Operation |
+| 10 | Outer and self joins | SELECT: Join Operation |
+| 11 | Subqueries | SELECT: Subquery, Quantified Comparison |
+| 12 | Set operations | SELECT: Set Operations |
+| 13 | CTEs | With clause, Recursions |
+| 14 | Window functions | Window functions |
+| 15 | Dates and times | SELECT: Predefined Functions |
+
+- **Example database:** the book's examples run on one small database of people, their contacts, and their hobbies: four tables (`person`, `contact`, `hobby`, `person_hobby`) of about 10 rows each, built from the scripts on its Example Database pages. Those scripts are bundled as `people.sql`, adapted for SQLite only in their date literals (`DATE'1970-11-20'` becomes the text `'1970-11-20'`, as SQLite keeps dates), and built with the course database rules when a chapter lesson is created.
+- **In a chapter lesson:** the chapter's pages are saved to the lesson's materials as one reference file, `wikibooks-{chapter}.md`, so they are read in stage 1 like any reference and a rerun keeps them. The example database is saved as its course database, `people`, so explanations, worked examples, and checkpoints can query the same tables the book uses, under the course database rules. The recommended problems are its problem set and its only homework.
+- **Dialect:** the SQL rules for sections say the book is vendor-neutral, and that lessons write SQLite and say where SQLite differs, as with `ROLLUP` and `CUBE`, which SQLite lacks.
+- **Credit:** a chapter lesson's header says its explanations draw on Structured Query Language, Wikibooks, CC BY-SA, with the book's URL. A lesson made from the book is an adaptation of it, so it would carry the same license if shared.
+- Dates and times has little in the book, so that chapter's explanations lean on the model more.
+- The book's pages add to every generation call's cached opening, roughly 5,000 to 10,000 tokens a chapter.
 
 ## Recommending problems
 
@@ -158,5 +190,8 @@ Cut to ship faster (backlog):
 - Spider's three databases over 5 MB.
 
 ## Most likely to be wrong
+
+Converting the book's pages: code and tables must come through intact, and nothing from the page's navigation may leak in. This gets tests on saved copies of real pages first.
+
 
 Comparing results, the authorizer, choosing practice by feature, and running an uploaded SQL script are built and tested. Next: recommending problems for a chapter (a problem must use the chapter and nothing from a later one, and Recommend again must give a different set until it wraps) and checking a pgexercises link in main, the second link that leaves the app. These get tests first.
