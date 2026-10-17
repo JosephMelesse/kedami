@@ -8,15 +8,15 @@ import { DayBarProvider } from './lesson/days/DayBar'
 import { RestScreen } from './pomodoro/RestScreen'
 
 type Screen =
-  | { name: 'library' }
+  | { name: 'library'; folderId: number | null }
   | { name: 'new'; folderId: number | null }
   | { name: 'generating'; lessonId: string }
   | { name: 'lesson'; lessonId: string }
 
 export function App() {
-  const [screen, setScreen] = useState<Screen>({ name: 'library' })
+  const [screen, setScreen] = useState<Screen>({ name: 'library', folderId: null })
   const [restTime, setRestTime] = useState<string | null>(null)
-  const openLibrary = () => setScreen({ name: 'library' })
+  const openLibrary = () => setScreen({ name: 'library', folderId: null })
   const openLesson = (lessonId: string) => setScreen({ name: 'lesson', lessonId })
   const openGenerating = (lessonId: string) => setScreen({ name: 'generating', lessonId })
 
@@ -29,6 +29,8 @@ export function App() {
           <LibraryScreen
             onOpen={(lesson) => (lesson.status === 'ready' ? openLesson(lesson.id) : openGenerating(lesson.id))}
             onNew={(folderId) => setScreen({ name: 'new', folderId })}
+            folderId={screen.folderId}
+            onFolder={(folderId) => setScreen({ name: 'library', folderId })}
           />
         )}
         {screen.name === 'new' && (

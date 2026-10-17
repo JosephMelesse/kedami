@@ -39,11 +39,13 @@ interface LibraryProps {
   onOpen: (lesson: LessonSummary) => void
   /** Start a new lesson in the given folder, or on the home page for null. */
   onNew: (folderId: number | null) => void
+  /** The open folder, or null for the home page. Kept by the app so the header can always go home. */
+  folderId: number | null
+  onFolder: (folderId: number | null) => void
 }
 
-export function LibraryScreen({ onOpen, onNew }: LibraryProps) {
+export function LibraryScreen({ onOpen, onNew, folderId, onFolder }: LibraryProps) {
   const [state, setState] = useState<State>({ status: 'loading' })
-  const [folderId, setFolderId] = useState<number | null>(null)
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
   const generating = state.status === 'ready' && state.lessons.some((lesson) => lesson.status === 'generating')
@@ -99,8 +101,8 @@ export function LibraryScreen({ onOpen, onNew }: LibraryProps) {
         problem={problem}
         onOpen={onOpen}
         onNew={() => onNew(folder?.id ?? null)}
-        onOpenFolder={(f) => setFolderId(f.id)}
-        onHome={() => setFolderId(null)}
+        onOpenFolder={(f) => onFolder(f.id)}
+        onHome={() => onFolder(null)}
         onNewFolder={() => setDialog({ kind: 'new-folder' })}
         onRenameFolder={(f) => setDialog({ kind: 'rename-folder', folder: f })}
         onDeleteFolder={(f) => setDialog({ kind: 'delete-folder', folder: f })}
@@ -162,7 +164,7 @@ export function LibraryScreen({ onOpen, onNew }: LibraryProps) {
           onCancel={() => setDialog(null)}
           onConfirm={() => {
             setDialog(null)
-            setFolderId(null)
+            onFolder(null)
             act(() => deleteFolder(dialog.folder.id))
           }}
         />
