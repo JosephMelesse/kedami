@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StringConstraints
 
-from . import db, progress, simulation_state, solution_state, usage
+from . import db, progress, simulation_state, solution_state, test_flags, usage
 from .checking import InvalidResponse, check
 from .config import Settings
 from .model import ModelError, call_model
@@ -18,7 +18,7 @@ from .generation import pipeline
 from .generation.retry import GenerationError
 from .generation.simulations import new_code
 from .generation.solutions import has_solution, write_solution
-from .lesson import Lesson, PlotBlock, ProblemBlock, SimulationBlock, Subject
+from .lesson import CodeAnswer, Lesson, PlotBlock, ProblemBlock, SimulationBlock, Subject
 from .generation.sources import SourceError
 from . import library
 from .library import (
@@ -97,6 +97,32 @@ class DaysRequest(Body):
 class MarkDoneRequest(Body):
     part_id: str
     done: StrictBool
+
+
+# Longest code a code part saves, in characters.
+MAX_CODE = 100_000
+
+
+class CodeRequest(Body):
+    part_id: str
+    code: Annotated[str, StringConstraints(max_length=MAX_CODE)]
+
+
+class SubmitRequest(CodeRequest):
+    # Whether every unflagged test passed, as the sandboxed runner reported. The server can't run the code.
+    passed: StrictBool
+
+
+class FlaggedTest(Body):
+    args: str
+    expected: str
+
+
+class FlagRequest(Body):
+    part_id: str
+    action: Literal["flag", "unflag", "clear"]
+    # The test to flag or unflag; clear removes every flag on the part.
+    test: FlaggedTest | None = None
 
 
 def create_app(settings: Settings, start_generation=pipeline.start, call=call_model) -> FastAPI:
@@ -288,7 +314,8 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         get_lesson(lesson_id)
         with db.connect(settings.data_dir) as conn:
             records = progress.load_all(conn, lesson_id)
-        return {"progress": [asdict(record) for record in records]}
+            flags = test_flags.load_all(conn, lesson_id)
+        return {"progress": [asdict(record) for record in records], "flags": flags}
 
     @app.post("/lessons/{lesson_id}/blocks/{block_id}/check")
     def check_response(lesson_id: str, block_id: str, body: CheckRequest):
@@ -311,6 +338,39 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         target = get_target(get_lesson(lesson_id), block_id, body.part_id)
         record = update(lesson_id, target, lambda r: progress.after_mark_done(r, body.done))
         return {"progress": asdict(record)}
+
+    def get_code_target(lesson_id: str, block_id: str, part_id: str) -> tuple[Target, CodeAnswer]:
+        target = get_target(get_lesson(lesson_id), block_id, part_id)
+        if not isinstance(target.answer, CodeAnswer):
+            raise HTTPException(422, "This part isn't a code problem.")
+        return target, target.answer
+
+    @app.post("/lessons/{lesson_id}/blocks/{block_id}/code")
+    def save_code(lesson_id: str, block_id: str, body: CodeRequest):
+        target, answer = get_code_target(lesson_id, block_id, body.part_id)
+        record = update(lesson_id, target, lambda r: progress.after_code_saved(r, body.code, answer.starter_code))
+        return {"progress": asdict(record)}
+
+    @app.post("/lessons/{lesson_id}/blocks/{block_id}/submit")
+    def submit_code(lesson_id: str, block_id: str, body: SubmitRequest):
+        target, _ = get_code_target(lesson_id, block_id, body.part_id)
+        record = update(lesson_id, target, lambda r: progress.after_check(r, body.passed, body.code))
+        return {"progress": asdict(record)}
+
+    @app.post("/lessons/{lesson_id}/blocks/{block_id}/flags")
+    def flag_test(lesson_id: str, block_id: str, body: FlagRequest):
+        _, answer = get_code_target(lesson_id, block_id, body.part_id)
+        with db.connect(settings.data_dir) as conn:
+            if body.action == "clear":
+                test_flags.clear(conn, lesson_id, block_id, body.part_id)
+            else:
+                test = body.test
+                if test is None or not any(t.args == test.args and t.expected == test.expected for t in answer.tests):
+                    raise HTTPException(422, "No such test in this problem.")
+                flagged = body.action == "flag"
+                test_flags.set_flag(conn, lesson_id, block_id, body.part_id, test.args, test.expected, flagged)
+            flags = test_flags.load_all(conn, lesson_id)
+        return {"flags": [f for f in flags if (f["block_id"], f["part_id"]) == (block_id, body.part_id)]}
 
     def get_simulation(lesson: Lesson, block_id: str) -> SimulationBlock:
         block = lesson.find_block(block_id)

@@ -77,6 +77,16 @@ CREATE TABLE IF NOT EXISTS materials (
     force_transcription INTEGER NOT NULL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS test_flags (
+    lesson_id TEXT NOT NULL REFERENCES lessons (id) ON DELETE CASCADE,
+    block_id TEXT NOT NULL,
+    part_id TEXT NOT NULL,
+    args TEXT NOT NULL,
+    expected TEXT NOT NULL,
+    created TEXT NOT NULL,
+    PRIMARY KEY (lesson_id, block_id, part_id, args, expected)
+);
+
 CREATE TABLE IF NOT EXISTS progress (
     lesson_id TEXT NOT NULL REFERENCES lessons (id) ON DELETE CASCADE,
     block_id TEXT NOT NULL,
