@@ -31,6 +31,8 @@ class LessonRow:
     day_starts: str | None = None
     # Whether the student is working through it, shown in the home page's Active card. A rerun keeps it.
     active: bool = False
+    # Computer science only; see Lesson.domain. Rows made before domains existed have none.
+    domain: str | None = None
 
     @property
     def shown_title(self) -> str:
@@ -40,9 +42,9 @@ class LessonRow:
 def add_ready_lesson(conn: sqlite3.Connection, lesson: Lesson) -> None:
     """Index a lesson that already exists on disk. Does nothing if it is already indexed."""
     conn.execute(
-        "INSERT OR IGNORE INTO lessons (id, title, subject, status, current_stage, schema_version, created)"
-        " VALUES (?, ?, ?, 'ready', NULL, ?, ?)",
-        (lesson.id, lesson.title, lesson.subject, lesson.schema_version, _now()),
+        "INSERT OR IGNORE INTO lessons (id, title, subject, domain, status, current_stage, schema_version, created)"
+        " VALUES (?, ?, ?, ?, 'ready', NULL, ?, ?)",
+        (lesson.id, lesson.title, lesson.subject, lesson.domain, lesson.schema_version, _now()),
     )
 
 
@@ -51,13 +53,18 @@ def _now() -> str:
 
 
 def create_generating(
-    conn: sqlite3.Connection, lesson_id: str, subject: str, schema_version: int, folder_id: int | None = None
+    conn: sqlite3.Connection,
+    lesson_id: str,
+    subject: str,
+    schema_version: int,
+    folder_id: int | None = None,
+    domain: str | None = None,
 ) -> None:
     """Index a lesson whose generation is starting. The title arrives with the plan."""
     conn.execute(
-        "INSERT INTO lessons (id, title, subject, status, current_stage, schema_version, created, folder_id)"
-        " VALUES (?, 'New lesson', ?, 'generating', NULL, ?, ?, ?)",
-        (lesson_id, subject, schema_version, _now(), folder_id),
+        "INSERT INTO lessons (id, title, subject, domain, status, current_stage, schema_version, created, folder_id)"
+        " VALUES (?, 'New lesson', ?, ?, 'generating', NULL, ?, ?, ?)",
+        (lesson_id, subject, domain, schema_version, _now(), folder_id),
     )
 
 

@@ -121,6 +121,7 @@ ADDED_COLUMNS = {
         "reading_block": "TEXT",
         "day_starts": "TEXT",
         "active": "INTEGER NOT NULL DEFAULT 0",
+        "domain": "TEXT",
     },
 }
 

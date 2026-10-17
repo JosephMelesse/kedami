@@ -32,11 +32,13 @@ def started(data_dir):
     return client, create, runs
 
 
-def upload(client, files, subject="physics"):
-    """POST /lessons with (name, data, role, force) per file."""
+def upload(client, files, subject="physics", domain=None):
+    """POST /lessons with (name, data, role, force) per file. Computer science lessons are DSA unless named."""
+    domain = domain or ("dsa" if subject == "computer_science" else None)
     return client.post(
         "/lessons",
-        data={"subject": subject, "roles": [f[2] for f in files], "force": [str(f[3]).lower() for f in files]},
+        data={"subject": subject, "roles": [f[2] for f in files], "force": [str(f[3]).lower() for f in files]}
+        | ({"domain": domain} if domain else {}),
         files=[("files", (f[0], f[1], "application/octet-stream")) for f in files],
         headers=AUTH,
     )

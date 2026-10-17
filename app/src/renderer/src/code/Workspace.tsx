@@ -160,7 +160,11 @@ export function Workspace({ block, part, onBack }: WorkspaceProps) {
             {flags.length > 0 ? (
               <span className="muted">
                 {flags.length === 1 ? '1 test flagged' : `${flags.length} tests flagged`}{' '}
-                <button type="button" className="link-button" onClick={() => progress.flag(block.id, part.id, 'clear').then(setError)}>
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => progress.flag(block.id, part.id, 'clear').then(setError)}
+                >
                   Clear flags
                 </button>
               </span>

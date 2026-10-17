@@ -122,12 +122,15 @@ def _problem_block(extracted, answers: dict) -> dict:
     return block.model_dump()
 
 
-def assemble_lesson(lesson_id: str, title: str, subject: str, source_files: list[str], sections: list[Section]) -> Lesson:
+def assemble_lesson(
+    lesson_id: str, title: str, subject: str, source_files: list[str], sections: list[Section], domain: str | None = None
+) -> Lesson:
     return Lesson(
         schema_version=1,
         id=lesson_id,
         title=title,
         subject=subject,
+        domain=domain,
         source_files=source_files,
         sections=sections,
     )

@@ -344,3 +344,45 @@ def pipeline_run(data_dir, lesson_id, fake):
     from kedami_server.generation import pipeline
 
     pipeline.run(data_dir, lesson_id, "computer_science", call=fake)
+
+
+# Domains
+
+
+def test_a_computer_science_lesson_saved_without_a_domain_reads_as_dsa(cs_lesson, data_dir):
+    lesson = Lesson.model_validate({"schema_version": 1, "id": "old", "title": "T", "subject": "computer_science",
+                                    "source_files": [], "sections": [{"id": "s", "title": "S", "goal": "G", "blocks": []}]})
+    assert lesson.domain == "dsa"
+
+
+@pytest.mark.parametrize("subject, domain", [("math", "dsa"), ("computer_science", "sql")])
+def test_only_computer_science_has_a_domain_and_only_known_ones(subject, domain):
+    with pytest.raises(ValidationError):
+        Lesson.model_validate({"schema_version": 1, "id": "x", "title": "T", "subject": subject, "domain": domain,
+                               "source_files": [], "sections": [{"id": "s", "title": "S", "goal": "G", "blocks": []}]})
+
+
+@pytest.mark.parametrize(
+    "subject, domain",
+    [("computer_science", None), ("math", "dsa"), ("computer_science", "sql")],
+)
+def test_an_upload_needs_a_domain_exactly_for_computer_science(started, subject, domain):
+    client, _, runs = started
+    data = {"subject": subject, "roles": ["problem_set"], "force": ["false"]} | ({"domain": domain} if domain else {})
+    response = client.post("/lessons", data=data, files=[("files", ("problems.md", LIST, "text/markdown"))], headers=AUTH)
+    assert response.status_code == 422
+    assert runs == []
+
+
+def test_a_dsa_lesson_keeps_its_domain_in_the_lesson_and_the_library(cs_lesson, data_dir):
+    client, lesson_id = cs_lesson
+    assert next(s for s in client.get("/lessons", headers=AUTH).json()["lessons"] if s["id"] == lesson_id)["domain"] == "dsa"
+    pipeline_run(data_dir, lesson_id, FakeModel(cs_script()))
+    assert lesson_status(client, lesson_id)["lesson"]["domain"] == "dsa"
+
+
+def test_a_lesson_indexed_before_domains_existed_is_listed_as_dsa(cs_lesson, data_dir):
+    client, lesson_id = cs_lesson
+    with connect(data_dir) as conn:
+        conn.execute("UPDATE lessons SET domain = NULL WHERE id = ?", (lesson_id,))
+    assert next(s for s in client.get("/lessons", headers=AUTH).json()["lessons"] if s["id"] == lesson_id)["domain"] == "dsa"

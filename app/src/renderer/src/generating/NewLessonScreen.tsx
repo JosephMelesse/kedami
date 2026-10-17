@@ -3,8 +3,15 @@ import { ApiError, createLesson, type MaterialRole, type NewFile } from '../api'
 import type { Lesson } from '../lesson/types'
 import { SUBJECT_LABELS } from '../subjects'
 import { ACCEPT, canForce, kindOf } from './files'
+import { type Pick, problemList } from './picks'
+import { ProblemPicker } from './ProblemPicker'
 
 const SUBJECTS = Object.entries(SUBJECT_LABELS).map(([value, label]) => ({ value: value as Lesson['subject'], label }))
+
+// Computer science domains, which decide how a lesson is built. SQL comes next.
+const DOMAINS: { value: NonNullable<Lesson['domain']>; label: string }[] = [
+  { value: 'dsa', label: 'Data structures and algorithms' }
+]
 
 interface NewLessonProps {
   /** The folder the lesson starts in, or null for the home page. */
@@ -15,12 +22,22 @@ interface NewLessonProps {
 
 export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps) {
   const [subject, setSubject] = useState<Lesson['subject'] | null>(null)
+  const [domain, setDomain] = useState<Lesson['domain']>(null)
+  const [picks, setPicks] = useState<Pick[]>([])
   const [files, setFiles] = useState<NewFile[]>([])
   const [rejected, setRejected] = useState<string[]>([])
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const hasProblemSet = files.some((f) => f.role === 'problem_set')
-  const ready = subject !== null && hasProblemSet && !pending
+  // A DSA lesson's problem set is the picked problems, so its files are reference material.
+  const dsa = subject === 'computer_science' && domain === 'dsa'
+  const ready = subject !== null && (dsa ? picks.length > 0 : hasProblemSet) && !pending
+
+  const chooseSubject = (value: Lesson['subject']) => {
+    setSubject(value)
+    // DSA is the only domain until SQL is built, so it is chosen for the student.
+    setDomain(value === 'computer_science' ? 'dsa' : null)
+  }
 
   const add = (list: FileList | null) => {
     if (!list) return
@@ -48,8 +65,12 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
     if (!ready) return
     setPending(true)
     setError(null)
+    const problems = new File([problemList(picks)], 'problems.md', { type: 'text/markdown' })
+    const sent: NewFile[] = dsa
+      ? [{ file: problems, role: 'problem_set', force: false }, ...files.map((f) => ({ ...f, role: 'reference' as const }))]
+      : files
     try {
-      onCreated(await createLesson(subject, files, folderId))
+      onCreated(await createLesson(subject, sent, folderId, domain))
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not reach the server.')
       setPending(false)
@@ -67,7 +88,9 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
         <header className="lesson-header">
           <h1>New lesson</h1>
           <p className="muted">
-            Add the problem set and any reference material. Kedami turns them into one lesson.
+            {dsa
+              ? 'Pick the LeetCode problems and add any reference material. Kedami turns them into one lesson.'
+              : 'Add the problem set and any reference material. Kedami turns them into one lesson.'}
           </p>
         </header>
         <fieldset className="field">
@@ -79,7 +102,7 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
                   type="radio"
                   name="subject"
                   checked={subject === option.value}
-                  onChange={() => setSubject(option.value)}
+                  onChange={() => chooseSubject(option.value)}
                 />
                 {option.label}
               </label>
@@ -87,17 +110,44 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
           </div>
         </fieldset>
         {subject === 'computer_science' && (
-          <p className="muted">
-            For the problem set, list the LeetCode problems one per line with number and title, such as
-            &quot;1. Two Sum&quot;. You solve them on LeetCode and mark them done here.
-          </p>
+          <fieldset className="field">
+            <legend className="field-label">Domain</legend>
+            <div className="subject-options">
+              {DOMAINS.map((option) => (
+                <label key={option.value} className="option">
+                  <input
+                    type="radio"
+                    name="domain"
+                    checked={domain === option.value}
+                    onChange={() => setDomain(option.value)}
+                  />
+                  {option.label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
         )}
-        <FileDrop onFiles={add} />
+        {dsa && (
+          <div className="field">
+            <span className="field-label">Problems</span>
+            <ProblemPicker picks={picks} onChange={setPicks} />
+          </div>
+        )}
+        <FileDrop onFiles={add} label={dsa ? 'Drop reference PDFs, images, or text files here' : undefined} />
         {rejected.length > 0 && (
           <p className="answer-error">Not supported, so not added: {rejected.join(', ')}</p>
         )}
-        {files.length > 0 && <FileList files={files} onChange={update} onRemove={(i) => setFiles(files.filter((_, j) => j !== i))} />}
-        {files.length > 0 && !hasProblemSet && <p className="answer-error">Tag at least one file as a problem set.</p>}
+        {files.length > 0 && (
+          <FileList
+            files={files}
+            referenceOnly={dsa}
+            onChange={update}
+            onRemove={(i) => setFiles(files.filter((_, j) => j !== i))}
+          />
+        )}
+        {!dsa && files.length > 0 && !hasProblemSet && (
+          <p className="answer-error">Tag at least one file as a problem set.</p>
+        )}
         {error && <p className="answer-error">{error}</p>}
         <div className="answer-actions">
           <button type="submit" className="button button-primary" disabled={!ready}>
@@ -109,7 +159,7 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
   )
 }
 
-function FileDrop({ onFiles }: { onFiles: (files: FileList | null) => void }) {
+function FileDrop({ onFiles, label }: { onFiles: (files: FileList | null) => void; label?: string }) {
   const input = useRef<HTMLInputElement>(null)
   const [over, setOver] = useState(false)
   const drop = (event: DragEvent) => {
@@ -128,7 +178,7 @@ function FileDrop({ onFiles }: { onFiles: (files: FileList | null) => void }) {
       onDragLeave={() => setOver(false)}
       onDrop={drop}
     >
-      <p>Drop PDFs, images, or text files here</p>
+      <p>{label ?? 'Drop PDFs, images, or text files here'}</p>
       <button type="button" className="button" onClick={() => input.current?.click()}>
         Choose files
       </button>
@@ -149,25 +199,31 @@ function FileDrop({ onFiles }: { onFiles: (files: FileList | null) => void }) {
 
 interface FileListProps {
   files: NewFile[]
+  /** Hides the role choice: every file is reference material. */
+  referenceOnly?: boolean
   onChange: (index: number, change: Partial<NewFile>) => void
   onRemove: (index: number) => void
 }
 
-export function FileList({ files, onChange, onRemove }: FileListProps) {
+export function FileList({ files, referenceOnly = false, onChange, onRemove }: FileListProps) {
   return (
     <ul className="file-list">
       {files.map(({ file, role, force }, index) => (
         <li key={`${file.name}-${index}`} className="file-row">
           <span className="file-name">{file.name}</span>
-          <select
-            className="text-input"
-            aria-label={`Role of ${file.name}`}
-            value={role}
-            onChange={(event) => onChange(index, { role: event.target.value as MaterialRole })}
-          >
-            <option value="problem_set">Problem set</option>
-            <option value="reference">Reference</option>
-          </select>
+          {referenceOnly ? (
+            <span className="muted">Reference</span>
+          ) : (
+            <select
+              className="text-input"
+              aria-label={`Role of ${file.name}`}
+              value={role}
+              onChange={(event) => onChange(index, { role: event.target.value as MaterialRole })}
+            >
+              <option value="problem_set">Problem set</option>
+              <option value="reference">Reference</option>
+            </select>
+          )}
           <label className="option" title={canForce(file.name) ? undefined : 'Text files are read as they are'}>
             <input
               type="checkbox"

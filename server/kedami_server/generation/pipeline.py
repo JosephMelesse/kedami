@@ -137,6 +137,8 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
     _clear_from(work, start_stage)
     with db.connect(data_dir) as conn:
         materials = library.list_materials(conn, lesson_id)
+        row = library.get_lesson_row(conn, lesson_id)
+    domain = row.domain if row else None
 
     if start_stage <= 1:
         _set_stage(data_dir, lesson_id, 1)
@@ -206,7 +208,7 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
         _write(work / f"section-{number}.json", section)
         sections.append(section)
 
-    lesson = assemble_lesson(lesson_id, plan.title, subject, [m.filename for m in materials], sections)
+    lesson = assemble_lesson(lesson_id, plan.title, subject, [m.filename for m in materials], sections, domain)
     target = lesson_path(data_dir, lesson_id)
     target.parent.mkdir(parents=True, exist_ok=True)
     _write(target, lesson)

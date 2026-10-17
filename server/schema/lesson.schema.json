@@ -840,6 +840,19 @@
       "title": "Subject",
       "type": "string"
     },
+    "domain": {
+      "anyOf": [
+        {
+          "const": "dsa",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Domain"
+    },
     "source_files": {
       "items": {
         "type": "string"
@@ -861,6 +874,7 @@
     "id",
     "title",
     "subject",
+    "domain",
     "source_files",
     "sections"
   ],

@@ -46,7 +46,9 @@ export function ConsoleOutput({ state, onFlag }: ConsoleProps) {
   }
 }
 
-function SubmitOutput({ state, onFlag }: { state: Extract<ConsoleState, { kind: 'submit' }> } & Pick<ConsoleProps, 'onFlag'>) {
+type Submitted = Extract<ConsoleState, { kind: 'submit' }>
+
+function SubmitOutput({ state, onFlag }: { state: Submitted; onFlag: ConsoleProps['onFlag'] }) {
   const total = state.tests.length
   if (state.passed) {
     return (

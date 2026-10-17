@@ -5,7 +5,7 @@ import uuid
 from dataclasses import asdict
 from typing import Annotated, Any, Literal
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StringConstraints
@@ -18,7 +18,9 @@ from .generation import pipeline
 from .generation.retry import GenerationError
 from .generation.simulations import new_code
 from .generation.solutions import has_solution, write_solution
-from .lesson import CodeAnswer, Lesson, PlotBlock, ProblemBlock, SimulationBlock, Subject
+from .leetcode_search import entries as leetcode_entries
+from .leetcode_search import search as search_leetcode
+from .lesson import CodeAnswer, Domain, Lesson, PlotBlock, ProblemBlock, SimulationBlock, Subject
 from .generation.sources import SourceError
 from . import library
 from .library import (
@@ -183,6 +185,7 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
             "id": row.id,
             "title": row.shown_title,
             "subject": row.subject,
+            "domain": row.domain or ("dsa" if row.subject == "computer_science" else None),
             "status": row.status,
             "current_stage": row.current_stage,
             "error": row.error,
@@ -210,7 +213,10 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         roles: Annotated[list[str], Form()],
         force: Annotated[list[bool], Form()],
         folder: Annotated[int | None, Form()] = None,
+        domain: Annotated[Domain | None, Form()] = None,
     ):
+        if (subject == "computer_science") != (domain is not None):
+            raise HTTPException(422, "A computer science lesson needs a domain, and only it has one.")
         if not len(files) == len(roles) == len(force):
             raise HTTPException(422, "Each file needs a role and a force transcription setting.")
         uploads = [Upload(f.filename or "file", f.file.read(), r, x) for f, r, x in zip(files, roles, force)]
@@ -228,7 +234,7 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         lesson_id = str(uuid.uuid4())
         saved = save_uploads(pipeline.materials_dir(settings.data_dir, lesson_id), uploads)
         with db.connect(settings.data_dir) as conn:
-            create_generating(conn, lesson_id, subject, schema_version=1, folder_id=folder)
+            create_generating(conn, lesson_id, subject, schema_version=1, folder_id=folder, domain=domain)
             for file in saved:
                 add_material(conn, lesson_id, file.filename, file.role, file.force_transcription)
         start_generation(settings.data_dir, lesson_id, subject, 1)
@@ -308,6 +314,13 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         if not isinstance(block, PlotBlock):
             raise HTTPException(404, "plot block not found")
         return {"functions": sample_points(block)}
+
+    @app.get("/leetcode/search")
+    def leetcode_search(q: Annotated[str, Query(max_length=200)] = ""):
+        found = search_leetcode(settings.data_dir, q)
+        # Whether anything is imported, so the picker can say so instead of finding nothing.
+        imported = len(leetcode_entries(settings.data_dir)) > 0
+        return {"problems": [asdict(entry) for entry in found], "imported": imported}
 
     @app.get("/lessons/{lesson_id}/progress")
     def lesson_progress(lesson_id: str):

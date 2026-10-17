@@ -130,3 +130,87 @@
 .rerun-dialog {
   max-width: 520px;
 }
+
+/* The DSA problem picker: picked problems as bubbles inside the box, matches below it. */
+
+.problem-picker {
+  position: relative;
+  display: grid;
+  gap: 8px;
+}
+
+.picker-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.picker-box:focus-within {
+  border-color: var(--text-muted);
+}
+
+.pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 8px 0 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  font-size: 14px;
+}
+
+.pick-remove {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pick-remove:hover {
+  color: var(--text);
+}
+
+.picker-input {
+  flex: 1;
+  min-width: 200px;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+}
+
+.picker-matches {
+  margin: 0;
+  padding: 8px;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+
+.picker-match {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.picker-match[aria-selected='true'],
+.picker-match:hover {
+  background: var(--border);
+}

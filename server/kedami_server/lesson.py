@@ -195,6 +195,9 @@ Answer = Annotated[
 
 Subject = Literal["math", "physics", "computer_science", "general"]
 
+# What kind of computer science lesson it is, which decides how it is built and shown. SQL comes next.
+Domain = Literal["dsa"]
+
 
 # Blocks
 
@@ -370,8 +373,18 @@ class Lesson(Model):
     id: Id
     title: PlainText
     subject: Subject
+    # Computer science only. A lesson saved before domains existed has none and reads as DSA.
+    domain: Domain | None = None
     source_files: list[str]
     sections: Annotated[list[Section], Field(min_length=1)]
+
+    @model_validator(mode="after")
+    def domain_fits_subject(self) -> "Lesson":
+        if self.subject == "computer_science":
+            self.domain = self.domain or "dsa"
+        elif self.domain is not None:
+            raise ValueError("only computer science lessons have a domain")
+        return self
 
     @model_validator(mode="after")
     def ids_unique(self) -> "Lesson":

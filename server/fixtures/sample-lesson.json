@@ -3,6 +3,7 @@
   "id": "sample",
   "title": "Projectile motion",
   "subject": "physics",
+  "domain": null,
   "source_files": [
     "ps3.pdf",
     "chapter-4-notes.pdf"

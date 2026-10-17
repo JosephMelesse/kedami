@@ -36,6 +36,7 @@ export interface LessonSummary {
   id: string
   title: string
   subject: Lesson['subject']
+  domain: Lesson['domain']
   status: LessonStatus
   current_stage: number | null
   error: string | null
@@ -111,9 +112,15 @@ export async function listLessons(): Promise<LessonSummary[]> {
   return body.lessons
 }
 
-export async function createLesson(subject: Lesson['subject'], files: NewFile[], folderId: number | null): Promise<string> {
+export async function createLesson(
+  subject: Lesson['subject'],
+  files: NewFile[],
+  folderId: number | null,
+  domain: Lesson['domain'] = null
+): Promise<string> {
   const form = new FormData()
   form.append('subject', subject)
+  if (domain !== null) form.append('domain', domain)
   if (folderId !== null) form.append('folder', String(folderId))
   for (const { file, role, force } of files) {
     form.append('files', file, file.name)
@@ -122,6 +129,20 @@ export async function createLesson(subject: Lesson['subject'], files: NewFile[],
   }
   const body = await request<{ id: string }>('POST', '/lessons', form)
   return body.id
+}
+
+/** An imported LeetCode problem, as the problem picker's search finds it. */
+export interface LeetCodeMatch {
+  number: number
+  slug: string
+  /** Made from the slug, since the dataset has no titles: "Two Sum II Input Array Is Sorted". */
+  title: string
+  difficulty: string
+}
+
+/** The matches, and whether any problems are imported at all. */
+export function searchLeetCode(query: string): Promise<{ problems: LeetCodeMatch[]; imported: boolean }> {
+  return request('GET', `/leetcode/search?q=${encodeURIComponent(query)}`)
 }
 
 export async function rerunLesson(lessonId: string, stage: number, force: Record<number, boolean>): Promise<void> {

@@ -4,6 +4,7 @@ export type SchemaVersion = 1;
 export type Id = string;
 export type Title = string;
 export type Subject = "math" | "physics" | "computer_science" | "general";
+export type Domain = "dsa" | null;
 export type SourceFiles = string[];
 /**
  * @minItems 1
@@ -131,6 +132,7 @@ export interface Lesson {
   id: Id;
   title: Title;
   subject: Subject;
+  domain: Domain;
   source_files: SourceFiles;
   sections: Sections;
 }
