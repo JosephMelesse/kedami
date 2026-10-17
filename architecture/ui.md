@@ -22,7 +22,7 @@ Dark is the only theme in the MVP. All colors come from these tokens so a light 
 ## Rules
 
 - **Accent:** only for the primary action, links, and progress indicators, including the music player's track name while it plays, and the 2048 tiles. Everything else stays neutral.
-- **Active lessons:** a done problem's box in the Active grid fills with `--correct`. It is the one progress indicator that isn't the accent; see Active lessons.
+- **Active lessons:** a done problem's box in the Active card fills with `--correct`. It is the one progress indicator that isn't the accent; see Active lessons.
 - **Depth:** three surface levels and a 1px border do all the layering. No shadows or gradients.
 - **Type:** Inter in regular and medium weights. Body text is 16px with a line height of 1.6.
 - **Shape and spacing:** 12px radius on cards, 10px on controls; spacing in multiples of 8px.
@@ -41,7 +41,7 @@ Dark is the only theme in the MVP. All colors come from these tokens so a light 
 
 | Screen | Contents |
 |---|---|
-| Library | The start screen. The Active grid first, on the home page only (see Active lessons), then folder tiles, then the lessons in no folder, oldest first, with status and problem progress, then a New lesson tile that opens Upload. A New folder button creates a folder. Folders are one level deep; opening one shows its lessons, a Rename button, a Delete folder button (its lessons move back home), and a New lesson tile that creates the lesson in that folder. Each ready lesson tile has an Active checkbox in its top right corner, beside an options menu to rename it, move it to a folder or home, or delete it after a confirmation; a generating lesson can't be deleted, and a renamed lesson keeps its name through reruns |
+| Library | The start screen. The Active card first, on the home page only (see Active lessons), then folder tiles, then the lessons in no folder, oldest first, with status and problem progress, then a New lesson tile that opens Upload. A New folder button creates a folder. Folders are one level deep; opening one shows its lessons, a Rename button, a Delete folder button (its lessons move back home), and a New lesson tile that creates the lesson in that folder. Each ready lesson tile has an Active checkbox in its top right corner, beside an options menu to rename it, move it to a folder or home, or delete it after a confirmation; a generating lesson can't be deleted, and a renamed lesson keeps its name through reruns |
 | Upload | File drop, role tag and force-transcription toggle per file |
 | Generating | Current pipeline stage, with a 2048 game below it while the lesson generates; a failed lesson shows the reason and a Rerun button |
 | Lesson | Sections and blocks in order, with a progress indicator in the accent color. A Rerun button opens a dialog with the start stage and force-transcription toggles; a failed rerun shows its reason above the lesson. A Days button splits the lesson into days; see Finish lines. Opening a lesson returns to the block last read; see Reading position |
@@ -53,8 +53,8 @@ The app header is visible on every screen and holds the music player and the Pom
 The student marks the lessons they are working through as active, and the home page shows how many problems each one has left.
 
 - **Marking:** a ready lesson's tile has an Active checkbox in its top right corner, left of the options button. Checking or unchecking it doesn't open the lesson. A generating lesson, or a new lesson that failed, has none.
-- **Grid:** at the top of the home page, an "Active" heading over a grid of cards, one per active lesson from any folder, oldest first. With no active lesson there is no heading or grid. Folders don't show it.
-- **Card:** the lesson title, then a row of boxes, one per problem, wrapping as needed, then "3 problems left" in `--text-muted`, or "All problems done" once none are. While the lesson reruns, "Generating" shows in place of the boxes. Clicking the card opens the lesson.
+- **Card:** at the top of the home page, one card spanning the width of the library, on `--bg` with a 1px `--border` and the usual card radius. It holds an "Active" heading over a row per active lesson from any folder, oldest first. With no active lesson there is no card. Folders don't show it.
+- **Rows:** each row has the lesson title in 14px, then its boxes side by side, wrapping as needed, then "3 problems left" in `--text-muted`, or "All problems done" once none are. While the lesson reruns, "Generating" shows in place of the boxes. Clicking a row opens the lesson.
 - **Boxes:** one fills for each done problem, from the left, in `--correct`. The rest are `--surface-raised` with a 1px `--border`. A problem is done as defined in `completion-and-verification.md`, so undoing a mark done empties a box again.
 - **Persistence:** whether a lesson is active is saved on the server. New lessons start inactive, a rerun keeps it, and deleting the lesson removes it.
 
