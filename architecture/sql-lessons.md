@@ -1,6 +1,52 @@
 # SQL lessons
 
-A computer science lesson in the `sql` domain teaches querying from a databases course's material. The student uploads the problem set and reference material, and, when the course gives one, its database. Query exercises are solved in the workspace and checked on the server by running the student's query and a reference query against a copy of the database and comparing their results. No model writes tables: practice exercises come from Spider, a hand-built bank of databases with questions and reference queries, and the course's homework runs against the course's own database.
+A computer science lesson in the `sql` domain teaches querying. Its problems come one of two ways: recommended for one chapter of SQL, from Spider, a hand-built bank of databases with questions and reference queries, and from pgexercises for the chapters Spider lacks; or uploaded as the course's problem set, with the course's database if it gives one. Query exercises are solved in the workspace and checked on the server by running the student's query and a reference query against a copy of the database and comparing their results. No model writes tables.
+
+## Creating a SQL lesson
+
+The Upload screen of a SQL lesson asks where its problems come from (see Upload in `ui.md`):
+
+- **Recommend problems** (the default): the student picks one chapter and a number of problems, and the server recommends them (see Recommending problems). The student can remove any, or ask for another set, then generates the lesson with them as its problem set. Notes, such as lecture slides, can be added as reference material, and are optional.
+- **Upload a problem set:** the course's problem set and reference material in a file drop, as for a general lesson, and the course's database, if it gives one, in a slot of its own (see Course databases).
+
+## Chapters
+
+SQL querying in 15 chapters, in the order courses usually teach it. A lesson covers one, and the chapters before it count as known.
+
+| # | Chapter | Spider features | pgexercises |
+|---|---|---|---|
+| 1 | Selecting | selecting | |
+| 2 | Filtering | filtering | |
+| 3 | Text and patterns | patterns | |
+| 4 | Nulls | | Yes |
+| 5 | Sorting and limiting | sorting, limiting, distinct | |
+| 6 | Expressions and `CASE` | | Yes |
+| 7 | Aggregates | aggregates | |
+| 8 | Grouping | grouping, having | |
+| 9 | Inner joins | joins | |
+| 10 | Outer and self joins | | Yes |
+| 11 | Subqueries | subqueries | |
+| 12 | Set operations | set operations | |
+| 13 | CTEs | | Yes |
+| 14 | Window functions | | Yes |
+| 15 | Dates and times | | Yes |
+
+- A chapter's problems come from Spider when it has features there, and from pgexercises otherwise: Spider has no exercise with an outer join, `IS NULL`, `CASE`, a CTE, a window function, or date arithmetic.
+- The chapters, their features, and their pgexercises pages are kept in the server's code. Each pgexercises page is checked to practice its chapter when it is added to the list. When this was written: nulls had 1 page, outer and self joins 2, expressions 1, CTEs 3, window functions 4, and dates its section's pages.
+
+## Recommending problems
+
+- **Spider chapters:** a problem is eligible when it uses at least one of the chapter's features and none from a later chapter. Selecting counts as known in every chapter.
+- Eligible problems are grouped by database, and the databases ordered by how many eligible problems they have, most first. A recommendation takes the requested number from the first database, fewer features first, then from the next databases if it runs short, so a lesson's problems share as few sets of tables as possible. "Recommend again" starts from the next database, so each set is different, and wraps around after the last.
+- **pgexercises chapters:** a recommendation is the chapter's pages, up to the number requested, in the list's order. A chapter with fewer pages than requested says how many it has.
+- The number of problems is 1 to 10, 5 by default.
+- With no Spider import, Spider chapters can't recommend anything and say so; pgexercises chapters still work.
+
+## pgexercises
+
+- Source: `pgexercises.com`, exercises on one club database, run and checked on its own site in PostgreSQL. Kedami keeps only each page's title and path, never its text, queries, or data.
+- A pgexercises problem is solved there and marked done in Kedami, as a LeetCode problem the dataset lacks is (see Computer science lessons in `lesson-format.md`). Its text is "Solve "{title}" on pgexercises." with an Open on pgexercises button.
+- Its link is `https://pgexercises.com/questions/{path}`. The renderer asks main to open it, and main opens it only if the path is one section folder and one page name, such as `joins/self2.html` (see Security and privacy in `system.md`).
 
 ## Exercise bank
 
@@ -13,12 +59,13 @@ A computer science lesson in the `sql` domain teaches querying from a databases 
 - When this was written, the import kept 5,325 exercises on 196 databases (24 MB). Of the questions it dropped, 4,148 repeated another's query, 344 returned no rows, 248 were on the three databases over 5 MB, 113 returned over 200 rows, and 3 didn't run.
 
 **Known gaps, accepted**
-- Spider's questions were written to test programs that turn questions into SQL, so they are plain and sometimes ambiguous about naming or order. Practice exercises are checkpoints, which don't count toward completion, so a doubtful one can be left.
-- Spider has no window functions, CTEs, or date arithmetic. Those are taught in explanations and practiced only in course homework.
+- Spider's questions were written to test programs that turn questions into SQL, so they are plain and sometimes ambiguous about naming or order. A doubtful recommended problem can be removed before generating, and a doubtful practice exercise left, since checkpoints don't count toward completion.
+- Spider has no outer joins, `IS NULL`, `CASE`, CTEs, window functions, or date arithmetic. Those chapters use pgexercises, so their problems are solved there and marked done rather than checked in Kedami, and they have no practice exercises.
 
 ## Course databases
 
-- On the Upload screen of a SQL lesson, one file can be tagged as the database: a SQLite file (`.sqlite` or `.db`) or a SQL script (`.sql`), at most 20 MB.
+- When a SQL lesson's problem set is uploaded, the course's database can go in its own slot on the Upload screen: a SQLite file (`.sqlite` or `.db`) or a SQL script (`.sql`), at most 20 MB. A database file dropped among the material moves to the slot.
+- The file is checked as soon as it is picked, before Generate: the slot shows the tables it found, with their row counts, or the reason it was refused. It is sent again with the lesson.
 - A SQLite file must hold at least one table, pass SQLite's quick check, and have every table readable. It is never opened in place: its bytes are loaded into memory, in SQLite's defensive mode, without trusting its schema. A SQL script is run once, at upload, into a fresh in-memory database that it may fill with tables and rows but not attach, pragma, or load extensions from, within 10 seconds. Either way, the result is saved as `materials/{lesson_id}/databases/{name}.sqlite`, where the name is the file's, without its extension, in letters, digits, underscores, and hyphens. A file that fails is refused with SQLite's message.
 - The database isn't a material: it isn't listed with the lesson's files, read in stage 1, or sent to the model as a file. The model sees its tables: each table's columns, row count, and first 5 rows, with the course material.
 - Its table and column names are kept as the course wrote them.
@@ -26,8 +73,9 @@ A computer science lesson in the `sql` domain teaches querying from a databases 
 ## In a lesson
 
 - The pipeline is the general one (see `pipeline.md`), with the SQL rules below.
-- **Homework:** a problem part that asks for a query gets a `query` answer when the lesson has a course database: the model writes the reference query in stage 4, and verification checks it. Without a course database, the part is a `self_check` whose rubric says what a correct query does. Parts that don't ask for a query use the existing kinds: `choice`, `multi_choice`, `numeric`, or `self_check`.
-- **Practice:** the plan (stage 3) names the SQL features each section teaches, from the list above. After stage 4, the server adds up to 3 bank exercises to the end of each section as checkpoints with `query` answers, with IDs `{section_id}-practice-{n}` and no hints. An exercise is eligible when it uses at least one feature the section teaches and none that isn't taught by then. Selecting counts as taught from the start, since every query selects. Exercises with fewer features come first; a section's exercises come from one database where possible; no exercise appears twice in a lesson. With nothing imported, sections have no practice exercises.
+- **Recommended problems:** the renderer writes them as the problem set, a text file `problems.md` with one problem per line: `1. spider:{exercise id} {question}` or `2. pgexercises:{path} {title}`. The server reads it strictly, like a LeetCode list, and refuses at upload a line whose exercise or page it doesn't have. Each becomes a problem block with source reference `Problem {n}` and one part: a Spider problem gets a `query` answer on its bank database, and a pgexercises problem an `external` answer. The model sees the problems and their databases' tables, and only maps the problems to the concepts they need, as for DSA.
+- **Uploaded homework:** a problem part that asks for a query gets a `query` answer when the lesson has a course database: the model writes the reference query in stage 4, and verification checks it. Without a course database, the part is a `self_check` whose rubric says what a correct query does. Parts that don't ask for a query use the existing kinds: `choice`, `multi_choice`, `numeric`, or `self_check`.
+- **Practice:** the plan (stage 3) names the SQL features each section teaches, from the list above. In a recommended lesson, practice never repeats a problem from the problem set. After stage 4, the server adds up to 3 bank exercises to the end of each section as checkpoints with `query` answers, with IDs `{section_id}-practice-{n}` and no hints. An exercise is eligible when it uses at least one feature the section teaches and none that isn't taught by then. Selecting counts as taught from the start, since every query selects. Exercises with fewer features come first; a section's exercises come from one database where possible; no exercise appears twice in a lesson. With nothing imported, sections have no practice exercises.
 - The model chooses features only. It never writes or chooses a bank exercise's tables, question, or query.
 - Code in lessons is SQL, in fenced `sql` blocks, highlighted with the same neutral tokens as Python.
 
@@ -76,10 +124,11 @@ The workspace from `code-problems.md`, with SQL in its panes. Its layout is unch
 
 ## Generation
 
-- **Extraction** is the general one.
+- **Extraction** is the general one for an uploaded problem set. For recommended problems, the server lists the problems and the model maps them to concepts (see In a lesson).
 - **Planning** adds each section's SQL features.
 - **Sections** follow the SQL rules: worked examples use the course database when there is one, and no lesson content gives the query for an assigned problem.
 - **Hints** are written from the part's text and the database's tables. Besides the small judge, the cheap check refuses a hint that contains the reference query, compared without case or spacing.
+- **Hints** for a pgexercises problem are written from its title, as for a LeetCode problem.
 - **Verification:** for a model-written reference, the second solver sees the problem, the course database's tables, and that the answer is a query. It writes its own query, which is checked against the reference by the rules above. Agreement marks the part verified; disagreement leaves the "Unverified answer" label, and mark done is the way past it. Bank exercises aren't verified, since their references come from the bank, and show no "Unverified answer" label.
 - **Solutions:** no part of a SQL lesson has one yet, as in DSA lessons (see Not included).
 
@@ -91,6 +140,9 @@ The workspace from `code-problems.md`, with SQL in its panes. Its layout is unch
 - `GET /lessons/{id}/blocks/{block_id}/tables` returns the tables of a query part's or checkpoint's database: each table's columns, its first 20 rows, and its row count.
 - `POST /lessons/{id}/blocks/{block_id}/run-query` runs a query for a part or checkpoint against its database, without checking it, and returns the columns, the rows (at most 100), the total row count, and any error.
 - `POST /lessons/{id}/blocks/{block_id}/check` checks a query like any response. For a query it also returns the reason it is wrong and the student's result, as Run returns it.
+- `GET /sql/chapters` lists the chapters, with how many problems each can recommend.
+- `POST /sql/recommend` takes a chapter, a number of problems, and how many times Recommend again was pressed, and returns the problems: each with its source (`spider` or `pgexercises`), ID or path, text, and, for Spider, its database.
+- `POST /sql/database` checks an uploaded course database without keeping it, and returns its tables with their row counts, or the reason it was refused.
 
 ## Not included
 
@@ -107,4 +159,4 @@ Cut to ship faster (backlog):
 
 ## Most likely to be wrong
 
-Comparing results and the authorizer, which are built and tested. Next: choosing practice exercises by feature (an exercise must never use a feature the lesson hasn't taught yet) and running an uploaded SQL script, which may write but must stay in its own database. These get tests first.
+Comparing results, the authorizer, choosing practice by feature, and running an uploaded SQL script are built and tested. Next: recommending problems for a chapter (a problem must use the chapter and nothing from a later one, and Recommend again must give a different set until it wraps) and checking a pgexercises link in main, the second link that leaves the app. These get tests first.

@@ -47,7 +47,7 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 | `choice` | `options` (at least 2), `correct_index` | Index match |
 | `multi_choice` | `options` (at least 2), `correct_indexes` (at least 1, no duplicates) | Exact set match, for "select all that apply" |
 | `code` | `platform` (`leetcode`), `number`, `title`, `slug`, `difficulty`, `method`, `starter_code`, `tests` (each `args`, `expected`, `compare`) | Run in the sandboxed runner against its tests; see `code-problems.md`. Problem parts only |
-| `external` | `platform` (`leetcode`), `number`, `title`, `slug` | Not checked. For a LeetCode problem not in the imported dataset: the student solves it on LeetCode and marks it done. Problem parts only |
+| `external` | `platform` (`leetcode` or `pgexercises`); for LeetCode `number`, `title`, `slug`; for pgexercises `path`, `title` | Not checked. A LeetCode problem not in the imported dataset, or a pgexercises problem in a SQL lesson (see `sql-lessons.md`): the student solves it there and marks it done. Problem parts only |
 | `query` | `database`, `reference`, `ordered`, `exercise` | The student's query and the reference run on a fresh copy of the database and their results are compared; see `sql-lessons.md`. SQL lessons only |
 
 ## Computer science lessons

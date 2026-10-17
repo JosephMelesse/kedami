@@ -22,6 +22,7 @@
 18. Code problems for computer science lessons
 19. Computer science domains and the DSA problem picker
 20. SQL lessons
+21. SQL lessons by chapter: recommended problems, pgexercises links, and the course database slot
 
 Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the sequencing. Each later step is independent of the ones after it.
 

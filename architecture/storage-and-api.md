@@ -47,6 +47,9 @@ All routes require the session token.
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/lessons` | Multipart upload: `subject`, `domain` for computer science, optional `folder`, and per file `files`, `roles`, `force`; starts the pipeline |
+| GET | `/sql/chapters` | The SQL chapters, each with how many problems it can recommend |
+| POST | `/sql/recommend` | Recommend problems for a SQL chapter: a chapter, a number, and how many times Recommend again was pressed |
+| POST | `/sql/database` | Check an uploaded course database without keeping it; returns its tables with their row counts, or why it was refused |
 | GET | `/leetcode/search?q=` | Up to 8 imported LeetCode problems matching a number or words, each with number, slug, title, and difficulty |
 | DELETE | `/lessons/{id}` | Delete a lesson that isn't generating: its JSON, files, stage outputs, progress, simulations, solutions, test flags, and usage log |
 | POST | `/lessons/{id}/rename` | Rename a lesson |
