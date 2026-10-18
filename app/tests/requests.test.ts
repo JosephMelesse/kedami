@@ -5,8 +5,8 @@ describe('isAllowedRequest', () => {
   it.each([
     'file:///home/me/kedami/app/out/renderer/index.html',
     'http://127.0.0.1:43211/lessons',
-    'http://localhost:5173/src/main.tsx',
-    'ws://localhost:5173/',
+    'http://localhost:5000/src/main.tsx',
+    'ws://localhost:5000/',
     'data:image/png;base64,AAAA',
     'blob:null/1234',
     'kedami-music://track/song.mp3',

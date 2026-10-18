@@ -80,7 +80,7 @@ python3 -m venv .venv
 The server will not start without `KEDAMI_PORT`, `KEDAMI_TOKEN`, and `KEDAMI_DATA_DIR`. Electron main sets them. Lesson generation also needs `ANTHROPIC_API_KEY`, which the server loads from `server/.env`; without it the server runs but new lessons fail. If the key is not scoped to a workspace, also set `ANTHROPIC_WORKSPACE_ID` there. To start it by hand:
 
 ```bash
-KEDAMI_PORT=8765 KEDAMI_TOKEN=dev KEDAMI_DATA_DIR=../data KEDAMI_ALLOWED_ORIGINS=http://localhost:5173 \
+KEDAMI_PORT=8765 KEDAMI_TOKEN=dev KEDAMI_DATA_DIR=../data KEDAMI_ALLOWED_ORIGINS=http://localhost:5000 \
   .venv/bin/python -m kedami_server
 ```
 

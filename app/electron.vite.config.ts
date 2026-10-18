@@ -8,6 +8,8 @@ export default defineConfig({
   preload: {},
   renderer: {
     plugins: [react(), bundlePlugin()],
+    // The dev server's port. Main reads the address Vite actually uses, so a taken port only moves it.
+    server: { port: 5000 },
     // The code runner's vendored Python package; see src/renderer/src/code/harness.ts.
     assetsInclude: ['**/*.whl'],
     build: {
