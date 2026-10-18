@@ -33,6 +33,8 @@ class LessonRow:
     active: bool = False
     # Computer science only; see Lesson.domain. Rows made before domains existed have none.
     domain: str | None = None
+    # The SQL chapter a lesson was made for, whose recommended problems are its problem set; null otherwise.
+    chapter: int | None = None
 
     @property
     def shown_title(self) -> str:
@@ -59,12 +61,14 @@ def create_generating(
     schema_version: int,
     folder_id: int | None = None,
     domain: str | None = None,
+    chapter: int | None = None,
 ) -> None:
     """Index a lesson whose generation is starting. The title arrives with the plan."""
     conn.execute(
-        "INSERT INTO lessons (id, title, subject, domain, status, current_stage, schema_version, created, folder_id)"
-        " VALUES (?, 'New lesson', ?, ?, 'generating', NULL, ?, ?, ?)",
-        (lesson_id, subject, domain, schema_version, _now(), folder_id),
+        "INSERT INTO lessons"
+        " (id, title, subject, domain, chapter, status, current_stage, schema_version, created, folder_id)"
+        " VALUES (?, 'New lesson', ?, ?, ?, 'generating', NULL, ?, ?, ?)",
+        (lesson_id, subject, domain, chapter, schema_version, _now(), folder_id),
     )
 
 

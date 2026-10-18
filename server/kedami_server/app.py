@@ -35,10 +35,14 @@ from .library import (
     start_run,
 )
 from .plot import sample_points
+from .practice import load_bank
+from .recommend import DEFAULT_COUNT, MAX_COUNT, MIN_COUNT, available, recommend
+from .sql_chapters import CHAPTERS
+from .sql_chapters import chapter as sql_chapter
 from .storage import delete_lesson_files, load_lesson
 from .targets import Target, find_target
 from .generation.leetcode import ProblemListError
-from .uploads import Upload, check_problem_lists, check_uploads, save_uploads
+from .uploads import Upload, chapter_material, check_problem_lists, check_recommended, check_uploads, save_uploads
 
 
 class Body(BaseModel):
@@ -68,6 +72,13 @@ class SimulationStatusRequest(Body):
 
 class SolutionRequest(Body):
     part_id: Annotated[str, StringConstraints(min_length=1, max_length=200)]
+
+
+class RecommendRequest(Body):
+    chapter: StrictInt
+    count: Annotated[StrictInt, Field(ge=MIN_COUNT, le=MAX_COUNT)] = DEFAULT_COUNT
+    # How many times Recommend again was pressed.
+    round: Annotated[StrictInt, Field(ge=0, le=100_000)] = 0
 
 
 class FolderRequest(Body):
@@ -244,9 +255,14 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         force: Annotated[list[bool], Form()],
         folder: Annotated[int | None, Form()] = None,
         domain: Annotated[Domain | None, Form()] = None,
+        chapter: Annotated[int | None, Form()] = None,
     ):
         if (subject == "computer_science") != (domain is not None):
             raise HTTPException(422, "A computer science lesson needs a domain, and only it has one.")
+        if chapter is not None:
+            if domain != "sql":
+                raise HTTPException(422, "Only a SQL lesson is made from a chapter.")
+            find_chapter(chapter)
         if not len(files) == len(roles) == len(force):
             raise HTTPException(422, "Each file needs a role and a force transcription setting.")
         uploads = [Upload(f.filename or "file", f.file.read(), r, x) for f, r, x in zip(files, roles, force)]
@@ -262,19 +278,29 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
                 if not library.folder_exists(conn, folder):
                     raise HTTPException(422, "That folder no longer exists.")
         try:
+            if chapter is not None:
+                if database_uploads:
+                    raise SourceError("A chapter lesson uses the book's example database, so it takes no database.")
+                check_recommended(uploads, settings.data_dir)
             check_uploads(uploads)
             if subject == "computer_science" and domain == "dsa":
                 check_problem_lists(uploads, settings.data_dir)
             course = [(u.name, databases.from_upload(u.name, u.data)) for u in database_uploads]
         except (SourceError, ProblemListError, databases.DatabaseFileError) as error:
             raise HTTPException(422, str(error)) from error
+        if chapter is not None:
+            reference, people = chapter_material(chapter)
+            uploads.append(reference)
+            course.append(people)
 
         lesson_id = str(uuid.uuid4())
         saved = save_uploads(pipeline.materials_dir(settings.data_dir, lesson_id), uploads)
         for name, image in course:
             databases.save_course(pipeline.materials_dir(settings.data_dir, lesson_id), name, image)
         with db.connect(settings.data_dir) as conn:
-            create_generating(conn, lesson_id, subject, schema_version=1, folder_id=folder, domain=domain)
+            create_generating(
+                conn, lesson_id, subject, schema_version=1, folder_id=folder, domain=domain, chapter=chapter
+            )
             for file in saved:
                 add_material(conn, lesson_id, file.filename, file.role, file.force_transcription)
         start_generation(settings.data_dir, lesson_id, subject, 1)
@@ -361,6 +387,45 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         # Whether anything is imported, so the picker can say so instead of finding nothing.
         imported = len(leetcode_entries(settings.data_dir)) > 0
         return {"problems": [asdict(entry) for entry in found], "imported": imported}
+
+    def find_chapter(number: int):
+        try:
+            return sql_chapter(number)
+        except KeyError:
+            raise HTTPException(422, f"There is no SQL chapter {number}.") from None
+
+    @app.get("/sql/chapters")
+    def sql_chapters():
+        bank = load_bank(settings.data_dir)
+        chapters = [
+            {
+                "number": c.number,
+                "name": c.name,
+                "source": "pgexercises" if c.pages else "spider",
+                "available": available(bank, c),
+            }
+            for c in CHAPTERS
+        ]
+        # Whether Spider is imported, so Spider chapters can say why they recommend nothing.
+        return {"chapters": chapters, "imported": len(bank) > 0}
+
+    @app.post("/sql/recommend")
+    def sql_recommend(body: RecommendRequest):
+        chapter = find_chapter(body.chapter)
+        bank = load_bank(settings.data_dir)
+        problems = recommend(bank, chapter, body.count, body.round)
+        return {"problems": [asdict(p) for p in problems], "available": available(bank, chapter)}
+
+    @app.post("/sql/database")
+    def sql_database(file: Annotated[UploadFile, File()]):
+        """Check a course database when it is picked, without keeping it."""
+        name = file.filename or "database"
+        try:
+            image = databases.from_upload(name, file.file.read(databases.MAX_UPLOAD + 1))
+        except databases.DatabaseFileError as error:
+            raise HTTPException(422, str(error)) from error
+        found = [{"name": t["name"], "count": t["count"]} for t in databases.tables(image, rows=0)]
+        return {"name": databases.course_name(name), "tables": found}
 
     @app.get("/lessons/{lesson_id}/progress")
     def lesson_progress(lesson_id: str):

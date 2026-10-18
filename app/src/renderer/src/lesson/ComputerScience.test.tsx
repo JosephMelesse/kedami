@@ -10,6 +10,7 @@ const lesson = {
   id: 'cs',
   title: 'Hashing',
   subject: 'computer_science',
+  credits: [],
   source_files: ['problems.md'],
   sections: [
     {

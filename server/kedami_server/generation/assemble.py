@@ -8,7 +8,17 @@ which sends the section back to the model with the message.
 from pydantic import ValidationError
 
 from ..ids import slugify
-from ..lesson import ChoiceAnswer, CodeAnswer, ExternalAnswer, Lesson, MultiChoiceAnswer, Part, ProblemBlock, Section
+from ..lesson import (
+    ChoiceAnswer,
+    CodeAnswer,
+    ExternalAnswer,
+    Lesson,
+    MultiChoiceAnswer,
+    Part,
+    ProblemBlock,
+    QueryAnswer,
+    Section,
+)
 from .plan import SectionPlan
 from .schemas import ProblemDraft, SectionDraft, SimulationDraft
 
@@ -18,9 +28,10 @@ class SectionError(ValueError):
 
 
 def assemble_section(
-    plan: SectionPlan, draft: SectionDraft, fixed: dict[str, CodeAnswer | ExternalAnswer] | None = None
+    plan: SectionPlan, draft: SectionDraft, fixed: dict[str, CodeAnswer | ExternalAnswer | QueryAnswer] | None = None
 ) -> Section:
-    """Build a section. Problems in `fixed` are LeetCode problems, so their parts get that answer."""
+    """Build a section. Problems in `fixed` were listed by the server, LeetCode problems or a SQL chapter's
+    recommended problems, so their parts get that answer."""
     fixed = fixed or {}
     targets = {slugify(p.source_ref): p for p in plan.problems}
     typed = [block.typed for block in draft.blocks]
@@ -75,9 +86,9 @@ def _check_problems(placed: list[str], targets: dict) -> None:
         raise SectionError(f"these problems are missing from the section: {', '.join(missing)}")
 
 
-def _problem(draft: ProblemDraft, extracted, fixed: CodeAnswer | ExternalAnswer | None = None) -> dict:
+def _problem(draft: ProblemDraft, extracted, fixed: CodeAnswer | ExternalAnswer | QueryAnswer | None = None) -> dict:
     if fixed is not None:
-        # A LeetCode problem: every part takes the server's answer, whatever the draft gave.
+        # A problem the server listed: every part takes the server's answer, whatever the draft gave.
         answers = {slugify(part.label): fixed for part in extracted.parts}
         return _problem_block(extracted, answers)
     answers = {}
@@ -123,7 +134,13 @@ def _problem_block(extracted, answers: dict) -> dict:
 
 
 def assemble_lesson(
-    lesson_id: str, title: str, subject: str, source_files: list[str], sections: list[Section], domain: str | None = None
+    lesson_id: str,
+    title: str,
+    subject: str,
+    source_files: list[str],
+    sections: list[Section],
+    domain: str | None = None,
+    credits: list[str] | None = None,
 ) -> Lesson:
     return Lesson(
         schema_version=1,
@@ -131,6 +148,7 @@ def assemble_lesson(
         title=title,
         subject=subject,
         domain=domain,
+        credits=credits or [],
         source_files=source_files,
         sections=sections,
     )

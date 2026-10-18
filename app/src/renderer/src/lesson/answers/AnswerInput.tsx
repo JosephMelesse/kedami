@@ -32,18 +32,23 @@ export function AnswerInput(props: InputProps<Answer>) {
   }
 }
 
-/** A LeetCode problem: solved in the browser, then marked done here. Nothing to type. */
+/** A LeetCode problem or pgexercises page: solved in the browser, then marked done here. Nothing to type. */
 function ExternalProblem({ answer }: { answer: ExternalAnswer }) {
   const [error, setError] = useState<string | null>(null)
+  const site = answer.platform === 'pgexercises' ? 'pgexercises' : 'LeetCode'
+  const open = () =>
+    answer.platform === 'pgexercises'
+      ? window.kedami.openPgExercises(answer.path ?? '')
+      : window.kedami.openLeetCode(answer.slug ?? '')
   return (
     <div className="answer-actions external">
-      <span className="muted">Solve it on LeetCode, then mark it done.</span>
+      <span className="muted">Solve it on {site}, then mark it done.</span>
       <button
         type="button"
         className="button button-primary"
-        onClick={() => window.kedami.openLeetCode(answer.slug).catch(() => setError('Could not open the browser.'))}
+        onClick={() => open().catch(() => setError('Could not open the browser.'))}
       >
-        Open on LeetCode
+        Open on {site}
       </button>
       {error && <span className="answer-error">{error}</span>}
     </div>

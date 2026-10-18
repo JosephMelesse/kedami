@@ -296,7 +296,7 @@
     },
     "ExternalAnswer": {
       "additionalProperties": false,
-      "description": "A problem solved elsewhere and marked done here. Never checked or verified.",
+      "description": "A problem solved elsewhere and marked done here. Never checked or verified. A LeetCode problem has its\nnumber and slug; a pgexercises page its path, such as \"joins/self2.html\".",
       "properties": {
         "kind": {
           "const": "external",
@@ -304,14 +304,12 @@
           "type": "string"
         },
         "platform": {
-          "const": "leetcode",
+          "enum": [
+            "leetcode",
+            "pgexercises"
+          ],
           "title": "Platform",
           "type": "string"
-        },
-        "number": {
-          "minimum": 1,
-          "title": "Number",
-          "type": "integer"
         },
         "title": {
           "maxLength": 200,
@@ -319,18 +317,54 @@
           "title": "Title",
           "type": "string"
         },
+        "number": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Number"
+        },
         "slug": {
-          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-          "title": "Slug",
-          "type": "string"
+          "anyOf": [
+            {
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Slug"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "pattern": "^[a-z]+/[a-z0-9]+\\.html$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
         }
       },
       "required": [
         "kind",
         "platform",
-        "number",
         "title",
-        "slug"
+        "number",
+        "slug",
+        "path"
       ],
       "title": "ExternalAnswer",
       "type": "object"
@@ -913,6 +947,14 @@
       "default": null,
       "title": "Domain"
     },
+    "credits": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Credits",
+      "type": "array"
+    },
     "source_files": {
       "items": {
         "type": "string"
@@ -935,6 +977,7 @@
     "title",
     "subject",
     "domain",
+    "credits",
     "source_files",
     "sections"
   ],

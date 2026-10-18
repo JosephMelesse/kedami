@@ -5,6 +5,7 @@ export type Id = string;
 export type Title = string;
 export type Subject = "math" | "physics" | "computer_science" | "general";
 export type Domain = ("dsa" | "sql") | null;
+export type Credits = string[];
 export type SourceFiles = string[];
 /**
  * @minItems 1
@@ -88,10 +89,11 @@ export type Options1 = [string, string, ...string[]];
  */
 export type CorrectIndexes = [number, ...number[]];
 export type Kind5 = "external";
-export type Platform = "leetcode";
-export type Number = number;
+export type Platform = "leetcode" | "pgexercises";
 export type Title2 = string;
-export type Slug = string;
+export type Number = number | null;
+export type Slug = string | null;
+export type Path = string | null;
 export type Kind6 = "code";
 export type Platform1 = "leetcode";
 export type Number1 = number;
@@ -152,6 +154,7 @@ export interface Lesson {
   title: Title;
   subject: Subject;
   domain: Domain;
+  credits: Credits;
   source_files: SourceFiles;
   sections: Sections;
 }
@@ -293,7 +296,8 @@ export interface MultiChoiceAnswer {
   correct_indexes: CorrectIndexes;
 }
 /**
- * A problem solved elsewhere and marked done here. Never checked or verified.
+ * A problem solved elsewhere and marked done here. Never checked or verified. A LeetCode problem has its
+ * number and slug; a pgexercises page its path, such as "joins/self2.html".
  *
  * This interface was referenced by `Lesson`'s JSON-Schema
  * via the `definition` "ExternalAnswer".
@@ -301,9 +305,10 @@ export interface MultiChoiceAnswer {
 export interface ExternalAnswer {
   kind: Kind5;
   platform: Platform;
-  number: Number;
   title: Title2;
+  number: Number;
   slug: Slug;
+  path: Path;
 }
 /**
  * A LeetCode problem solved in the workspace against tests from LeetCodeDataset. The tests run in

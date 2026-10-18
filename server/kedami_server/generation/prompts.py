@@ -29,14 +29,18 @@ MARKDOWN = (
 )
 
 
-def materials(subject: str, problem_set: str, reference: str, database: str | None = None) -> list[dict]:
+def materials(
+    subject: str, problem_set: str, reference: str, database: str | None = None, problem_databases: str | None = None
+) -> list[dict]:
     """The course material, as the cached opening of every request for a lesson. A SQL lesson's course database
-    comes with it as its tables."""
+    comes with it as its tables, and a chapter lesson's the tables of the bank databases its problems use."""
     text = f"Subject: {subject}\n\n<problem_set>\n{problem_set}\n</problem_set>"
     if reference.strip():
         text += f"\n\n<reference_material>\n{reference}\n</reference_material>"
     if database:
         text += f"\n\n<course_database>\n{database}\n</course_database>"
+    if problem_databases:
+        text += f"\n\n<problem_databases>\n{problem_databases}\n</problem_databases>"
     return [{"type": "text", "text": text, "cache_control": {"type": "ephemeral"}}]
 
 
@@ -142,6 +146,30 @@ def cs_extract_request(problems: list, descriptions: dict[int, str], feedback: s
     )
 
 
+SQL_EXTRACT_SYSTEM = f"""You map the problems of a SQL lesson to the concepts a lesson must teach. The problems
+were recommended for one chapter of a SQL course: some are questions on a database whose tables are given, and some
+are solved on pgexercises, given by title.
+
+For each problem, give its number and the IDs of the concepts a student needs to solve it, such as filtering rows
+with WHERE, or joining two tables on a key. Draw the concepts from the reference material, which is the chapter of
+the book the lesson teaches from. Keep each concept specific enough to teach in a few paragraphs, list each once,
+and cover every problem exactly once using the numbers given.
+
+{MARKDOWN}"""
+
+
+def sql_extract_request(problems: list, feedback: str | None = None) -> dict:
+    data = []
+    for p in problems:
+        on_bank = p.answer.kind == "query"
+        where = {"database": p.answer.database.partition("/")[2]} if on_bank else {"solved_on": "pgexercises"}
+        data.append({"number": p.number, "text": p.text} | where)
+    return _with_feedback(
+        f"Map these SQL problems to the concepts they need:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}",
+        feedback,
+    )
+
+
 # Stage 3: plan
 
 PLAN_SYSTEM = """You plan the order of a lesson that teaches the concepts a homework assignment needs.
@@ -236,8 +264,9 @@ For this computer science lesson:
   for explaining why an approach works."""
 
 
-def sql_section_rules(course: str | None) -> str:
-    """Added to the section prompt for SQL lessons. `course` is the course database's name, if there is one."""
+def sql_section_rules(course: str | None, chapter: bool = False) -> str:
+    """Added to the section prompt for SQL lessons. `course` is the course database's name, if there is one, and
+    `chapter` says the lesson is a chapter lesson: its reference is the bundled book and its problems recommended."""
     if course:
         queries = (
             f"- A homework part or checkpoint that asks the student to write a query has a `query` answer: `reference` is one "
@@ -250,10 +279,19 @@ def sql_section_rules(course: str | None) -> str:
             "- There is no course database, so a homework part that asks for a query is a `self_check` whose rubric "
             "says what a correct query does, and checkpoints don't ask for queries."
         )
+    book = (
+        "\n- The reference material is a book that teaches standard SQL rather than one system's. Write SQLite, "
+        "and say where SQLite differs from what the book shows, as with ROLLUP and CUBE, which SQLite lacks.\n"
+        "- The homework problems were chosen by the server, which has their answers: some are questions on the "
+        "problem databases, and some are solved on pgexercises. Place each like any homework problem, with `parts` as "
+        "an empty list."
+        if chapter
+        else ""
+    )
     return f"""
 
 For this SQL lesson:
-- Write all SQL in fenced ```sql blocks, in SQLite.
+- Write all SQL in fenced ```sql blocks, in SQLite.{book}
 {queries}
 - Never give the query for an assigned homework problem anywhere in the section, including worked examples.
 - The server adds practice exercises from a bank to the end of each section. Don't write any."""
