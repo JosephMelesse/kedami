@@ -19,6 +19,7 @@ from ..lesson import (
     PlainText,
     PlotFunction,
     PlotParameter,
+    QueryAnswer,
     Range,
 )
 
@@ -89,9 +90,10 @@ class ProblemsAndConcepts(Model):
 class Extraction(ProblemsAndConcepts):
     """The stage 2 output saved to disk and used by later stages."""
 
-    # LeetCode problems' answers, keyed by problem ID: solved in the workspace, or on LeetCode. The server
-    # sets these for computer science lessons; the model never writes them. Read under their old name too.
-    answers: dict[str, Annotated[CodeAnswer | ExternalAnswer, Field(discriminator="kind")]] = Field(
+    # Answers of problems the server listed, keyed by problem ID: LeetCode problems, solved in the workspace or
+    # on LeetCode, and a SQL chapter's recommended problems, from the bank or on pgexercises. The model never
+    # writes them. Read under their old name too.
+    answers: dict[str, Annotated[CodeAnswer | ExternalAnswer | QueryAnswer, Field(discriminator="kind")]] = Field(
         default={}, validation_alias=AliasChoices("answers", "externals")
     )
 
@@ -99,12 +101,12 @@ class Extraction(ProblemsAndConcepts):
     def answers_name_problems(self) -> "Extraction":
         unknown = set(self.answers) - {slugify(p.source_ref) for p in self.problems}
         if unknown:
-            raise ValueError(f"LeetCode answers for unknown problems: {', '.join(sorted(unknown))}")
+            raise ValueError(f"Listed answers for unknown problems: {', '.join(sorted(unknown))}")
         return self
 
 
 class ProblemConcepts(Model):
-    number: int = Field(description="The LeetCode problem number exactly as given.")
+    number: int = Field(description="The problem number exactly as given.")
     concepts: list[str] = Field(description="IDs of the concepts a student needs to solve this problem.")
 
 

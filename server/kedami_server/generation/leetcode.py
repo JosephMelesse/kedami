@@ -148,21 +148,7 @@ def build_extraction(
 
     Raises ConceptMapError if the model didn't cover every listed problem exactly once.
     """
-    numbers = [p.number for p in concept_map.problems]
-    listed_numbers = {p.number for p in listed}
-    repeated = sorted({n for n in numbers if numbers.count(n) > 1})
-    unknown = sorted(set(numbers) - listed_numbers)
-    missing = sorted(listed_numbers - set(numbers))
-    problems_found = []
-    if repeated:
-        problems_found.append(f"problems listed more than once: {', '.join(map(str, repeated))}")
-    if unknown:
-        problems_found.append(f"problems that aren't in the list: {', '.join(map(str, unknown))}")
-    if missing:
-        problems_found.append(f"problems missing: {', '.join(map(str, missing))}")
-    if problems_found:
-        raise ConceptMapError("Map every listed problem exactly once; " + "; ".join(problems_found))
-
+    check_covers({p.number for p in listed}, concept_map)
     found = found or {}
     concepts_for = {p.number: p.concepts for p in concept_map.problems}
     problems, answers = [], {}
@@ -187,3 +173,20 @@ def build_extraction(
 
 class ConceptMapError(ValueError):
     """A concept map that doesn't cover the listed problems; sent back to the model."""
+
+
+def check_covers(listed: set[int], concept_map: ConceptMap) -> None:
+    """Raise ConceptMapError unless the concept map names each listed problem number exactly once."""
+    numbers = [p.number for p in concept_map.problems]
+    repeated = sorted({n for n in numbers if numbers.count(n) > 1})
+    unknown = sorted(set(numbers) - listed)
+    missing = sorted(listed - set(numbers))
+    problems_found = []
+    if repeated:
+        problems_found.append(f"problems listed more than once: {', '.join(map(str, repeated))}")
+    if unknown:
+        problems_found.append(f"problems that aren't in the list: {', '.join(map(str, unknown))}")
+    if missing:
+        problems_found.append(f"problems missing: {', '.join(map(str, missing))}")
+    if problems_found:
+        raise ConceptMapError("Map every listed problem exactly once; " + "; ".join(problems_found))

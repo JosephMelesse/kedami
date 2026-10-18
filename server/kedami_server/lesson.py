@@ -19,6 +19,7 @@ from pydantic import (
 
 from .ids import ID_PATTERN, slugify
 from .mathparse import parse_math
+from .sql_chapters import PAGE_PATH, PGEXERCISES
 
 MAX_HINTS = 3
 
@@ -141,16 +142,28 @@ class MultiChoiceAnswer(Model):
 
 
 class ExternalAnswer(Model):
-    """A problem solved elsewhere and marked done here. Never checked or verified."""
+    """A problem solved elsewhere and marked done here. Never checked or verified. A LeetCode problem has its
+    number and slug; a pgexercises page its path, such as "joins/self2.html"."""
 
     kind: Literal["external"]
-    platform: Literal["leetcode"]
-    number: Annotated[int, Field(ge=1)]
+    platform: Literal["leetcode", "pgexercises"]
     title: Annotated[str, StringConstraints(min_length=1, max_length=200)]
-    slug: Id
+    number: Annotated[int, Field(ge=1)] | None = None
+    slug: Id | None = None
+    path: Annotated[str, StringConstraints(pattern=PAGE_PATH.pattern, max_length=100)] | None = None
+
+    @model_validator(mode="after")
+    def fields_fit_platform(self) -> "ExternalAnswer":
+        leetcode = self.number is not None and self.slug is not None and self.path is None
+        pgexercises = self.path is not None and self.number is None and self.slug is None
+        if not (leetcode if self.platform == "leetcode" else pgexercises):
+            raise ValueError("a LeetCode problem has only a number and slug, and a pgexercises problem only a path")
+        return self
 
     @property
     def url(self) -> str:
+        if self.platform == "pgexercises":
+            return f"{PGEXERCISES}{self.path}"
         return f"https://leetcode.com/problems/{self.slug}/"
 
 
@@ -396,6 +409,8 @@ class Lesson(Model):
     subject: Subject
     # Computer science only. A lesson saved before domains existed has none and reads as DSA.
     domain: Domain | None = None
+    # Bundled sources the lesson draws on, such as the SQL book, one plain-text line each.
+    credits: list[PlainText] = []
     source_files: list[str]
     sections: Annotated[list[Section], Field(min_length=1)]
 

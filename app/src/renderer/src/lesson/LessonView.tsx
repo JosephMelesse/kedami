@@ -33,6 +33,11 @@ export function LessonView({ lesson, readingBlock = null, dayStarts = NO_DAYS }:
         <span className="eyebrow">{SUBJECT_LABELS[lesson.subject]}</span>
         <h1>{lesson.title}</h1>
         {lesson.source_files.length > 0 && <p className="muted">From {lesson.source_files.join(', ')}</p>}
+        {lesson.credits.map((credit) => (
+          <p key={credit} className="muted">
+            {credit}
+          </p>
+        ))}
         <div className="lesson-progress">
           <ProgressBar done={done} total={total} />
           <span className="muted">{done === total && total > 0 ? 'Lesson complete' : `${done} of ${total} problems done`}</span>

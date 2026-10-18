@@ -122,6 +122,7 @@ ADDED_COLUMNS = {
         "day_starts": "TEXT",
         "active": "INTEGER NOT NULL DEFAULT 0",
         "domain": "TEXT",
+        "chapter": "INTEGER",
     },
 }
 
