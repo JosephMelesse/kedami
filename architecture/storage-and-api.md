@@ -19,7 +19,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 
 | Table | Key fields |
 |---|---|
-| `lessons` | id, title, custom title, subject, domain, status, current stage, schema version, revision, created, error, folder id, reading block, day starts, active |
+| `lessons` | id, title, custom title, subject, domain, chapter (a SQL chapter lesson's), status, current stage, schema version, revision, created, error, folder id, reading block, day starts, active |
 | `folders` | id, name (unique, ignoring case), created |
 | `settings` | key, value (for example, that the sample lesson was added on the first start) |
 | `materials` | id, lesson id, filename, role, force transcription |
@@ -46,7 +46,7 @@ All routes require the session token.
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/lessons` | Multipart upload: `subject`, `domain` for computer science, optional `folder`, and per file `files`, `roles`, `force`; starts the pipeline |
+| POST | `/lessons` | Multipart upload: `subject`, `domain` for computer science, `chapter` for a SQL chapter lesson, optional `folder`, and per file `files`, `roles`, `force`; starts the pipeline |
 | GET | `/sql/chapters` | The SQL chapters, each with how many problems it can recommend |
 | POST | `/sql/recommend` | Recommend problems for a SQL chapter: a chapter, a number, and how many times Recommend again was pressed |
 | POST | `/sql/database` | Check an uploaded course database without keeping it; returns its tables with their row counts, or why it was refused |
