@@ -1,10 +1,13 @@
 import { type DragEvent, type FormEvent, useRef, useState } from 'react'
-import { ApiError, createLesson, type MaterialRole, type NewFile } from '../api'
+import { ApiError, createLesson, type MaterialRole, type NewFile, type Recommendation } from '../api'
 import type { Lesson } from '../lesson/types'
 import { SUBJECT_LABELS } from '../subjects'
+import { ChapterPicker } from './ChapterPicker'
+import { type DatabaseChoice, DatabaseSlot, pickDatabase } from './DatabaseSlot'
 import { ACCEPT, canForce, DATABASE_ACCEPT, isDatabaseFile, kindOf } from './files'
 import { type Pick, problemList } from './picks'
 import { ProblemPicker } from './ProblemPicker'
+import { recommendedList } from './recommended'
 
 const SUBJECTS = Object.entries(SUBJECT_LABELS).map(([value, label]) => ({ value: value as Lesson['subject'], label }))
 
@@ -25,6 +28,13 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
   const [subject, setSubject] = useState<Lesson['subject'] | null>(null)
   const [domain, setDomain] = useState<Lesson['domain']>(null)
   const [picks, setPicks] = useState<Pick[]>([])
+  // A SQL lesson learns a chapter, by default, or takes an uploaded problem set.
+  const [sqlHow, setSqlHow] = useState<'chapter' | 'upload'>('chapter')
+  const [chapter, setChapter] = useState<number | null>(null)
+  const [recommended, setRecommended] = useState<Recommendation[]>([])
+  const [database, setDatabase] = useState<DatabaseChoice | null>(null)
+  // The database file last picked, so a check that ends after another pick or a removal is ignored.
+  const databaseFile = useRef<File | null>(null)
   const [files, setFiles] = useState<NewFile[]>([])
   const [rejected, setRejected] = useState<string[]>([])
   const [pending, setPending] = useState(false)
@@ -32,29 +42,45 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
   const hasProblemSet = files.some((f) => f.role === 'problem_set')
   // A DSA lesson's problem set is the picked problems, so its files are reference material.
   const dsa = subject === 'computer_science' && domain === 'dsa'
-  // A SQL lesson can also take its course's database, one at most.
   const sql = subject === 'computer_science' && domain === 'sql'
-  const databaseCount = files.filter((f) => f.role === 'database').length
-  const ready =
-    subject !== null && (dsa ? picks.length > 0 : hasProblemSet) && (sql ? databaseCount <= 1 : databaseCount === 0) && !pending
+  const learnChapter = sql && sqlHow === 'chapter'
+  // An uploaded SQL problem set can take its course's database, in a slot of its own.
+  const takesDatabase = sql && sqlHow === 'upload'
+  const databaseReady = !takesDatabase || database === null || database.check.state === 'ok'
+  const hasProblems = dsa ? picks.length > 0 : learnChapter ? chapter !== null && recommended.length > 0 : hasProblemSet
+  const ready = subject !== null && hasProblems && databaseReady && !pending
 
   const chooseSubject = (value: Lesson['subject']) => {
     setSubject(value)
-    // DSA is the only domain until SQL is built, so it is chosen for the student.
+    // DSA is chosen until the student picks another domain.
     setDomain(value === 'computer_science' ? 'dsa' : null)
+  }
+
+  const chooseDatabase = (file: File) => {
+    databaseFile.current = file
+    pickDatabase(file, (choice) => {
+      if (databaseFile.current === choice.file) setDatabase(choice)
+    })
+  }
+
+  const removeDatabase = () => {
+    databaseFile.current = null
+    setDatabase(null)
   }
 
   const add = (list: FileList | null) => {
     if (!list) return
     const incoming = [...list]
-    const usable = (f: File) => kindOf(f.name) !== null || (sql && isDatabaseFile(f.name))
-    setRejected(incoming.filter((f) => !usable(f)).map((f) => f.name))
+    // A database file dropped among the material moves to the database slot.
+    const dropped = takesDatabase ? incoming.filter((f) => isDatabaseFile(f.name)) : []
+    if (dropped.length > 0) chooseDatabase(dropped[dropped.length - 1])
+    const material = incoming.filter((f) => !dropped.includes(f))
+    setRejected(material.filter((f) => kindOf(f.name) === null).map((f) => f.name))
     setFiles((current) => {
       let problemSet = current.some((f) => f.role === 'problem_set')
-      const added = incoming
-        .filter(usable)
+      const added = material
+        .filter((f) => kindOf(f.name) !== null)
         .map((file): NewFile => {
-          if (isDatabaseFile(file.name)) return { file, role: 'database', force: false }
           // The first file is assumed to be the problem set; later ones, reference material.
           const role: MaterialRole = problemSet ? 'reference' : 'problem_set'
           problemSet = true
@@ -72,12 +98,19 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
     if (!ready) return
     setPending(true)
     setError(null)
-    const problems = new File([problemList(picks)], 'problems.md', { type: 'text/markdown' })
-    const sent: NewFile[] = dsa
-      ? [{ file: problems, role: 'problem_set', force: false }, ...files.map((f) => ({ ...f, role: 'reference' as const }))]
-      : files
+    let sent: NewFile[] = files
+    if (dsa) {
+      const problems = new File([problemList(picks)], 'problems.md', { type: 'text/markdown' })
+      sent = [{ file: problems, role: 'problem_set', force: false }, ...files.map((f) => ({ ...f, role: 'reference' as const }))]
+    } else if (learnChapter) {
+      // Nothing is uploaded: the server adds the chapter's pages of the book and its example database.
+      const problems = new File([recommendedList(recommended)], 'problems.md', { type: 'text/markdown' })
+      sent = [{ file: problems, role: 'problem_set', force: false }]
+    } else if (takesDatabase && database) {
+      sent = [...files, { file: database.file, role: 'database', force: false }]
+    }
     try {
-      onCreated(await createLesson(subject, sent, folderId, domain))
+      onCreated(await createLesson(subject, sent, folderId, domain, learnChapter ? chapter : null))
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not reach the server.')
       setPending(false)
@@ -97,7 +130,9 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
           <p className="muted">
             {dsa
               ? 'Pick the LeetCode problems and add any reference material. Kedami turns them into one lesson.'
-              : 'Add the problem set and any reference material. Kedami turns them into one lesson.'}
+              : learnChapter
+                ? 'Pick a chapter and its problems. Kedami turns them into one lesson.'
+                : 'Add the problem set and any reference material. Kedami turns them into one lesson.'}
           </p>
         </header>
         <fieldset className="field">
@@ -140,34 +175,53 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
             <ProblemPicker picks={picks} onChange={setPicks} />
           </div>
         )}
-        <FileDrop
-          onFiles={add}
-          accept={sql ? `${ACCEPT},${DATABASE_ACCEPT}` : ACCEPT}
-          label={
-            dsa
-              ? 'Drop reference PDFs, images, or text files here'
-              : sql
-                ? "Drop the problem set, reference material, and the course's database (.sqlite, .db, or .sql) here"
-                : undefined
-          }
-        />
-        {rejected.length > 0 && (
-          <p className="answer-error">Not supported, so not added: {rejected.join(', ')}</p>
+        {sql && (
+          <fieldset className="field">
+            <legend className="field-label">How</legend>
+            <div className="subject-options">
+              <label className="option">
+                <input type="radio" name="sql-how" checked={sqlHow === 'chapter'} onChange={() => setSqlHow('chapter')} />
+                Learn a chapter
+              </label>
+              <label className="option">
+                <input type="radio" name="sql-how" checked={sqlHow === 'upload'} onChange={() => setSqlHow('upload')} />
+                Upload a problem set
+              </label>
+            </div>
+          </fieldset>
         )}
-        {files.length > 0 && (
-          <FileList
-            files={files}
-            referenceOnly={dsa}
-            onChange={update}
-            onRemove={(i) => setFiles(files.filter((_, j) => j !== i))}
+        {learnChapter ? (
+          <ChapterPicker
+            chapter={chapter}
+            problems={recommended}
+            onChange={(number, problems) => {
+              setChapter(number)
+              setRecommended(problems)
+            }}
           />
-        )}
-        {!dsa && files.length > 0 && !hasProblemSet && (
-          <p className="answer-error">Tag at least one file as a problem set.</p>
-        )}
-        {sql && databaseCount > 1 && <p className="answer-error">A SQL lesson takes one database. Remove the others.</p>}
-        {!sql && databaseCount > 0 && (
-          <p className="answer-error">Only a SQL lesson takes a database. Remove it, or choose SQL.</p>
+        ) : (
+          <>
+            <FileDrop
+              onFiles={add}
+              accept={takesDatabase ? `${ACCEPT},${DATABASE_ACCEPT}` : ACCEPT}
+              label={dsa ? 'Drop reference PDFs, images, or text files here' : undefined}
+            />
+            {rejected.length > 0 && (
+              <p className="answer-error">Not supported, so not added: {rejected.join(', ')}</p>
+            )}
+            {files.length > 0 && (
+              <FileList
+                files={files}
+                referenceOnly={dsa}
+                onChange={update}
+                onRemove={(i) => setFiles(files.filter((_, j) => j !== i))}
+              />
+            )}
+            {!dsa && files.length > 0 && !hasProblemSet && (
+              <p className="answer-error">Tag at least one file as a problem set.</p>
+            )}
+            {takesDatabase && <DatabaseSlot choice={database} onPick={chooseDatabase} onRemove={removeDatabase} />}
+          </>
         )}
         {error && <p className="answer-error">{error}</p>}
         <div className="answer-actions">
@@ -238,9 +292,7 @@ export function FileList({ files, referenceOnly = false, onChange, onRemove }: F
       {files.map(({ file, role, force }, index) => (
         <li key={`${file.name}-${index}`} className="file-row">
           <span className="file-name">{file.name}</span>
-          {role === 'database' ? (
-            <span className="muted">Database</span>
-          ) : referenceOnly ? (
+          {referenceOnly ? (
             <span className="muted">Reference</span>
           ) : (
             <select

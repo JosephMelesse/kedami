@@ -117,11 +117,13 @@ export async function createLesson(
   subject: Lesson['subject'],
   files: NewFile[],
   folderId: number | null,
-  domain: Lesson['domain'] = null
+  domain: Lesson['domain'] = null,
+  chapter: number | null = null
 ): Promise<string> {
   const form = new FormData()
   form.append('subject', subject)
   if (domain !== null) form.append('domain', domain)
+  if (chapter !== null) form.append('chapter', String(chapter))
   if (folderId !== null) form.append('folder', String(folderId))
   for (const { file, role, force } of files) {
     form.append('files', file, file.name)
@@ -144,6 +146,49 @@ export interface LeetCodeMatch {
 /** The matches, and whether any problems are imported at all. */
 export function searchLeetCode(query: string): Promise<{ problems: LeetCodeMatch[]; imported: boolean }> {
   return request('GET', `/leetcode/search?q=${encodeURIComponent(query)}`)
+}
+
+/** A SQL chapter, with where its problems come from and how many it can recommend. */
+export interface SqlChapter {
+  number: number
+  name: string
+  source: 'spider' | 'pgexercises'
+  available: number
+}
+
+/** The chapters, and whether the Spider bank is imported at all. */
+export function listSqlChapters(): Promise<{ chapters: SqlChapter[]; imported: boolean }> {
+  return request('GET', '/sql/chapters')
+}
+
+/** A recommended problem: a Spider exercise on its database, or a pgexercises page by its path. */
+export interface Recommendation {
+  source: 'spider' | 'pgexercises'
+  id: string
+  text: string
+  database: string | null
+}
+
+/** Up to `count` problems for a chapter; `round` is how many times Recommend again was pressed. */
+export function recommendProblems(
+  chapter: number,
+  count: number,
+  round: number
+): Promise<{ problems: Recommendation[]; available: number }> {
+  return request('POST', '/sql/recommend', { chapter, count, round })
+}
+
+/** A course database's name and tables with their row counts, once the server has checked it. */
+export interface CheckedDatabase {
+  name: string
+  tables: { name: string; count: number }[]
+}
+
+/** Checks a course database as soon as it is picked; throws an ApiError with the reason it was refused. */
+export function checkDatabase(file: File): Promise<CheckedDatabase> {
+  const form = new FormData()
+  form.append('file', file, file.name)
+  return request('POST', '/sql/database', form)
 }
 
 /** A database table beside a query exercise: its columns, first rows, and how many rows it has. */

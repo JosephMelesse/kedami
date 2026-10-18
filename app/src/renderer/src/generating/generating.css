@@ -214,3 +214,48 @@
 .picker-match:hover {
   background: var(--border);
 }
+
+/* A SQL lesson's chapter picker and course database slot. See SQL lessons in architecture/ui.md. */
+
+.chapter-picker {
+  display: grid;
+  gap: 16px;
+}
+
+.chapter-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 16px;
+}
+
+.chapter-controls select {
+  font: inherit;
+  color: var(--text);
+}
+
+/* A select and a number input size differently; the same height keeps the labels above them in line. */
+.chapter-controls .text-input {
+  height: 44px;
+}
+
+.chapter-count {
+  width: 96px;
+}
+
+.recommended-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recommended-row,
+.database-row {
+  grid-template-columns: 1fr auto auto;
+}
+
+.database-row .file-name {
+  max-width: 240px;
+}
