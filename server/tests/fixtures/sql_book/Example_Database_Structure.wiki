@@ -1,0 +1,102 @@
+<noinclude>{{Nav}}</noinclude>
+<br />
+<div class="nonumtoc">
+__TOC__
+</div>
+
+First of all a database is a collection of data. These data are organized in tables as shown in the example ''person''. In addition, there are many other kinds of objects in the DBMS: views, functions, procedures, indices, rights and many others. Initially we focus on tables and present four of them. They serve as the foundation for our Wikibook. Other kind of objects will be given later.
+
+We try to keep everything as simple as possible. Nevertheless, this minimalistic set of four tables demonstrates a 1:n as well as a n:m relationship.
+
+== person ==
+The ''person'' table holds information about fictitious persons; see: [[../Create a simple Table|Create a simple Table]].
+
+<syntaxhighlight lang="sql">
+-- comment lines start with two consecutive minus signs '--'
+CREATE TABLE person (
+  -- define columns (name / type / default value / nullable)
+  id             DECIMAL      NOT NULL,
+  firstname      VARCHAR(50)  NOT NULL,
+  lastname       VARCHAR(50)  NOT NULL,
+  date_of_birth  DATE,
+  place_of_birth VARCHAR(50),
+  ssn            CHAR(11),
+  weight         DECIMAL DEFAULT 0 NOT NULL,
+  -- select one of the defined columns as the Primary Key and
+  -- guess a meaningfull name for the Primary Key constraint: 'person_pk' may be a good choice 
+  CONSTRAINT person_pk PRIMARY KEY (id)
+);
+</syntaxhighlight>
+
+== contact ==
+The ''contact'' table holds information about the contact data of some persons. One could consider to store this contact information in additional columns of the ''person'' table: one column for email, one for icq, and so on. We decided against it for some serious reasons.
+* Missing values: A lot of people do not have most of those contact values respectively we don't know the values. Hereinafter the table will look like a sparse matrix.
+* Multiplicities: Other people have more than one email address or multiple phone numbers. Shall we define a lot of columns email_1, email_2, ... ? What is the upper limit? Standard SQL does not offer something like an 'array of values' for columns (some implementations do). 
+* Future Extensions: Someday, there will be one or more contact types that are unknown today. Then we have to modify the table.
+We can deal with all these situations in an uncomplicated way, when the contact data goes to its own table. The only special thing is bringing persons together with their contact data. This task will be managed by the column ''person_id'' of table ''contact''. It holds the same value as the Primary Key of the allocated person.
+
+The general statement is that we do have '''one''' information unit (person) to which '''potentially multiple''' information units of the same type (contact) belongs to. We call this togetherness a '''relationship''' - in this case a '''1:m relationship''' (also known as a one to many relationship). Whenever we encounter such a situation, we store the values, which may occur more than once, in a separate table together with the id of the first table.
+
+<syntaxhighlight lang="sql">
+CREATE TABLE contact (
+  -- define columns (name / type / default value / nullable)
+  id             DECIMAL      NOT NULL,
+  person_id      DECIMAL      NOT NULL,
+  -- use a default value, if contact_type is omitted
+  contact_type   VARCHAR(25)  DEFAULT 'email' NOT NULL,
+  contact_value  VARCHAR(50)  NOT NULL,
+  -- select one of the defined columns as the Primary Key
+  CONSTRAINT contact_pk PRIMARY KEY (id),
+  -- define Foreign Key relation between column person_id and column id of table person
+  CONSTRAINT contact_fk FOREIGN KEY (person_id) REFERENCES person(id),
+  -- more constraint(s)
+  CONSTRAINT contact_check CHECK (contact_type IN ('fixed line', 'mobile', 'email', 'icq', 'skype'))
+);
+</syntaxhighlight>
+
+== hobby ==
+
+People usually pursue one or more hobbies. Concerning multiplicity, we have the same problems as before with ''contact''. So we need a separate table for hobbies.
+
+<syntaxhighlight lang="sql">
+CREATE TABLE hobby (
+  -- define columns (name / type / default value / nullable)
+  id             DECIMAL      NOT NULL,
+  hobbyname      VARCHAR(100) NOT NULL,
+  remark         VARCHAR(1000),
+  -- select one of the defined columns as the Primary Key
+  CONSTRAINT hobby_pk PRIMARY KEY (id),
+  -- forbid duplicate recording of a hobby 
+  CONSTRAINT hobby_unique UNIQUE (hobbyname)
+);
+</syntaxhighlight>
+
+You may have noticed that there is no column for the corresponding person. Why this? With hobbies, we have an additional problem: It's not just that one person pursues multiple hobbies. At the same time, multiple persons pursue the same hobby.
+
+We call this kind of togetherness a '''n:m relationship'''. It can be designed by creating a third table between the two original tables. The third table holds the ids of the first and second table. So one can decide which person pursues which hobby. In our example, this 'table-in-the-middle' is ''person_hobby'' and will be defined next.
+
+== person_hobby ==
+
+<syntaxhighlight lang="sql">
+CREATE TABLE person_hobby (
+  -- define columns (name / type / default value / nullable)
+  id             DECIMAL      NOT NULL,
+  person_id      DECIMAL      NOT NULL,
+  hobby_id       DECIMAL      NOT NULL,
+  -- Also this table has its own Primary Key!
+  CONSTRAINT person_hobby_pk PRIMARY KEY (id),
+  -- define Foreign Key relation between column person_id and column id of table person
+  CONSTRAINT person_hobby_fk_1 FOREIGN KEY (person_id) REFERENCES person(id),
+  -- define Foreign Key relation between column hobby_id and column id of table hobby
+  CONSTRAINT person_hobby_fk_2 FOREIGN KEY (hobby_id) REFERENCES hobby(id)
+);
+</syntaxhighlight>
+
+Every row of the table holds one id from ''person'' and one from ''hobby''. This is the technique of how the information of persons and hobbies are joined together.
+
+== Visualisation of the Structure ==
+After execution of the above commands, your database should contain four tables (without any data). The tables and their relationship to each other may be visualized in a so-called [[w:Entity-relationship_model|Entity Relationship Diagram]]. On the left side there is the 1:n relationship between ''person'' and ''contact'' and on the right side the n:m relationship between ''person'' and ''hobby'' with its 'table-in-the-middle' ''person_hobby''.
+
+[[File:Visualisation of a simple DBMS Model.png|left|thumb|upright=2.5|Visual Representation of our Example Database]]
+
+<noinclude>{{Nav}}</noinclude>
