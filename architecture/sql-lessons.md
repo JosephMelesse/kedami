@@ -6,7 +6,7 @@ A computer science lesson in the `sql` domain teaches querying. It is made one o
 
 The Upload screen of a SQL lesson asks where its problems come from (see Upload in `ui.md`):
 
-- **Learn a chapter** (the default): the student picks one chapter and a number of problems, and the server recommends them (see Recommending problems). The student can remove any, or ask for another set, then generates the lesson. Nothing is uploaded: the server attaches the chapter's pages of the book as reference material and the book's example database as the course database (see The book), and the recommended problems become the problem set.
+- **Learn a chapter** (the default): the student picks one chapter and a number of problems, and the server recommends them (see Recommending problems). The student can remove any, or ask for another set, then generates the lesson. Nothing is uploaded: the server attaches the chapter's pages of the book as reference material and the book's example database as the course database (see The book), and the recommended problems become the problem set. The renderer sends only the problem set, with the chapter's number, and the server refuses any other file. The lesson keeps its chapter, so a rerun is a chapter lesson too.
 - **Upload a problem set:** the course's problem set and reference material in a file drop, as for a general lesson, and the course's database, if it gives one, in a slot of its own (see Course databases).
 
 ## Chapters
@@ -194,4 +194,4 @@ Cut to ship faster (backlog):
 Converting the book's pages: code and tables must come through intact, and nothing from the page's navigation may leak in. This gets tests on saved copies of real pages first.
 
 
-Comparing results, the authorizer, choosing practice by feature, and running an uploaded SQL script are built and tested. Next: recommending problems for a chapter (a problem must use the chapter and nothing from a later one, and Recommend again must give a different set until it wraps) and checking a pgexercises link in main, the second link that leaves the app. These get tests first.
+Comparing results, the authorizer, choosing practice by feature, running an uploaded SQL script, recommending problems for a chapter, checking a pgexercises link in main, converting the book's pages, and reading a chapter lesson's recommended problems are built and tested.
