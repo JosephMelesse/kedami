@@ -45,7 +45,7 @@ SQL querying in 15 chapters, in the order courses usually teach it. A lesson cov
 |---|---|---|
 | 1 | Selecting | SELECT: Fundamentals |
 | 2 | Filtering | SELECT: Fundamentals, Quantified Comparison |
-| 3 | Text and patterns | Pattern Matching, SELECT: Predefined Functions |
+| 3 | Text and patterns | Like Predicate, SELECT: Predefined Functions |
 | 4 | Nulls | SELECT: IS NULL Predicate, NULLs and the Three Valued Logic |
 | 5 | Sorting and limiting | SELECT: Fundamentals, Retrieve Top N Rows per Group, Eliminate Duplicates |
 | 6 | Expressions and `CASE` | SELECT: Case Expression, SELECT: Predefined Functions |
@@ -59,7 +59,7 @@ SQL querying in 15 chapters, in the order courses usually teach it. A lesson cov
 | 14 | Window functions | Window functions |
 | 15 | Dates and times | SELECT: Predefined Functions |
 
-- **Example database:** the book's examples run on one small database of people, their contacts, and their hobbies: four tables (`person`, `contact`, `hobby`, `person_hobby`) of about 10 rows each, built from the scripts on its Example Database pages. Those scripts are bundled as `people.sql`, adapted for SQLite only in their date literals (`DATE'1970-11-20'` becomes the text `'1970-11-20'`, as SQLite keeps dates), and built with the course database rules when a chapter lesson is created.
+- **Example database:** the book's examples run on one small database of people, their contacts, and their hobbies: four tables (`person`, `contact`, `hobby`, `person_hobby`) of about 10 rows each, built from the scripts on its Example Database pages. Those scripts are bundled as `people.sql`, adapted for SQLite in two ways only: date literals (`DATE'1970-11-20'` becomes the text `'1970-11-20'`, as SQLite keeps dates) and bare `COMMIT` statements, which are dropped since SQLite refuses a COMMIT with no transaction open, and built with the course database rules when a chapter lesson is created.
 - **In a chapter lesson:** the chapter's pages are saved to the lesson's materials as one reference file, `wikibooks-{chapter}.md`, so they are read in stage 1 like any reference and a rerun keeps them. The example database is saved as its course database, `people`, so explanations, worked examples, and checkpoints can query the same tables the book uses, under the course database rules. The recommended problems are its problem set and its only homework.
 - **Dialect:** the SQL rules for sections say the book is vendor-neutral, and that lessons write SQLite and say where SQLite differs, as with `ROLLUP` and `CUBE`, which SQLite lacks.
 - **Credit:** a chapter lesson's header says its explanations draw on Structured Query Language, Wikibooks, CC BY-SA, with the book's URL. A lesson made from the book is an adaptation of it, so it would carry the same license if shared.
