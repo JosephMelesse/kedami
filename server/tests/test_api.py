@@ -11,7 +11,7 @@ from kedami_server.plot import SAMPLES
 from kedami_server.storage import SAMPLE_FIXTURE, seed_sample
 
 TOKEN = "test-token"
-ORIGIN = "http://localhost:5173"
+ORIGIN = "http://localhost:5000"
 AUTH = {"Authorization": f"Bearer {TOKEN}"}
 
 
