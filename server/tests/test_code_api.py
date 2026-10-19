@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from kedami_server import db, test_flags
+from kedami_server.import_leetcode import OUTPUT
 from kedami_server.app import create_app
 from kedami_server.config import Settings
 from kedami_server.lesson import Lesson
@@ -182,3 +183,41 @@ def test_deleting_the_lesson_deletes_its_flags(client, data_dir):
     assert client.delete("/lessons/sample", headers=AUTH).status_code == 200
     with db.connect(data_dir) as conn:
         assert conn.execute("SELECT COUNT(*) FROM test_flags").fetchone()[0] == 0
+
+
+# Current tests
+
+CURRENT = [{"args": "nums = [1, 2], target = 3", "expected": "[0, 1]", "compare": "unordered"}]
+
+
+def write_import(data_dir, slug="two-sum", tests=CURRENT):
+    problem = {"number": 1, "slug": slug, "difficulty": "Easy", "description": "Given...", "starter_code": STARTER,
+               "method": "twoSum", "tests": tests}
+    (data_dir / OUTPUT).write_text(json.dumps(problem) + "\n")
+
+
+def served_tests(client):
+    lesson = client.get("/lessons/sample", headers=AUTH).json()["lesson"]
+    block = next(b for s in lesson["sections"] for b in s["blocks"] if b["id"] == "leetcode-1")
+    return block["parts"][0]["answer"]["tests"]
+
+
+def test_a_lesson_is_served_the_imports_current_tests_and_its_json_is_unchanged(client, data_dir):
+    before = (data_dir / "lessons" / "sample.json").read_text()
+    write_import(data_dir)
+    assert served_tests(client) == CURRENT
+    assert (data_dir / "lessons" / "sample.json").read_text() == before
+
+
+@pytest.mark.parametrize("imported", [None, {"slug": "add-two-numbers"}, {"tests": []}, {"tests": [{"args": "x"}]}])
+def test_the_lessons_copy_is_served_when_the_problem_isnt_imported_as_it_was(client, data_dir, imported):
+    if imported is not None:
+        write_import(data_dir, **imported)
+    assert served_tests(client) == TESTS
+
+
+def test_only_a_served_test_can_be_flagged(client, data_dir):
+    write_import(data_dir)
+    current = {"args": CURRENT[0]["args"], "expected": CURRENT[0]["expected"]}
+    assert flag(client, "flag", current).status_code == 200
+    assert flag(client, "flag", {"args": TESTS[0]["args"], "expected": TESTS[0]["expected"]}).status_code == 422

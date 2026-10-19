@@ -203,7 +203,12 @@
           "enum": [
             "equal",
             "same_list",
-            "same_tree"
+            "same_tree",
+            "unordered",
+            "unordered_nested",
+            "longest_palindrome",
+            "course_order",
+            "alien_order"
           ],
           "title": "Compare",
           "type": "string"

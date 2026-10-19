@@ -2,7 +2,18 @@ import json
 
 import pytest
 
-from kedami_server.import_leetcode import OUTPUT, CodeTest, Dropped, convert, import_files, parse_tests, read
+from kedami_server.import_leetcode import (
+    COMPARISONS,
+    OUTPUT,
+    CodeTest,
+    Dropped,
+    apply_fixes,
+    convert,
+    import_files,
+    load_fixes,
+    parse_tests,
+    read,
+)
 
 
 def record(**overrides) -> dict:
@@ -262,3 +273,116 @@ def test_read_without_an_import_or_numbers_finds_nothing(tmp_path):
 def test_read_skips_damaged_lines(tmp_path):
     (tmp_path / OUTPUT).write_text('{"number": 1, "slug": "two-su\n{"number": 2, "slug": "add"}\nnot json\n')
     assert read(tmp_path, {1, 2}) == {2: {"number": 2, "slug": "add"}}
+
+
+# Fixes
+
+THREE_SUM = check(
+    "candidate(nums = [0, 0, 0]) == [[0, 0, 0]]",
+    "candidate(nums = [1, 2]) == []",
+    "candidate(nums = [9]) == [[1]]",
+    "candidate(nums = [1, 2]) == []",
+)
+
+
+def problems(*records) -> dict:
+    return {p.number: p for p in map(convert, records)}
+
+
+def three_sum(**overrides) -> dict:
+    return record(question_id=15, task_id="3sum", entry_point="Solution().threeSum",
+                  starter_code="class Solution:\n    def threeSum(self, nums):\n        ", test=THREE_SUM) | overrides
+
+
+def test_a_fix_drops_its_tests_and_sets_the_comparison_for_the_rest():
+    found = problems(three_sum(), record())
+    fixed = apply_fixes(found, {15: {"slug": "3sum", "compare": "unordered_nested",
+                                     "drop": [{"args": "nums = [9]", "expected": "[[1]]", "reason": "broken"}]}})
+    assert found[15].tests == [
+        CodeTest("nums = [0, 0, 0]", "[[0, 0, 0]]", "unordered_nested"),
+        CodeTest("nums = [1, 2]", "[]", "unordered_nested"),
+        CodeTest("nums = [1, 2]", "[]", "unordered_nested"),
+    ]
+    assert found[1] == convert(record())  # a problem without a fix keeps the dataset's tests
+    assert (fixed.problems, fixed.tests_dropped, fixed.skipped) == (1, 1, [])
+
+
+def test_a_dropped_test_that_appears_twice_is_dropped_both_times():
+    found = problems(three_sum())
+    fixed = apply_fixes(found, {15: {"slug": "3sum", "drop": [{"args": "nums = [1, 2]", "expected": "[]", "reason": "x"}]}})
+    assert [t.args for t in found[15].tests] == ["nums = [0, 0, 0]", "nums = [9]"]
+    assert fixed.tests_dropped == 2
+
+
+def test_a_drop_matches_both_the_arguments_and_the_expected_value():
+    found = problems(three_sum())
+    fixed = apply_fixes(found, {15: {"slug": "3sum", "drop": [
+        {"args": "nums = [9]", "expected": "[[9]]", "reason": "x"},
+        {"args": "nums = [1, 2]", "expected": "[]", "reason": "x"},
+    ]}})
+    assert [t.args for t in found[15].tests] == ["nums = [0, 0, 0]", "nums = [9]"]
+    assert fixed.skipped == ["#15 3sum: no test nums = [9] == [[9]]"]
+    assert fixed.problems == 1
+
+
+def test_a_fix_whose_slug_differs_is_skipped_whole():
+    found = problems(three_sum())
+    before = found[15]
+    fixed = apply_fixes(found, {15: {"slug": "two-sum", "compare": "unordered",
+                                     "drop": [{"args": "nums = [9]", "expected": "[[1]]", "reason": "x"}]}})
+    assert found[15] == before
+    assert fixed.skipped == ["#15 two-sum: the dataset's #15 is 3sum"]
+    assert (fixed.problems, fixed.tests_dropped) == (0, 0)
+
+
+def test_a_fix_that_would_drop_every_test_or_has_no_problem_is_skipped():
+    found = problems(record())
+    every = [{"args": t.args, "expected": t.expected, "reason": "x"} for t in found[1].tests]
+    fixed = apply_fixes(found, {1: {"slug": "two-sum", "drop": every}, 15: {"slug": "3sum", "compare": "unordered"}})
+    assert found[1] == convert(record())
+    assert fixed.skipped == ["#1 two-sum: it would drop every test", "#15 3sum: not in the dataset"]
+
+
+def test_applying_fixes_again_changes_nothing_more():
+    found = problems(three_sum())
+    fix = {15: {"slug": "3sum", "compare": "unordered", "drop": [{"args": "nums = [9]", "expected": "[[1]]", "reason": "x"}]}}
+    apply_fixes(found, fix)
+    once = found[15]
+    again = apply_fixes(found, fix)
+    assert found[15] == once
+    assert again.tests_dropped == 0 and again.skipped == ["#15 3sum: no test nums = [9] == [[1]]"]
+
+
+def test_the_import_writes_fixed_tests_and_reports_the_fixes(tmp_path):
+    files = [write_jsonl(tmp_path / "a.jsonl", record(), three_sum())]
+    summary = import_files(tmp_path, files, {
+        15: {"slug": "3sum", "compare": "unordered_nested",
+             "drop": [{"args": "nums = [9]", "expected": "[[1]]", "reason": "x"}]},
+        1: {"slug": "two-sum-wrong", "compare": "unordered"},
+    })
+    written = {p["number"]: p for p in read_output(tmp_path)}
+    assert [t["compare"] for t in written[15]["tests"]] == ["unordered_nested"] * 3
+    assert [t["compare"] for t in written[1]["tests"]] == ["equal", "equal"]
+    assert str(summary).splitlines()[1:] == [
+        "fixed 1 problems, dropped 1 tests",
+        "skipped 1 fixes",
+        "  #1 two-sum-wrong: the dataset's #1 is two-sum",
+    ]
+
+
+def test_the_checked_in_fixes_are_well_formed():
+    fixes = load_fixes()
+    assert len(fixes) >= 52
+    for number, fix in fixes.items():
+        assert number >= 1 and isinstance(fix["slug"], str)
+        assert set(fix) <= {"slug", "compare", "drop"} and ("compare" in fix or fix["drop"])
+        assert fix.get("compare", "equal") in COMPARISONS
+        for test in fix.get("drop", []):
+            assert set(test) == {"args", "expected", "reason"} and all(isinstance(v, str) for v in test.values())
+
+
+def test_a_fixes_file_naming_an_unknown_comparison_is_refused(tmp_path):
+    path = tmp_path / "fixes.json"
+    path.write_text(json.dumps({"1": {"slug": "two-sum", "compare": "roughly"}}))
+    with pytest.raises(ValueError, match="#1"):
+        load_fixes(path)

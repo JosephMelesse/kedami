@@ -173,6 +173,110 @@ class Solution:
   })
 })
 
+describe('comparisons from fixes', () => {
+  /** Whether code returning `value` passes a test with these arguments and expected value. */
+  function passes(compare: CodeTest['compare'], args: string, expected: string, value: string): boolean {
+    const code = `class Solution:\n    def f(self, **kwargs):\n        return ${value}`
+    const result = submit(code, 'f', [{ args, expected, compare }])
+    expect(result.error).toBeNull()
+    return result.results[0].passed
+  }
+
+  it('equal reads tuples as lists at any depth', () => {
+    expect(passes('equal', '', '[[0, 1], [2, 3]]', '[(0, 1), (2, 3)]')).toBe(true)
+    expect(passes('equal', '', '[[0, 1], [2, 3]]', '[(1, 0), (2, 3)]')).toBe(false)
+  })
+
+  it('equal lets floats differ by 10^-5, relative to the expected value above 1', () => {
+    expect(passes('equal', '', '0.25', '0.250004')).toBe(true)
+    expect(passes('equal', '', '0.25', '0.2501')).toBe(false)
+    expect(passes('equal', '', '1024.0', '1024.009')).toBe(true)
+    expect(passes('equal', '', '1024.0', '1024.02')).toBe(false)
+    expect(passes('equal', '', '[1.5, 2]', '[1.500001, 2]')).toBe(true)
+    expect(passes('equal', '', 'inf', "float('inf')")).toBe(true)
+    expect(passes('equal', '', '2', '2')).toBe(true)
+    expect(passes('equal', '', '1', '1.000001')).toBe(true)
+  })
+
+  it('unordered takes the same items in any order, each as many times', () => {
+    expect(passes('unordered', '', '[[1, 2], [3, 4]]', '[[3, 4], [1, 2]]')).toBe(true)
+    expect(passes('unordered', '', '[[1, 2], [3, 4]]', '[(3, 4), (1, 2)]')).toBe(true)
+    expect(passes('unordered', '', '[1, 2, 2]', '[2, 1, 2]')).toBe(true)
+    expect(passes('unordered', '', '[1, 2, 2]', '[1, 1, 2]')).toBe(false)
+    expect(passes('unordered', '', '[1, 2, 2]', '[1, 2]')).toBe(false)
+    expect(passes('unordered', '', '[1, 2]', '[1, 2, 2]')).toBe(false)
+    expect(passes('unordered', '', '[1, 2]', '{1, 2}')).toBe(false)
+  })
+
+  it('unordered fails a point given as [y, x]', () => {
+    expect(passes('unordered', '', '[[1, 3], [-2, 2]]', '[[-2, 2], [3, 1]]')).toBe(false)
+  })
+
+  it('unordered_nested takes each inner list in any order too, but no deeper', () => {
+    expect(passes('unordered_nested', '', '[["eat", "tea"], ["bat"]]', '[["bat"], ["tea", "eat"]]')).toBe(true)
+    expect(passes('unordered_nested', '', '[[], [1], [1, 2]]', '[[2, 1], [], [1]]')).toBe(true)
+    expect(passes('unordered_nested', '', '[[1, 1, 2]]', '[[1, 2, 2]]')).toBe(false)
+    expect(passes('unordered_nested', '', '[[1, 2], [3]]', '[[1, 2, 3]]')).toBe(false)
+    expect(passes('unordered_nested', '', '[[[1, 2]]]', '[[[2, 1]]]')).toBe(false)
+  })
+
+  it('longest_palindrome takes any palindrome in s as long as the expected one', () => {
+    expect(passes('longest_palindrome', 's = "babad"', '"bab"', '"aba"')).toBe(true)
+    expect(passes('longest_palindrome', 's = "babad"', '"bab"', '"bab"')).toBe(true)
+    expect(passes('longest_palindrome', 's = "babad"', '"bab"', '"bad"')).toBe(false)
+    expect(passes('longest_palindrome', 's = "babad"', '"bab"', '"b"')).toBe(false)
+    expect(passes('longest_palindrome', 's = "babad"', '"bab"', '"cac"')).toBe(false)
+  })
+
+  it('longest_palindrome checks against the arguments as given, even if the code changed them', () => {
+    const code = 'class Solution:\n    def f(self, s):\n        return "xyx"'
+    const tests: CodeTest[] = [{ args: 's = "abcba"', expected: '"bcb"', compare: 'longest_palindrome' }]
+    expect(submit(code, 'f', tests).results[0].passed).toBe(false)
+  })
+
+  it('course_order takes any order with every course once, each after its prerequisites', () => {
+    const args = 'numCourses = 4, prerequisites = [[1, 0], [2, 0], [3, 1], [3, 2]]'
+    expect(passes('course_order', args, '[0, 1, 2, 3]', '[0, 2, 1, 3]')).toBe(true)
+    expect(passes('course_order', args, '[0, 1, 2, 3]', '[0, 1, 3, 2]')).toBe(false)
+    expect(passes('course_order', args, '[0, 1, 2, 3]', '[0, 1, 2]')).toBe(false)
+    expect(passes('course_order', args, '[0, 1, 2, 3]', '[0, 1, 1, 2, 3]')).toBe(false)
+    expect(passes('course_order', args, '[0, 1, 2, 3]', '[]')).toBe(false)
+  })
+
+  it('course_order takes only an empty list when the expected list is empty', () => {
+    const args = 'numCourses = 2, prerequisites = [[1, 0], [0, 1]]'
+    expect(passes('course_order', args, '[]', '[]')).toBe(true)
+    expect(passes('course_order', args, '[]', '[0, 1]')).toBe(false)
+  })
+
+  it('course_order uses the prerequisites as given, even if the code sorted them in place', () => {
+    const code = 'class Solution:\n    def f(self, numCourses, prerequisites):\n        prerequisites.clear()\n        return [1, 0]'
+    const tests: CodeTest[] = [{ args: 'numCourses = 2, prerequisites = [[1, 0]]', expected: '[0, 1]', compare: 'course_order' }]
+    expect(submit(code, 'f', tests).results[0].passed).toBe(false)
+  })
+
+  it('alien_order takes any order with each letter once that puts the words in order', () => {
+    const args = 'words = ["wrt", "wrf", "er", "ett", "rftt"]'
+    expect(passes('alien_order', args, '"wertf"', '"wertf"')).toBe(true)
+    expect(passes('alien_order', 'words = ["z", "x", "a"]', '"zxa"', '"zxa"')).toBe(true)
+    expect(passes('alien_order', 'words = ["ab", "c"]', '"abc"', '"bac"')).toBe(true)
+    expect(passes('alien_order', args, '"wertf"', '"wretf"')).toBe(false)
+    expect(passes('alien_order', args, '"wertf"', '"werttf"')).toBe(false)
+    expect(passes('alien_order', args, '"wertf"', '"wert"')).toBe(false)
+  })
+
+  it('alien_order takes only an empty string when the expected string is empty', () => {
+    expect(passes('alien_order', 'words = ["abc", "ab"]', '""', '""')).toBe(true)
+    expect(passes('alien_order', 'words = ["abc", "ab"]', '""', '"abc"')).toBe(false)
+  })
+
+  it('a checker fails a value of the wrong type without an error', () => {
+    expect(passes('longest_palindrome', 's = "aa"', '"aa"', '["aa"]')).toBe(false)
+    expect(passes('course_order', 'numCourses = 1, prerequisites = []', '[0]', '"0"')).toBe(false)
+    expect(passes('alien_order', 'words = ["a"]', '"a"', 'None')).toBe(false)
+  })
+})
+
 describe('errors', () => {
   it('reports code that does not compile, with its line', () => {
     const result = submit('class Solution:\n    def twoSum(self, nums, target)\n        return []', 'twoSum', twoSumTests)

@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, String
 from . import databases, db, progress, queries, simulation_state, solution_state, test_flags, usage
 from .checking import InvalidResponse, check
 from .config import Settings
+from .current_tests import with_current_tests
 from .model import ModelError, call_model
 from .generation import pipeline
 from .generation.retry import GenerationError
@@ -332,7 +333,7 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
     def lesson(lesson_id: str):
         row = get_row(lesson_id)
         loaded = get_lesson(lesson_id) if row.status == "ready" else None
-        body = loaded.model_dump(mode="json") if loaded else None
+        body = with_current_tests(settings.data_dir, loaded).model_dump(mode="json") if loaded else None
         if body and row.custom_title:
             # A renamed lesson is served under its new name; the JSON on disk keeps the plan's.
             body["title"] = row.custom_title
@@ -524,7 +525,11 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
 
     @app.post("/lessons/{lesson_id}/blocks/{block_id}/flags")
     def flag_test(lesson_id: str, block_id: str, body: FlagRequest):
-        _, answer = get_code_target(lesson_id, block_id, body.part_id)
+        # Only a test the part is served can be flagged.
+        target = get_target(with_current_tests(settings.data_dir, get_lesson(lesson_id)), block_id, body.part_id)
+        if not isinstance(target.answer, CodeAnswer):
+            raise HTTPException(422, "This part isn't a code problem.")
+        answer = target.answer
         with db.connect(settings.data_dir) as conn:
             if body.action == "clear":
                 test_flags.clear(conn, lesson_id, block_id, body.part_id)

@@ -167,13 +167,21 @@ class ExternalAnswer(Model):
         return f"https://leetcode.com/problems/{self.slug}/"
 
 
+# How a test's returned value is checked. The first three come from the dataset's asserts; the rest only
+# from the checked-in fixes. See architecture/code-problems.md, Runner.
+Comparison = Literal[
+    "equal", "same_list", "same_tree",
+    "unordered", "unordered_nested", "longest_palindrome", "course_order", "alien_order",
+]
+
+
 class CodeTest(Model):
     """One test from LeetCodeDataset: Python source for the arguments and the expected value, evaluated
     only in the sandboxed runner. See architecture/code-problems.md."""
 
     args: str
     expected: Annotated[str, StringConstraints(min_length=1)]
-    compare: Literal["equal", "same_list", "same_tree"]
+    compare: Comparison
 
 
 class CodeAnswer(Model):

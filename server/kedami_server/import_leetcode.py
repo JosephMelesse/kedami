@@ -1,7 +1,8 @@
 """Import LeetCodeDataset's problems and tests into the data folder.
 
 Run as `python -m kedami_server.import_leetcode DATA_DIR FILE...`, with the dataset's JSONL files.
-Writes `leetcode.jsonl`, replacing any earlier import. See architecture/code-problems.md, Dataset.
+Writes `leetcode.jsonl`, replacing any earlier import, with the checked-in fixes applied. See
+architecture/code-problems.md, Dataset and Fixes.
 
 Tests are read with Python's `ast` parser and never run here: their arguments and expected
 values are kept as source text, evaluated only in the sandboxed runner.
@@ -14,10 +15,18 @@ import re
 import sys
 import warnings
 from collections import Counter
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
+from typing import get_args
+
+from .lesson import Comparison
 
 OUTPUT = "leetcode.jsonl"
+
+# Hand-made fixes for the dataset's tests, by problem number. See architecture/code-problems.md, Fixes.
+FIXES = Path(__file__).with_name("leetcode_fixes.json")
+
+COMPARISONS = get_args(Comparison)
 
 # The dataset names each problem's entry point as "Solution().methodName".
 _ENTRY_POINT = re.compile(r"^Solution\(\)\.(?P<method>[A-Za-z_]\w*)$")
@@ -152,19 +161,75 @@ class _Source:
         return b"".join(parts).decode()
 
 
+def load_fixes(path: Path = FIXES) -> dict[int, dict]:
+    """The fixes file, by problem number. Raises ValueError if it names a comparison the runner lacks."""
+    fixes = {int(number): fix for number, fix in json.loads(path.read_text(encoding="utf-8")).items()}
+    for number, fix in fixes.items():
+        if fix.get("compare", "equal") not in COMPARISONS:
+            raise ValueError(f"the fix for #{number} names an unknown comparison {fix['compare']!r}")
+    return fixes
+
+
+@dataclass
+class Fixed:
+    problems: int = 0
+    tests_dropped: int = 0
+    skipped: list[str] = field(default_factory=list)
+
+
+def apply_fixes(problems: dict[int, Problem], fixes: dict[int, dict]) -> Fixed:
+    """Apply each fix to its problem in place. A fix whose slug differs from the dataset's is skipped whole;
+    a dropped test the dataset lacks is skipped alone. A fix that would leave no tests is skipped too."""
+    fixed = Fixed()
+    for number, fix in sorted(fixes.items()):
+        problem = problems.get(number)
+        if problem is None:
+            fixed.skipped.append(f"#{number} {fix['slug']}: not in the dataset")
+            continue
+        if problem.slug != fix["slug"]:
+            fixed.skipped.append(f"#{number} {fix['slug']}: the dataset's #{number} is {problem.slug}")
+            continue
+        drop = {(t["args"], t["expected"]) for t in fix.get("drop", [])}
+        tests = [t for t in problem.tests if (t.args, t.expected) not in drop]
+        if not tests:
+            fixed.skipped.append(f"#{number} {fix['slug']}: it would drop every test")
+            continue
+        present = {(t.args, t.expected) for t in problem.tests}
+        fixed.skipped += [
+            f"#{number} {fix['slug']}: no test {_short(args)} == {_short(expected)}"
+            for args, expected in sorted(drop - present)
+        ]
+        if "compare" in fix:
+            tests = [replace(t, compare=fix["compare"]) for t in tests]
+        problems[number] = replace(problem, tests=tests)
+        fixed.problems += 1
+        fixed.tests_dropped += len(problem.tests) - len(tests)
+    return fixed
+
+
+def _short(text: str) -> str:
+    return text if len(text) <= 60 else text[:57] + "..."
+
+
 @dataclass
 class Summary:
     kept: int
     dropped: Counter
+    fixed: Fixed = field(default_factory=Fixed)
 
     def __str__(self) -> str:
         lines = [f"kept {self.kept:,} problems, dropped {sum(self.dropped.values()):,}"]
         lines += [f"  {count:,}: {reason}" for reason, count in self.dropped.most_common()]
+        lines.append(f"fixed {self.fixed.problems:,} problems, dropped {self.fixed.tests_dropped:,} tests")
+        if self.fixed.skipped:
+            lines.append(f"skipped {len(self.fixed.skipped):,} fixes")
+            lines += [f"  {skip}" for skip in self.fixed.skipped]
         return "\n".join(lines)
 
 
-def import_files(data_dir: Path, files: list[Path]) -> Summary:
-    """Convert every record in `files` and write the kept problems to the data folder, ordered by number."""
+def import_files(data_dir: Path, files: list[Path], fixes: dict[int, dict] | None = None) -> Summary:
+    """Convert every record in `files`, apply `fixes`, and write the kept problems to the data folder,
+    ordered by number."""
     problems: dict[int, Problem] = {}
     dropped: Counter = Counter()
     for path in files:
@@ -185,8 +250,9 @@ def import_files(data_dir: Path, files: list[Path]) -> Summary:
                     dropped["it was listed more than once"] += 1
                     continue
                 problems[problem.number] = problem
+    fixed = apply_fixes(problems, fixes or {})
     _write(data_dir / OUTPUT, [problems[n] for n in sorted(problems)])
-    return Summary(len(problems), dropped)
+    return Summary(len(problems), dropped, fixed)
 
 
 def _write(path: Path, problems: list[Problem]) -> None:
@@ -230,7 +296,7 @@ def main() -> None:
     missing = [str(f) for f in files if not f.is_file()]
     if missing:
         raise SystemExit(f"no file at {', '.join(missing)}")
-    print(import_files(data_dir, files))
+    print(import_files(data_dir, files, load_fixes()))
 
 
 if __name__ == "__main__":
