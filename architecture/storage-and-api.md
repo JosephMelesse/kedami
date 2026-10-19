@@ -10,7 +10,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 | Stage outputs | `work/{lesson_id}/`: `pages.json` (routes and text per page), `normalized/`, `extraction.json`, `plan.json`, `outline.json`, `section-{n}.json`, `verification-{n}.json` |
 | Lessons | `lessons/{lesson_id}.json` |
 | Music player tracks | `music/`, written and read only by Electron main |
-| LeetCode tests | `leetcode.jsonl`: the imported dataset (see `code-problems.md`). Written only by the import command; a lesson copies what it needs into its lesson JSON |
+| LeetCode tests | `leetcode.jsonl`: the imported dataset (see `code-problems.md`). Written only by the import command, which applies the checked-in fixes. A lesson copies what it needs into its lesson JSON, but is served the import's current tests while the problem is imported (see In a lesson in `code-problems.md`) |
 | SQL exercise bank | `sql/databases/` and `sql/exercises.jsonl`: the imported Spider bank (see `sql-lessons.md`). Written only by the import command |
 | Run log | `runs.jsonl`: one line per pipeline run (see Run log in `system.md`). Deleting a lesson or the database keeps it |
 | Index and progress | SQLite database |
