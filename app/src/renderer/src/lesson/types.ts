@@ -108,7 +108,15 @@ export type StarterCode = string;
 export type Tests = [CodeTest, ...CodeTest[]];
 export type Args = string;
 export type Expected = string;
-export type Compare = "equal" | "same_list" | "same_tree";
+export type Compare =
+  | "equal"
+  | "same_list"
+  | "same_tree"
+  | "unordered"
+  | "unordered_nested"
+  | "longest_palindrome"
+  | "course_order"
+  | "alien_order";
 export type Kind7 = "query";
 export type Database = string;
 export type Reference = string;

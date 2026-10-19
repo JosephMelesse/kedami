@@ -102,8 +102,11 @@ def _run_test(solution: type, method: str, test: dict, values: dict) -> dict:
         return {"passed": False, "got": None, "output": _tail(output.getvalue()), "error": _describe(error)}
 
     compare = test["compare"]
+    if compare in CHECKERS:
+        # Read again, since the solution may have changed its arguments. The checkers use them by name.
+        _, kwargs = eval(f"__call({test['args']})", values)
     return {
-        "passed": _matches(compare, got, expected),
+        "passed": _matches(compare, got, expected, kwargs),
         "got": _show(compare, got),
         "output": _tail(output.getvalue()),
         "error": None,
@@ -145,17 +148,84 @@ def _values(list_node_class: type, tree_node_class: type) -> dict:
     }
 
 
-def _matches(compare: str, got, expected) -> bool:
+# The comparisons that check the returned value against the test's arguments.
+CHECKERS = ("longest_palindrome", "course_order", "alien_order")
+
+# How far a float may be from the expected number, relative to it when it is above 1, as LeetCode allows.
+TOLERANCE = 1e-5
+
+
+def _matches(compare: str, got, expected, args: dict) -> bool:
+    """Whether the returned value passes. See the comparisons table in architecture/code-problems.md, Runner."""
     try:
         if compare == "equal":
-            return bool(got == expected)
+            return _equal(_lists(got), _lists(expected))
         if compare == "same_list":
             return _same_list(got, expected)
         if compare == "same_tree":
             return _same_tree(got, expected)
+        if compare == "unordered":
+            return _unordered(got, expected, nested=False)
+        if compare == "unordered_nested":
+            return _unordered(got, expected, nested=True)
+        if compare == "longest_palindrome":
+            s = args["s"]
+            return isinstance(got, str) and got == got[::-1] and got in s and len(got) == len(expected)
+        if compare == "course_order":
+            return got == [] if expected == [] else _course_order(args["numCourses"], args["prerequisites"], got)
+        if compare == "alien_order":
+            return got == "" if expected == "" else _alien_order(args["words"], got)
     except Exception:  # noqa: BLE001 - a returned value that can't be compared doesn't match
         return False
     raise ValueError(f"unknown comparison {compare!r}")
+
+
+def _lists(value):
+    """Tuples read as lists, at any depth."""
+    return [_lists(v) for v in value] if isinstance(value, (list, tuple)) else value
+
+
+def _equal(got, expected) -> bool:
+    if isinstance(got, list) and isinstance(expected, list):
+        return len(got) == len(expected) and all(_equal(a, b) for a, b in zip(got, expected))
+    if _is_number(got) and _is_number(expected) and (isinstance(got, float) or isinstance(expected, float)):
+        return bool(got == expected) or abs(got - expected) <= TOLERANCE * max(1, abs(expected))
+    return bool(got == expected)
+
+
+def _is_number(value) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _unordered(got, expected, nested: bool) -> bool:
+    """The same items, each as many times, in any order; with `nested`, each list item in any order too."""
+    if not isinstance(got, (list, tuple)):
+        return False
+
+    def counted(items: list) -> list:
+        if nested:
+            items = [sorted(x, key=repr) if isinstance(x, list) else x for x in items]
+        return sorted(items, key=repr)
+
+    return counted(_lists(got)) == counted(_lists(expected))
+
+
+def _course_order(courses: int, prerequisites: list, order) -> bool:
+    """Every course once, each after its prerequisites."""
+    if not isinstance(order, list) or sorted(order) != list(range(courses)):
+        return False
+    position = {course: i for i, course in enumerate(order)}
+    return all(position[before] < position[after] for after, before in prerequisites)
+
+
+def _alien_order(words: list, order) -> bool:
+    """Each letter in the words once, in an order that sorts the words as given."""
+    letters = {c for word in words for c in word}
+    if not isinstance(order, str) or len(order) != len(letters) or set(order) != letters:
+        return False
+    rank = {c: i for i, c in enumerate(order)}
+    keys = [[rank[c] for c in word] for word in words]
+    return all(a <= b for a, b in zip(keys, keys[1:]))
 
 
 def _same_list(got, expected) -> bool:
