@@ -103,6 +103,15 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 - The frame is a separate page, `simulation.html`, loaded with `sandbox="allow-scripts"` and no same-origin access. Its CSP allows no network. The ready window is 4 seconds; an error or timeout before ready flags the simulation on the server and shows a one-line notice with the regenerate button in its place.
 - Written and regenerated code is the one exception to never editing a lesson: it is stored apart from the lesson JSON, in the `simulations` table, and served in place of the JSON's empty code. A rerun replaces the lesson and clears these rows.
 
+## Diagrams
+
+- A diagram is a small static SVG with a `viewBox`, colored with `currentColor`, and sanitized with DOMPurify before rendering.
+- The model places text by coordinate without seeing it drawn, so its text is monospace, where width follows from length. The root `svg` sets `font-family="monospace"` and a numeric `font-size`; no element sets another font family, and an element may set its own `font-size` as a number.
+- When a section is assembled, the server measures each piece of text as 0.6 of its font size wide per character, 0.75 above the baseline, and 0.25 below. It rejects a diagram whose text runs past the `viewBox`, overlaps other text, or crosses the edge of a rectangle, circle, or ellipse, allowing 1 unit of slack. Lines, paths, and polygons aren't checked, so a label may sit on an arrow. A shape whose size isn't a plain number isn't checked either.
+- Text the server can't measure is rejected: text with child elements such as `tspan`, text under a `transform` or a `style` attribute, a position that isn't a single number, a `text-anchor` other than `start`, `middle`, or `end`, and a `dominant-baseline` other than the default, `middle`, or `central`. Text inside `defs`, `marker`, and similar elements isn't drawn and isn't checked.
+- A rejected diagram sends the section back to the model with the problems found, like any other section error. If the last attempt still has a bad diagram, that diagram is dropped and the section kept, so a figure never fails a lesson.
+- The check runs only while generating. Lessons made before it are served as they are.
+
 ## Rules
 
 - Worked examples and checkpoints never use an actual homework problem.

@@ -60,6 +60,7 @@ Stages 1 to 4 run as a background job on the server. The renderer polls lesson s
 - A part with extracted options must get a `choice` or `multi_choice` answer with the same number of options, and the server stores the extracted options in place of the model's wording, so the choices read as in the problem set.
 - Teaching block IDs are `{section_id}-block-{n}`.
 - Hint checks: the cheap check looks for the answer in the hint (a number within tolerance, the expression, or the correct option). Integer answers below 10 are left to the small model, since they appear in ordinary working. A hint the small model doesn't rule on counts as failing.
+- Each diagram's text layout is checked as the section is assembled, and a bad one is retried with the section, then dropped. See Diagrams in `lesson-format.md`.
 - Hints, simulations, and verification run after the section content exists.
 - See `lesson-format.md` for the output and `completion-and-verification.md` for verification.
 
