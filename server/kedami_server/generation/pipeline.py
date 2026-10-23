@@ -10,9 +10,10 @@ import logging
 import shutil
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import asdict
 from datetime import UTC, datetime
+from itertools import count
 from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
@@ -31,7 +32,7 @@ from .ingest import Material, Normalized, ingest
 from .plan import SectionPlan, place_problems
 from .recommended import RecommendedProblem, bank_databases, parse_recommended
 from .recommended import build_extraction as build_recommended
-from .retry import GenerationError, retrying
+from .retry import ATTEMPTS, GenerationError, retrying
 from .leetcode import ProblemListError, build_extraction, find_in_dataset, parse_problem_list
 from .schemas import ConceptMap, Extraction, Plan, ProblemsAndConcepts, SectionDraft
 from .sql import add_practice, refuse_queries, settle_queries
@@ -219,15 +220,20 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
         practice = choose(bank, [set(s.sql_features) for s in outline])
     sections: list[Section] = []
     for number, section_plan in enumerate(outline, start=1):
+        tries = count(1)
 
-        def section_attempt(feedback: str | None, section_plan: SectionPlan = section_plan) -> Section:
+        def section_attempt(
+            feedback: str | None, section_plan: SectionPlan = section_plan, tries: Iterator[int] = tries
+        ) -> Section:
+            # A diagram still laid out badly on the last attempt is dropped, so a figure never fails the lesson.
+            last = next(tries) == ATTEMPTS
             draft = call(
                 "generate",
                 system=section_system,
                 prompt=context + [prompts.section_request(section_plan, outline, feedback)],
                 output=SectionDraft,
             )
-            section = assemble_section(section_plan, draft, extraction.answers)
+            section = assemble_section(section_plan, draft, extraction.answers, drop_bad_diagrams=last)
             if sql:
                 return settle_queries(section, course)
             refuse_queries(section)

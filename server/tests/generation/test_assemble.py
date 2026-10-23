@@ -89,6 +89,33 @@ def test_invalid_plot_is_a_section_error(section_plan):
         assemble_section(section_plan, draft(bad_plot, problem1(), problem2()))
 
 
+def diagram(x):
+    svg = f'<svg viewBox="0 0 100 20" font-family="monospace" font-size="10"><text x="{x}" y="15">label</text></svg>'
+    return {"type": "diagram", "svg": svg, "caption": "A label."}
+
+
+def test_every_badly_laid_out_diagram_is_named_in_one_error(section_plan):
+    blocks = [diagram(80), EXPLANATION, diagram(5), diagram(-10), problem1(), problem2()]
+    with pytest.raises(SectionError) as error:
+        assemble_section(section_plan, draft(*blocks))
+    message = str(error.value)
+    assert "0.6 x its font-size wide" in message
+    assert '- block 1: text "label" runs past the viewBox' in message
+    assert '- block 4: text "label" runs past the viewBox' in message
+    assert "block 3" not in message
+
+
+def test_on_the_last_attempt_bad_diagrams_are_dropped_and_ids_keep_their_place(section_plan):
+    blocks = [diagram(80), EXPLANATION, diagram(5), problem1(), problem2()]
+    section = assemble_section(section_plan, draft(*blocks), drop_bad_diagrams=True)
+    assert [(b.type, b.id) for b in section.blocks] == [
+        ("explanation", "projectiles-block-2"),
+        ("diagram", "projectiles-block-3"),
+        ("problem", "ps1-1"),
+        ("problem", "ps1-2"),
+    ]
+
+
 def test_lesson_assembly_validates(section_plan):
     section = assemble_section(section_plan, draft(EXPLANATION, problem1(), problem2()))
     lesson = assemble_lesson("abc-123", "Projectiles", "physics", ["problem-set.md"], [section])

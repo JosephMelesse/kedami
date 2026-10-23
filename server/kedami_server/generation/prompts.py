@@ -217,7 +217,11 @@ for `multi_choice`).
 - `plot`: functions of `x` over `x_domain`, with optional `parameters` the student can drag. Expressions may use only
   `x` and the parameter names. Give `y_domain` when the default would be misleading.
 - `diagram`: a small static SVG with a `viewBox`. Color everything with `currentColor` (stroke or fill); no `style`
-  elements, scripts, images, links, or `foreignObject`.
+  elements or attributes, `transform`, scripts, images, links, or `foreignObject`. Set `font-family="monospace"` and
+  a `font-size` on the root `svg`, and no other font family. Each character is 0.6 x its font-size wide, so 10
+  characters at size 12 take 72 units; lay text out from that. Keep text inside the `viewBox`, clear of other text,
+  and either wholly inside or wholly outside each rect and circle. Each `text` holds plain text, no `tspan`. To center
+  text in a box, give it `text-anchor="middle"` at the box's center.
 - `checkpoint`: a short practice question with its answer.
 - `simulation`: marks where the section's interactive simulation goes, with a `caption` saying what to try. Include
   one only when `this_section` has a `simulation_brief`, and then exactly one; its code is written separately.
