@@ -24,6 +24,7 @@
 20. SQL lessons
 21. SQL lessons by chapter: the bundled book, recommended problems, pgexercises links, and the course database slot
 22. LeetCode test fixes for the NeetCode 150: dropped tests, comparisons that accept every answer LeetCode accepts, and lessons served the import's current tests
+23. Diagram layout check: monospace diagram text, measured by the server, with clipped and overlapping text sent back to the model
 
 Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the sequencing. Each later step is independent of the ones after it.
 
