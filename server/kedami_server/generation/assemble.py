@@ -19,8 +19,9 @@ from ..lesson import (
     QueryAnswer,
     Section,
 )
+from .diagrams import layout_problems
 from .plan import SectionPlan
-from .schemas import ProblemDraft, SectionDraft, SimulationDraft
+from .schemas import DiagramDraft, ProblemDraft, SectionDraft, SimulationDraft
 
 
 class SectionError(ValueError):
@@ -28,10 +29,14 @@ class SectionError(ValueError):
 
 
 def assemble_section(
-    plan: SectionPlan, draft: SectionDraft, fixed: dict[str, CodeAnswer | ExternalAnswer | QueryAnswer] | None = None
+    plan: SectionPlan,
+    draft: SectionDraft,
+    fixed: dict[str, CodeAnswer | ExternalAnswer | QueryAnswer] | None = None,
+    drop_bad_diagrams: bool = False,
 ) -> Section:
     """Build a section. Problems in `fixed` were listed by the server, LeetCode problems or a SQL chapter's
-    recommended problems, so their parts get that answer."""
+    recommended problems, so their parts get that answer. A diagram with layout problems is a SectionError,
+    unless `drop_bad_diagrams` is set for the last attempt, and then it is left out."""
     fixed = fixed or {}
     targets = {slugify(p.source_ref): p for p in plan.problems}
     typed = [block.typed for block in draft.blocks]
@@ -41,9 +46,18 @@ def assemble_section(
     wanted = 1 if plan.simulation else 0
     if simulations != wanted:
         raise SectionError(f"this section needs exactly {wanted} simulation block(s); got {simulations}")
+    bad_diagrams = {
+        index: problems
+        for index, block in enumerate(typed, start=1)
+        if isinstance(block, DiagramDraft) and (problems := layout_problems(block.svg))
+    }
+    if bad_diagrams and not drop_bad_diagrams:
+        raise SectionError(_diagram_feedback(bad_diagrams))
 
     blocks = []
     for index, block in enumerate(typed, start=1):
+        if index in bad_diagrams:
+            continue
         if isinstance(block, ProblemDraft):
             problem_id = _problem_id(block)
             blocks.append(_problem(block, targets[problem_id], fixed.get(problem_id)))
@@ -65,6 +79,14 @@ def assemble_section(
         return Section.model_validate({"id": plan.id, "title": plan.title, "goal": plan.goal, "blocks": blocks})
     except ValidationError as error:
         raise SectionError(f"the section content is invalid: {error}") from error
+
+
+def _diagram_feedback(bad: dict[int, list[str]]) -> str:
+    found = "\n".join(f"- block {index}: {problem}" for index, problems in bad.items() for problem in problems)
+    return (
+        "these diagrams are laid out badly. Each character of monospace text is 0.6 x its font-size wide; move or "
+        f"shorten the text, enlarge the shapes, or widen the viewBox:\n{found}"
+    )
 
 
 def _problem_id(block: ProblemDraft) -> str:

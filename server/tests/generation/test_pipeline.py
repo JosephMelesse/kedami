@@ -200,6 +200,38 @@ def test_rejected_section_is_retried_alone_with_the_reason(started, data_dir):
     assert len(fake.calls[ProblemsAndConcepts]) == 1 and len(fake.calls[Plan]) == 1
 
 
+def section_two_with_diagram(svg):
+    explanation, problem = section_two()["blocks"]
+    return {"blocks": [explanation, {"type": "diagram", "svg": svg, "caption": "The range."}, problem]}
+
+
+GOOD_DIAGRAM = '<svg viewBox="0 0 100 20" font-family="monospace" font-size="10"><text x="5" y="15">range</text></svg>'
+CLIPPED_DIAGRAM = GOOD_DIAGRAM.replace('x="5"', 'x="80"')
+
+
+def test_badly_laid_out_diagram_is_retried_with_the_problems(started, data_dir):
+    client, create, _ = started
+    lesson_id = create().json()["id"]
+    drafts = [section_one(), section_two_with_diagram(CLIPPED_DIAGRAM), section_two_with_diagram(GOOD_DIAGRAM)]
+    fake = FakeModel(happy_script({SectionDraft: drafts}))
+    run(data_dir, lesson_id, fake)
+    assert 'block 2: text "range" runs past the viewBox' in fake.calls[SectionDraft][2]["prompt"][-1]["text"]
+    lesson = Lesson.model_validate(lesson_status(client, lesson_id)["lesson"])
+    assert lesson.find_block("flight-block-2").svg == GOOD_DIAGRAM
+
+
+def test_diagram_still_bad_on_the_last_attempt_is_dropped(started, data_dir):
+    client, create, _ = started
+    lesson_id = create().json()["id"]
+    fake = FakeModel(happy_script({SectionDraft: [section_one()] + [section_two_with_diagram(CLIPPED_DIAGRAM)] * 3}))
+    run(data_dir, lesson_id, fake)
+    status = lesson_status(client, lesson_id)
+    assert status["status"] == "ready" and status["error"] is None
+    blocks = Lesson.model_validate(status["lesson"]).sections[1].blocks
+    assert [(b.type, b.id) for b in blocks] == [("explanation", "flight-block-1"), ("problem", "ps1-2")]
+    assert len(fake.calls[SectionDraft]) == 4
+
+
 def test_a_hint_too_many_does_not_fail_the_lesson(started, data_dir):
     client, create, _ = started
     lesson_id = create().json()["id"]
