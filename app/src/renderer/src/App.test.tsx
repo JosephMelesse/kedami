@@ -8,6 +8,7 @@ import { App } from './App'
 const lesson: LessonSummary = {
   id: 'sample',
   title: 'Projectile motion',
+  builder: 'pipeline',
   subject: 'physics',
   domain: null,
   status: 'ready',

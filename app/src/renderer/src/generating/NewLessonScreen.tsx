@@ -1,5 +1,13 @@
-import { type DragEvent, type FormEvent, useRef, useState } from 'react'
-import { ApiError, createLesson, type MaterialRole, type NewFile, type Recommendation } from '../api'
+import { type DragEvent, type FormEvent, useEffect, useRef, useState } from 'react'
+import {
+  ApiError,
+  type Builder,
+  createLesson,
+  getCapabilities,
+  type MaterialRole,
+  type NewFile,
+  type Recommendation
+} from '../api'
 import type { Lesson } from '../lesson/types'
 import { SUBJECT_LABELS } from '../subjects'
 import { ChapterPicker } from './ChapterPicker'
@@ -39,6 +47,10 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
   const [rejected, setRejected] = useState<string[]>([])
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Whether the server has an API key: null until it says, and then assumed, so the pipeline stays the default.
+  const [api, setApi] = useState<boolean | null>(null)
+  // The builder the student picked; null keeps the default.
+  const [chosenBuilder, setChosenBuilder] = useState<Builder | null>(null)
   const hasProblemSet = files.some((f) => f.role === 'problem_set')
   // A DSA lesson's problem set is the picked problems, so its files are reference material.
   const dsa = subject === 'computer_science' && domain === 'dsa'
@@ -48,7 +60,18 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
   const takesDatabase = sql && sqlHow === 'upload'
   const databaseReady = !takesDatabase || database === null || database.check.state === 'ok'
   const hasProblems = dsa ? picks.length > 0 : learnChapter ? chapter !== null && recommended.length > 0 : hasProblemSet
-  const ready = subject !== null && hasProblems && databaseReady && !pending
+  // Claude Code builds math, physics, and general lessons; computer science needs the API. See architecture/agent-mode.md.
+  const canUseAgent = subject !== null && subject !== 'computer_science'
+  const builder: Builder = !canUseAgent ? 'pipeline' : api === false ? 'agent' : (chosenBuilder ?? 'pipeline')
+  const needsKey = subject === 'computer_science' && api === false
+  const ready = subject !== null && hasProblems && databaseReady && !needsKey && !pending
+
+  useEffect(() => {
+    getCapabilities().then(
+      (capabilities) => setApi(capabilities.api),
+      () => {}
+    )
+  }, [])
 
   const chooseSubject = (value: Lesson['subject']) => {
     setSubject(value)
@@ -110,7 +133,7 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
       sent = [...files, { file: database.file, role: 'database', force: false }]
     }
     try {
-      onCreated(await createLesson(subject, sent, folderId, domain, learnChapter ? chapter : null))
+      onCreated(await createLesson(subject, sent, folderId, domain, learnChapter ? chapter : null, builder))
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not reach the server.')
       setPending(false)
@@ -169,6 +192,39 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
             </div>
           </fieldset>
         )}
+        {canUseAgent && (
+          <fieldset className="field">
+            <legend className="field-label">Build with</legend>
+            <div className="subject-options">
+              <label className="option" title={api === false ? 'No API key is set in server/.env' : undefined}>
+                <input
+                  type="radio"
+                  name="builder"
+                  checked={builder === 'pipeline'}
+                  disabled={api === false}
+                  onChange={() => setChosenBuilder('pipeline')}
+                />
+                API
+              </label>
+              <label className="option">
+                <input
+                  type="radio"
+                  name="builder"
+                  checked={builder === 'agent'}
+                  onChange={() => setChosenBuilder('agent')}
+                />
+                Claude Code
+              </label>
+            </div>
+            {builder === 'agent' && (
+              <p className="muted">
+                Claude Code builds the lesson on your Claude plan. After you create it, run <code>/kedami:lesson</code>{' '}
+                in Claude Code.
+              </p>
+            )}
+          </fieldset>
+        )}
+        {needsKey && <p className="answer-error">Computer science lessons need an API key, set in server/.env.</p>}
         {dsa && (
           <div className="field">
             <span className="field-label">Problems</span>

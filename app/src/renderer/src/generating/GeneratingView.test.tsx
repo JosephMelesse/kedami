@@ -4,12 +4,12 @@ import type { LessonResponse } from '../api'
 import { GeneratingView } from './GeneratingScreen'
 
 function status(overrides: Partial<LessonResponse>): LessonResponse {
-  return { lesson: null, status: 'generating', current_stage: null, error: null, materials: [], rerun_stages: [], reading_block: null, day_starts: [], ...overrides }
+  return { lesson: null, builder: 'pipeline', status: 'generating', current_stage: null, error: null, materials: [], rerun_stages: [], reading_block: null, day_starts: [], ...overrides }
 }
 
 function render(value: LessonResponse | null, error: string | null = null): HTMLElement {
   const root = document.createElement('div')
-  root.innerHTML = renderToString(<GeneratingView status={value} error={error} onRerun={() => {}} />)
+  root.innerHTML = renderToString(<GeneratingView status={value} error={error} onRerun={() => {}} onCancel={() => {}} />)
   return root
 }
 
@@ -47,5 +47,26 @@ describe('GeneratingView', () => {
     expect(rerun(status({ status: 'failed', current_stage: 2, rerun_stages: [1, 2] }))).toBe(true)
     expect(rerun(status({ status: 'failed', current_stage: 2, rerun_stages: [] }))).toBe(false)
     expect(rerun(status({ current_stage: 2, rerun_stages: [1, 2] }))).toBe(false)
+  })
+
+  it('shows an agent lesson waiting for Claude Code with the command to run', () => {
+    const root = render(status({ builder: 'agent' }))
+    expect(root.querySelector('h1')?.textContent).toBe('Waiting for Claude Code')
+    expect(root.querySelector('code')?.textContent).toBe('/kedami:lesson')
+  })
+
+  it('shows an agent lesson Claude Code has started like any other', () => {
+    const root = render(status({ builder: 'agent', current_stage: 2 }))
+    expect(root.querySelector('h1')?.textContent).toBe('Generating your lesson')
+    expect(stages(root)).toEqual(['done', 'current', 'pending', 'pending'])
+    expect(root.textContent).toContain('Claude Code is building it')
+  })
+
+  it('offers Cancel only while Claude Code is building', () => {
+    const cancel = (s: LessonResponse) => [...render(s).querySelectorAll('button')].some((b) => b.textContent === 'Cancel')
+    expect(cancel(status({ builder: 'agent' }))).toBe(true)
+    expect(cancel(status({ builder: 'agent', current_stage: 3 }))).toBe(true)
+    expect(cancel(status({ current_stage: 3 }))).toBe(false)
+    expect(cancel(status({ builder: 'agent', status: 'failed', current_stage: 3, error: 'Canceled.' }))).toBe(false)
   })
 })

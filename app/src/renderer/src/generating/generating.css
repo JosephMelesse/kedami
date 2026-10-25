@@ -259,3 +259,10 @@
 .database-row .file-name {
   max-width: 240px;
 }
+
+/* A command to type, such as /kedami:lesson, in the code font like lesson code. */
+.form-screen code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9em;
+  font-variant-ligatures: none;
+}

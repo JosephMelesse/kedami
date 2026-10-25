@@ -1,6 +1,7 @@
 """HTTP API. Every route requires the session token."""
 
 import hmac
+import os
 import uuid
 from dataclasses import asdict
 from typing import Annotated, Any, Literal
@@ -238,11 +239,17 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
             "problems_total": len(problem_ids(lesson)) if lesson else 0,
             "problems_done": done,
             "active": bool(row.active),
+            "builder": row.builder,
         }
 
     @app.get("/health")
     def health():
         return {"status": "ok"}
+
+    @app.get("/capabilities")
+    def capabilities():
+        # Whether the pipeline, Show solution, and Generate simulation can call the API. The key itself stays here.
+        return {"api": bool(os.environ.get("ANTHROPIC_API_KEY"))}
 
     @app.get("/lessons")
     def lessons():
@@ -366,6 +373,7 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
             materials = list_materials(conn, lesson_id)
         return {
             "lesson": body,
+            "builder": row.builder,
             "status": row.status,
             "current_stage": row.current_stage,
             "error": row.error,

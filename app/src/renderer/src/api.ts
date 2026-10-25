@@ -3,6 +3,9 @@ import type { Lesson } from './lesson/types'
 
 export type LessonStatus = 'generating' | 'ready' | 'failed'
 
+/** Who builds a lesson: the server's pipeline, or Claude Code. See architecture/agent-mode.md. */
+export type Builder = 'pipeline' | 'agent'
+
 // A SQL lesson's course database is uploaded with the role 'database' and kept apart from the material that is read.
 export type MaterialRole = 'problem_set' | 'reference' | 'database'
 
@@ -15,6 +18,7 @@ export interface Material {
 
 export interface LessonResponse {
   lesson: Lesson | null
+  builder: Builder
   status: LessonStatus
   current_stage: number | null
   error: string | null
@@ -48,6 +52,7 @@ export interface LessonSummary {
   problems_done: number
   /** Shown in the home page's Active card. */
   active: boolean
+  builder: Builder
 }
 
 export type TreeNode =
@@ -118,10 +123,12 @@ export async function createLesson(
   files: NewFile[],
   folderId: number | null,
   domain: Lesson['domain'] = null,
-  chapter: number | null = null
+  chapter: number | null = null,
+  builder: Builder = 'pipeline'
 ): Promise<string> {
   const form = new FormData()
   form.append('subject', subject)
+  if (builder === 'agent') form.append('builder', builder)
   if (domain !== null) form.append('domain', domain)
   if (chapter !== null) form.append('chapter', String(chapter))
   if (folderId !== null) form.append('folder', String(folderId))
@@ -232,6 +239,16 @@ export function checkQuery(
   query: string
 ): Promise<{ correct: boolean; progress: ProgressRecord; reason: string | null; result: QueryResult }> {
   return request('POST', `${blockPath(lessonId, blockId)}/check`, { part_id: partId, response: query })
+}
+
+/** Whether the server has an API key, so the pipeline and on-request writing can run. */
+export function getCapabilities(): Promise<{ api: boolean }> {
+  return request('GET', '/capabilities')
+}
+
+/** End the build of a lesson Claude Code is building. */
+export async function cancelLesson(lessonId: string): Promise<void> {
+  await request('POST', `${lessonPath(lessonId)}/cancel`)
 }
 
 export async function rerunLesson(lessonId: string, stage: number, force: Record<number, boolean>): Promise<void> {

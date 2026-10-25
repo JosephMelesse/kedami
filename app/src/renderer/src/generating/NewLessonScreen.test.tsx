@@ -289,3 +289,69 @@ describe('a new SQL lesson', () => {
     expect(container.textContent).toContain('Not supported, so not added: school.sql')
   })
 })
+
+describe('choosing who builds the lesson', () => {
+  // Renders the screen again once the server says whether it has an API key.
+  async function open(api: boolean) {
+    const base = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+      new URL(url).pathname === '/capabilities' ? new Response(JSON.stringify({ api })) : base(url, init)
+    )
+    await act(async () =>
+      root.render(
+        <NewLessonScreen key={String(api)} folderId={null} onCreated={(id) => created.push(id)} onBack={() => {}} />
+      )
+    )
+    await settle()
+  }
+
+  async function addProblemSet() {
+    const input = container.querySelector<HTMLInputElement>('.file-drop input[type="file"]')!
+    Object.defineProperty(input, 'files', { value: [new File(['x'], 'ps1.md', { type: 'text/plain' })], configurable: true })
+    await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })))
+  }
+
+  async function send() {
+    await act(async () => generate().click())
+    await settle()
+    return fetchMock.mock.calls.find(([url]) => new URL(url).pathname === '/lessons')![1].body as FormData
+  }
+
+  it('offers the API by default when there is a key, and sends no builder for it', async () => {
+    await open(true)
+    await act(async () => radio('Math').click())
+    expect(radio('API').checked).toBe(true)
+    expect(radio('Claude Code').checked).toBe(false)
+    await addProblemSet()
+    expect((await send()).get('builder')).toBeNull()
+  })
+
+  it('sends Claude Code as the builder when it is chosen, and says what to run', async () => {
+    await open(true)
+    await act(async () => radio('Physics').click())
+    await act(async () => radio('Claude Code').click())
+    expect(container.querySelector('code')?.textContent).toBe('/kedami:lesson')
+    await addProblemSet()
+    expect((await send()).get('builder')).toBe('agent')
+  })
+
+  it('has only Claude Code without a key', async () => {
+    await open(false)
+    await act(async () => radio('General').click())
+    expect(radio('API').disabled).toBe(true)
+    expect(radio('Claude Code').checked).toBe(true)
+    await addProblemSet()
+    expect((await send()).get('builder')).toBe('agent')
+  })
+
+  it('offers no choice for computer science, which needs a key', async () => {
+    await open(true)
+    await act(async () => radio('Computer Science').click())
+    expect(container.querySelector('input[name="builder"]')).toBeNull()
+
+    await open(false)
+    await act(async () => radio('Computer Science').click())
+    expect(container.textContent).toContain('Computer science lessons need an API key')
+    expect(generate().disabled).toBe(true)
+  })
+})

@@ -8,6 +8,7 @@ function summary(overrides: Partial<LessonSummary>): LessonSummary {
   return {
     id: 'sample',
     title: 'Projectile motion',
+    builder: 'pipeline',
     subject: 'physics',
     domain: null,
     status: 'ready',

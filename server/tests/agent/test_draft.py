@@ -382,3 +382,25 @@ def test_a_restart_fails_a_build_in_progress(agent):
         library.fail_interrupted(conn, lambda _: False)
     assert agent.lesson(lesson_id)["status"] == "failed"
     assert agent.section(lesson_id, 1, section_one()).status_code == 409
+
+
+# What the window sees
+
+
+def test_lessons_say_who_builds_them(agent):
+    agent_id, pipeline_id = agent.new_lesson(), agent.upload(builder=None).json()["id"]
+    assert agent.lesson(agent_id)["builder"] == "agent"
+    assert agent.lesson(pipeline_id)["builder"] == "pipeline"
+    builders = {s["id"]: s["builder"] for s in agent.get("/lessons").json()["lessons"]}
+    assert builders == {agent_id: "agent", pipeline_id: "pipeline"}
+
+
+@pytest.mark.parametrize("key, api", [("sk-test", True), ("", False), (None, False)])
+def test_capabilities_say_whether_an_api_key_is_set_without_revealing_it(agent, monkeypatch, key, api):
+    if key is None:
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    else:
+        monkeypatch.setenv("ANTHROPIC_API_KEY", key)
+    response = agent.get("/capabilities")
+    assert response.json() == {"api": api}
+    assert "sk-test" not in response.text
