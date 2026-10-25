@@ -93,7 +93,7 @@ On startup it copies `server/fixtures/sample-lesson.json` to `data/lessons/sampl
 
 ```bash
 cd app
-npm install          # also downloads the Electron binary
+npm install          # also downloads the Electron binary, and builds node-pty (needs a C++ toolchain on Linux)
 npm run dev          # builds, spawns the server, opens the window, hot reloads the renderer
 npm start            # runs the production build
 npm test

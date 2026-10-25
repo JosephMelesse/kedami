@@ -116,7 +116,7 @@ export function GeneratingView({ status, error, onRerun, onCancel }: GeneratingV
           <p className="muted">{status.error}</p>
         ) : waiting ? (
           <p className="muted">
-            Start Claude Code with Kedami's plugin and run <code>/kedami:lesson</code>. It builds the lesson from your
+            Open the Terminal, start Claude Code, and run <code>/kedami:lesson</code>. It builds the lesson from your
             files, and this page follows along.
           </p>
         ) : (

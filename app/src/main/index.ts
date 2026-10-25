@@ -15,6 +15,8 @@ import {
 import { isAllowedRequest } from './requests'
 import { readRunnerFiles } from './runner'
 import { type ServerHandle, startServer } from './server'
+import type { TerminalHub } from './terminal'
+import { setUpTerminal } from './terminalView'
 
 const repoRoot = resolve(app.getAppPath(), '..')
 const rendererUrl = process.env.ELECTRON_RENDERER_URL
@@ -26,8 +28,9 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 let server: ServerHandle | null = null
+let terminal: TerminalHub | null = null
 
-function createWindow(): void {
+function createWindow(port: number, token: string): void {
   const window = new BrowserWindow({
     width: 1100,
     height: 820,
@@ -55,6 +58,7 @@ function createWindow(): void {
   } else {
     window.loadFile(join(__dirname, '../renderer/index.html'))
   }
+  terminal = setUpTerminal(window, { dataDir, rendererUrl, port, token })
 }
 
 async function launch(): Promise<void> {
@@ -89,7 +93,7 @@ async function launch(): Promise<void> {
   })
   serveMusic(join(dataDir, 'music'))
   ipcMain.handle('kedami:runner-files', readRunnerFiles)
-  createWindow()
+  createWindow(server.port, server.token)
 }
 
 /** The renderer names tracks by file name; main copies them in, lists them, and serves them. */
@@ -123,7 +127,10 @@ function serveMusic(musicDir: string): void {
 app.whenReady().then(launch)
 
 app.on('window-all-closed', () => app.quit())
-app.on('will-quit', () => server?.stop())
+app.on('will-quit', () => {
+  terminal?.dispose()
+  server?.stop()
+})
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => app.quit())
 }

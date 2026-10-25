@@ -23,6 +23,10 @@ export interface KedamiApi {
   addMusic(): Promise<{ tracks: MusicTrack[]; added: string[] }>
   /** Pyodide's binaries for the code runner, which its frame can't load itself. */
   runnerFiles(): Promise<{ wasm: ArrayBuffer; stdlib: ArrayBuffer }>
+  /** Lay the Terminal screen's view over this rectangle of the window, in CSS pixels. */
+  showTerminal(bounds: { x: number; y: number; width: number; height: number }): void
+  /** Hide the Terminal screen's view. Its session keeps running. */
+  hideTerminal(): void
 }
 
 declare global {

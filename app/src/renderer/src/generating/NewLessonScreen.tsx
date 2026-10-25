@@ -218,8 +218,8 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
             </div>
             {builder === 'agent' && (
               <p className="muted">
-                Claude Code builds the lesson on your Claude plan. After you create it, run <code>/kedami:lesson</code>{' '}
-                in Claude Code.
+                Claude Code builds the lesson on your Claude plan. After you create it, open the Terminal, start Claude
+                Code, and run <code>/kedami:lesson</code>.
               </p>
             )}
           </fieldset>

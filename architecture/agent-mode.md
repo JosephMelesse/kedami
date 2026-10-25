@@ -164,3 +164,5 @@ KEDAMI_PORT=8765 KEDAMI_TOKEN=dev claude --plugin-dir agent-plugin
 ```
 
 Then upload a lesson with Claude Code as the builder and run `/kedami:lesson`. The server needs no API key for this.
+
+Or run the app (`npm run dev`), create a lesson with Claude Code as the builder, open the Terminal, and click Start Claude Code. Claude Code must be on the path of the terminal `npm run dev` was started from.

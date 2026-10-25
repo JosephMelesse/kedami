@@ -97,8 +97,14 @@ input {
   background: var(--surface);
 }
 
-.app-name {
+.app-start {
   justify-self: start;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.app-name {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -404,4 +410,26 @@ input {
 .dialog-form {
   display: grid;
   gap: 16px;
+}
+
+/* The Terminal screen: a header button, and the space below the header that main lays the terminal's view over. */
+.terminal-toggle {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.terminal-toggle[aria-pressed='true'] {
+  color: var(--text);
+}
+
+.terminal-area {
+  position: fixed;
+  /* Above the code workspace, like the rest screen, which unmounts it while resting. */
+  z-index: 2;
+  inset: 56px 0 0;
+  background: var(--bg);
 }

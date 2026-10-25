@@ -7,16 +7,23 @@ interface AppHeaderProps {
   onHome: () => void
   onRest: (time: string | null) => void
   resting: boolean
+  terminalOpen: boolean
+  onTerminal: () => void
 }
 
-export function AppHeader({ onHome, onRest, resting }: AppHeaderProps) {
+export function AppHeader({ onHome, onRest, resting, terminalOpen, onTerminal }: AppHeaderProps) {
   const bar = useDayBar()
   return (
     <header className="app-header">
-      <button type="button" className="app-name" onClick={onHome}>
-        <Logo />
-        Kedami
-      </button>
+      <div className="app-start">
+        <button type="button" className="app-name" onClick={onHome}>
+          <Logo />
+          Kedami
+        </button>
+        <button type="button" className="terminal-toggle" aria-pressed={terminalOpen} onClick={onTerminal}>
+          Terminal
+        </button>
+      </div>
       <MusicPlayer resting={resting} bar={bar} />
       <PomodoroTimer onRest={onRest} />
     </header>

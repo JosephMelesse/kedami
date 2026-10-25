@@ -1,0 +1,20 @@
+<!doctype html>
+<!--
+  The Terminal screen. Main shows it in its own view, over the space the lesson window leaves for it, with
+  its own preload: the only one that can start a session or type into it. It never shows lesson content.
+  See architecture/agent-mode.md, Terminal screen.
+-->
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self' ws://localhost:*; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>Terminal</title>
+  </head>
+  <body class="terminal-page">
+    <div id="terminal-root"></div>
+    <script type="module" src="/src/terminal/main.ts"></script>
+  </body>
+</html>

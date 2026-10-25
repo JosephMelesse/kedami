@@ -30,9 +30,17 @@ vi.mock('./api', async (original) => ({
 
 let container: HTMLDivElement
 let root: Root
+const shown: unknown[] = []
+let hidden = 0
 
 beforeEach(() => {
-  window.kedami = { musicTracks: async () => [] } as unknown as KedamiApi
+  shown.length = 0
+  hidden = 0
+  window.kedami = {
+    musicTracks: async () => [],
+    showTerminal: (bounds: unknown) => void shown.push(bounds),
+    hideTerminal: () => void hidden++
+  } as unknown as KedamiApi
   container = document.createElement('div')
   document.body.append(container)
   root = createRoot(container)
@@ -53,6 +61,36 @@ describe('App header', () => {
     await click('.tile')
     expect(heading()).toBe('Week 3')
     await click('.app-name')
+    expect(heading()).toBe('Lessons')
+  })
+})
+
+describe('Terminal screen', () => {
+  const terminalButton = () => [...container.querySelectorAll('button')].find((b) => b.textContent === 'Terminal')!
+
+  it('opens over the current screen, which keeps its state, and closes again', async () => {
+    await act(async () => root.render(<App />))
+    await click('.tile')
+    await act(async () => terminalButton().click())
+    expect(container.querySelector('.terminal-area')).not.toBeNull()
+    expect(shown).toEqual([{ x: 0, y: 0, width: 0, height: 0 }])
+    expect(container.querySelector('main')!.hasAttribute('inert')).toBe(true)
+    expect(terminalButton().getAttribute('aria-pressed')).toBe('true')
+
+    await act(async () => terminalButton().click())
+    expect(container.querySelector('.terminal-area')).toBeNull()
+    expect(hidden).toBe(1)
+    expect(container.querySelector('main')!.hasAttribute('inert')).toBe(false)
+    expect(heading()).toBe('Week 3')
+  })
+
+  it('closes when Kedami is clicked, which goes home', async () => {
+    await act(async () => root.render(<App />))
+    await click('.tile')
+    await act(async () => terminalButton().click())
+    await click('.app-name')
+    expect(container.querySelector('.terminal-area')).toBeNull()
+    expect(hidden).toBe(1)
     expect(heading()).toBe('Lessons')
   })
 })

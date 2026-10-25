@@ -5,7 +5,17 @@ import { bundlePlugin } from './scripts/bundle-plugin'
 
 export default defineConfig({
   main: {},
-  preload: {},
+  preload: {
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve(__dirname, 'src/preload/index.ts'),
+          // The Terminal screen's view; only it can type into the terminal.
+          terminal: resolve(__dirname, 'src/preload/terminal.ts')
+        }
+      }
+    }
+  },
   renderer: {
     plugins: [react(), bundlePlugin()],
     // The dev server's port. Main reads the address Vite actually uses, so a taken port only moves it.
@@ -19,7 +29,9 @@ export default defineConfig({
           // The sandboxed page simulations run in.
           simulation: resolve(__dirname, 'src/renderer/simulation.html'),
           // The sandboxed page the student's code runs in.
-          runner: resolve(__dirname, 'src/renderer/runner.html')
+          runner: resolve(__dirname, 'src/renderer/runner.html'),
+          // The Terminal screen, in a view of its own.
+          terminal: resolve(__dirname, 'src/renderer/terminal.html')
         }
       }
     }

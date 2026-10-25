@@ -8,7 +8,9 @@ const api: KedamiApi = {
   openPgExercises: (path) => ipcRenderer.invoke('kedami:open-pgexercises', path),
   musicTracks: () => ipcRenderer.invoke('kedami:music-tracks'),
   addMusic: () => ipcRenderer.invoke('kedami:music-add'),
-  runnerFiles: () => ipcRenderer.invoke('kedami:runner-files')
+  runnerFiles: () => ipcRenderer.invoke('kedami:runner-files'),
+  showTerminal: (bounds) => ipcRenderer.send('kedami:terminal-show', bounds),
+  hideTerminal: () => ipcRenderer.send('kedami:terminal-hide')
 }
 
 contextBridge.exposeInMainWorld('kedami', api)
