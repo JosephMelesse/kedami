@@ -30,7 +30,7 @@ Before writing code, read `README.md` and every file in `architecture/`. Those d
 **Boundaries**
 - The renderer is UI only. It never calls the model API and never sees the API key.
 - The server binds to `127.0.0.1` and rejects requests without the session token.
-- Kedami's only outbound traffic is to the Anthropic API. Fonts and audio are bundled, never fetched. Programs the student runs in the Terminal screen are their own.
+- Kedami's only outbound traffic is to the Anthropic API. Fonts and audio are bundled, never fetched. Programs the student runs in the Terminal panel are their own.
 - The terminal is a separate view, and main accepts pseudo-terminal input only from it. The lesson window can never type into a shell.
 - Kedami never types into the terminal and never runs a coding agent non-interactively. The student drives Claude Code.
 

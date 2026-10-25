@@ -1,10 +1,10 @@
-// The Terminal screen: terminal.html in its own view, laid over the space the lesson window leaves for it.
+// The Terminal panel: terminal.html in its own view, laid over the space the lesson window leaves for it.
 // The view has its own preload and is the only sender TerminalHub accepts. The lesson window can only show
 // or hide it. See architecture/agent-mode.md, Isolation.
 import { type BrowserWindow, ipcMain, WebContentsView } from 'electron'
 import { join } from 'node:path'
 import { spawn } from 'node-pty'
-import { findOnPath, type Pty, sessionCommand, TerminalHub } from './terminal'
+import { findOnPath, isToggleShortcut, type Pty, sessionCommand, TerminalHub } from './terminal'
 
 interface TerminalOptions {
   dataDir: string
@@ -74,6 +74,15 @@ export function setUpTerminal(window: BrowserWindow, options: TerminalOptions): 
   ipcMain.handle('terminal:start', (event, kind, cols, rows) => hub.start(event.sender, kind, cols, rows))
   ipcMain.on('terminal:input', (event, data) => hub.input(event.sender, data))
   ipcMain.on('terminal:resize', (event, cols, rows) => hub.resize(event.sender, cols, rows))
+
+  // The panel shortcut works wherever the keyboard is, the terminal included; the lesson window decides what it does.
+  const toggle = (event: Electron.Event, input: Electron.Input) => {
+    if (!isToggleShortcut(input, process.platform)) return
+    event.preventDefault()
+    window.webContents.send('kedami:terminal-toggle')
+  }
+  window.webContents.on('before-input-event', toggle)
+  view.webContents.on('before-input-event', toggle)
 
   // From the lesson window: where to show the view, and when to hide it. A hidden session keeps running.
   const fromWindow = (sender: unknown) => sender === window.webContents

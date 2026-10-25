@@ -79,6 +79,21 @@ export function findOnPath(
   return null
 }
 
+/** The keys Electron reports for a keystroke, as in its before-input-event. */
+export interface KeyInput {
+  type: string
+  key: string
+  control: boolean
+  meta: boolean
+  alt: boolean
+}
+
+/** Ctrl+` (Cmd+` on macOS), which opens and closes the Terminal panel from anywhere in the app. */
+export function isToggleShortcut(input: KeyInput, platform: NodeJS.Platform): boolean {
+  const modifier = platform === 'darwin' ? input.meta : input.control
+  return input.type === 'keyDown' && input.key === '`' && modifier && !input.alt
+}
+
 interface HubOptions {
   /** Whether a message came from the terminal view. */
   isTerminal: (sender: unknown) => boolean

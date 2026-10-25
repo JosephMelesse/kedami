@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import { AppHeader } from './AppHeader'
 import { GeneratingScreen } from './generating/GeneratingScreen'
 import { NewLessonScreen } from './generating/NewLessonScreen'
@@ -6,7 +6,9 @@ import { LessonScreen } from './lesson/LessonScreen'
 import { LibraryScreen } from './library/LibraryScreen'
 import { DayBarProvider } from './lesson/days/DayBar'
 import { RestScreen } from './pomodoro/RestScreen'
-import { TerminalScreen } from './terminal/TerminalScreen'
+import { clampWidth, loadWidth, saveWidth } from './terminal/panelWidth'
+import { TerminalPanel } from './terminal/TerminalPanel'
+import { useNarrow } from './terminal/useNarrow'
 
 type Screen =
   | { name: 'library'; folderId: number | null }
@@ -17,12 +19,24 @@ type Screen =
 export function App() {
   const [screen, setScreen] = useState<Screen>({ name: 'library', folderId: null })
   const [restTime, setRestTime] = useState<string | null>(null)
-  // The Terminal screen covers whatever screen is open, which keeps its state underneath.
+  // The Terminal panel opens beside whatever screen is open; see architecture/agent-mode.md, Terminal panel.
   const [terminalOpen, setTerminalOpen] = useState(false)
-  const openLibrary = () => {
-    setTerminalOpen(false)
-    setScreen({ name: 'library', folderId: null })
-  }
+  const [terminalWidth, setTerminalWidth] = useState(() => loadWidth(window.innerWidth))
+  const narrow = useNarrow()
+  // Beside the screen, the panel takes its width from it; in a narrow window it covers the screen instead.
+  const beside = terminalOpen && !narrow
+  const openLibrary = () => setScreen({ name: 'library', folderId: null })
+
+  useEffect(() => window.kedami.onTerminalToggle(() => setTerminalOpen((open) => !open)), [])
+  useEffect(() => saveWidth(terminalWidth), [terminalWidth])
+  useEffect(() => {
+    const fit = () => setTerminalWidth((width) => clampWidth(width, window.innerWidth))
+    window.addEventListener('resize', fit)
+    return () => window.removeEventListener('resize', fit)
+  }, [])
+  useLayoutEffect(() => {
+    document.documentElement.style.setProperty('--terminal-width', beside ? `${terminalWidth}px` : '0px')
+  }, [beside, terminalWidth])
   const openLesson = (lessonId: string) => setScreen({ name: 'lesson', lessonId })
   const openGenerating = (lessonId: string) => setScreen({ name: 'generating', lessonId })
 
@@ -36,9 +50,11 @@ export function App() {
         onTerminal={() => setTerminalOpen((open) => !open)}
       />
       {restTime !== null && <RestScreen time={restTime} />}
-      {/* The rest screen covers the terminal too, so the terminal's view is hidden while resting. */}
-      {terminalOpen && restTime === null && <TerminalScreen />}
-      <main inert={restTime !== null || terminalOpen}>
+      {/* The rest screen covers the panel too, so the terminal's view is hidden while resting. */}
+      {terminalOpen && restTime === null && (
+        <TerminalPanel width={terminalWidth} narrow={narrow} onWidth={setTerminalWidth} />
+      )}
+      <main inert={restTime !== null || (terminalOpen && narrow)}>
         {screen.name === 'library' && (
           <LibraryScreen
             onOpen={(lesson) => (lesson.status === 'ready' ? openLesson(lesson.id) : openGenerating(lesson.id))}

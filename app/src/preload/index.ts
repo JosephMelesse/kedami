@@ -10,7 +10,12 @@ const api: KedamiApi = {
   addMusic: () => ipcRenderer.invoke('kedami:music-add'),
   runnerFiles: () => ipcRenderer.invoke('kedami:runner-files'),
   showTerminal: (bounds) => ipcRenderer.send('kedami:terminal-show', bounds),
-  hideTerminal: () => ipcRenderer.send('kedami:terminal-hide')
+  hideTerminal: () => ipcRenderer.send('kedami:terminal-hide'),
+  onTerminalToggle: (listener) => {
+    const handler = () => listener()
+    ipcRenderer.on('kedami:terminal-toggle', handler)
+    return () => ipcRenderer.removeListener('kedami:terminal-toggle', handler)
+  }
 }
 
 contextBridge.exposeInMainWorld('kedami', api)

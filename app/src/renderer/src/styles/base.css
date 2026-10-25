@@ -154,6 +154,8 @@ input {
 }
 
 .dialog {
+  /* Centered left of the Terminal panel, whose view would draw over it. */
+  inset-inline-end: var(--terminal-width, 0px);
   max-width: 440px;
   padding: 24px;
   border: 1px solid var(--border);
@@ -426,10 +428,42 @@ input {
   color: var(--text);
 }
 
-.terminal-area {
+/* While the Terminal panel is open beside the screen, --terminal-width is its width; otherwise 0. */
+main {
+  margin-right: var(--terminal-width, 0px);
+}
+
+.terminal-panel {
   position: fixed;
   /* Above the code workspace, like the rest screen, which unmounts it while resting. */
   z-index: 2;
-  inset: 56px 0 0;
+  top: 56px;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  border-left: 1px solid var(--border);
   background: var(--bg);
+}
+
+/* Too narrow to share: the panel covers the screen below the header. */
+.terminal-panel[data-narrow='true'] {
+  left: 0;
+  border-left: 0;
+}
+
+.terminal-handle {
+  flex: none;
+  width: 6px;
+  cursor: col-resize;
+}
+
+.terminal-handle:hover,
+.terminal-handle[data-dragging='true'] {
+  background: var(--border);
+}
+
+/* Main lays the terminal's view over this. */
+.terminal-slot {
+  flex: 1;
+  min-width: 0;
 }

@@ -9,7 +9,8 @@
 .workspace {
   position: fixed;
   z-index: 1;
-  inset: 56px 0 0;
+  /* Left of the Terminal panel, when it is open. */
+  inset: 56px var(--terminal-width, 0px) 0 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 8px;

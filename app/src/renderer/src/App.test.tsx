@@ -32,14 +32,28 @@ let container: HTMLDivElement
 let root: Root
 const shown: unknown[] = []
 let hidden = 0
+let toggles: (() => void)[] = []
+let narrow = false
 
 beforeEach(() => {
   shown.length = 0
   hidden = 0
+  toggles = []
+  narrow = false
+  localStorage.clear()
+  window.matchMedia = ((query: string) => ({
+    matches: narrow && query === '(max-width: 720px)',
+    addEventListener: () => {},
+    removeEventListener: () => {}
+  })) as unknown as typeof window.matchMedia
   window.kedami = {
     musicTracks: async () => [],
     showTerminal: (bounds: unknown) => void shown.push(bounds),
-    hideTerminal: () => void hidden++
+    hideTerminal: () => void hidden++,
+    onTerminalToggle: (listener: () => void) => {
+      toggles.push(listener)
+      return () => (toggles = toggles.filter((t) => t !== listener))
+    }
   } as unknown as KedamiApi
   container = document.createElement('div')
   document.body.append(container)
@@ -65,32 +79,69 @@ describe('App header', () => {
   })
 })
 
-describe('Terminal screen', () => {
+describe('Terminal panel', () => {
   const terminalButton = () => [...container.querySelectorAll('button')].find((b) => b.textContent === 'Terminal')!
+  const panel = () => container.querySelector<HTMLElement>('.terminal-panel')
+  const main = () => container.querySelector('main')!
+  const width = () => document.documentElement.style.getPropertyValue('--terminal-width')
 
-  it('opens over the current screen, which keeps its state, and closes again', async () => {
+  it('opens beside the current screen, which stays usable, and closes again', async () => {
     await act(async () => root.render(<App />))
     await click('.tile')
     await act(async () => terminalButton().click())
-    expect(container.querySelector('.terminal-area')).not.toBeNull()
-    expect(shown).toEqual([{ x: 0, y: 0, width: 0, height: 0 }])
-    expect(container.querySelector('main')!.hasAttribute('inert')).toBe(true)
+    expect(panel()).not.toBeNull()
+    expect(panel()!.dataset.narrow).toBe('false')
+    expect(shown).toHaveLength(1)
+    expect(main().hasAttribute('inert')).toBe(false)
+    expect(width()).toBe(`${panel()!.style.width.replace('px', '')}px`)
     expect(terminalButton().getAttribute('aria-pressed')).toBe('true')
 
     await act(async () => terminalButton().click())
-    expect(container.querySelector('.terminal-area')).toBeNull()
+    expect(panel()).toBeNull()
     expect(hidden).toBe(1)
-    expect(container.querySelector('main')!.hasAttribute('inert')).toBe(false)
+    expect(width()).toBe('0px')
     expect(heading()).toBe('Week 3')
   })
 
-  it('closes when Kedami is clicked, which goes home', async () => {
+  it('stays open when Kedami is clicked', async () => {
     await act(async () => root.render(<App />))
     await click('.tile')
     await act(async () => terminalButton().click())
     await click('.app-name')
-    expect(container.querySelector('.terminal-area')).toBeNull()
-    expect(hidden).toBe(1)
+    expect(panel()).not.toBeNull()
     expect(heading()).toBe('Lessons')
+  })
+
+  it('opens and closes with the shortcut main reports', async () => {
+    await act(async () => root.render(<App />))
+    await act(async () => toggles.forEach((toggle) => toggle()))
+    expect(panel()).not.toBeNull()
+    await act(async () => toggles.forEach((toggle) => toggle()))
+    expect(panel()).toBeNull()
+  })
+
+  it('covers the screen in a narrow window, which then takes no input', async () => {
+    narrow = true
+    await act(async () => root.render(<App />))
+    await act(async () => terminalButton().click())
+    expect(panel()!.dataset.narrow).toBe('true')
+    expect(main().hasAttribute('inert')).toBe(true)
+    expect(width()).toBe('0px')
+  })
+
+  it('resizes from its edge, hiding the view while dragging and keeping a usable width', async () => {
+    Object.defineProperty(window, 'innerWidth', { value: 1200, configurable: true })
+    await act(async () => root.render(<App />))
+    await act(async () => terminalButton().click())
+    const handle = container.querySelector<HTMLElement>('.terminal-handle')!
+    await act(async () => handle.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true })))
+    expect(hidden).toBe(1)
+    await act(async () => window.dispatchEvent(new MouseEvent('pointermove', { clientX: 700 })))
+    expect(panel()!.style.width).toBe('500px')
+    await act(async () => window.dispatchEvent(new MouseEvent('pointermove', { clientX: 1100 })))
+    expect(panel()!.style.width).toBe('320px')
+    await act(async () => window.dispatchEvent(new MouseEvent('pointerup', {})))
+    expect(shown.length).toBeGreaterThan(1)
+    expect(localStorage.getItem('kedami.terminalWidth')).toBe('320')
   })
 })

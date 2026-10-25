@@ -5,8 +5,8 @@
 | Process | Responsibility | Stack |
 |---|---|---|
 | Electron renderer | UI only: file drop, lesson rendering, answer input, progress, sandboxed simulation frames, code editor and sandboxed runner frame, Pomodoro timer, music player | TypeScript, React, KaTeX, DOMPurify, CodeMirror, Pyodide |
-| Electron main | Window management; spawns and kills the server; passes the port and session token to the renderer; copies and serves music player tracks; runs the Terminal screen's pseudo-terminal | TypeScript, node-pty |
-| Terminal view | The Terminal screen: draws the pseudo-terminal, in its own renderer process (see `agent-mode.md`) | TypeScript, xterm.js |
+| Electron main | Window management; spawns and kills the server; passes the port and session token to the renderer; copies and serves music player tracks; runs the Terminal panel's pseudo-terminal | TypeScript, node-pty |
+| Terminal view | The Terminal panel: draws the pseudo-terminal, in its own renderer process (see `agent-mode.md`) | TypeScript, xterm.js |
 | Local server | Ingestion, model calls, verification, answer checking, storage; writes the agent plugin and serves its routes | Python, FastAPI, SymPy, SQLite |
 | MCP server | Agent mode's tools, started by Claude Code; each tool calls an agent route | Python, MCP SDK |
 
@@ -109,8 +109,8 @@ Most likely to be wrong: counting the calls made on the transcription threads un
 
 - The server binds to `127.0.0.1` only and rejects requests without the session token.
 - The API key lives in the server's `.env`. The renderer never sees it.
-- Kedami's only outbound traffic is to the Anthropic API. Fonts and the alarm sound are bundled. Programs the student runs in the Terminal screen, Claude Code included, make their own connections.
-- The Terminal screen is a separate view with its own preload. Main accepts pseudo-terminal input only from that view, so the lesson window can never type into a shell. See Isolation in `agent-mode.md`.
+- Kedami's only outbound traffic is to the Anthropic API. Fonts and the alarm sound are bundled. Programs the student runs in the Terminal panel, Claude Code included, make their own connections.
+- The Terminal panel is a separate view with its own preload. Main accepts pseudo-terminal input only from that view, so the lesson window can never type into a shell. See Isolation in `agent-mode.md`.
 - Kedami never types into the terminal and never runs a coding agent non-interactively. The student drives Claude Code.
 - Model-written code runs only inside a sandboxed frame with no network, no Node access, and no access to app data.
 - The student's code, and the dataset's test arguments and expected values, run only inside the runner frame, which has the same limits. Pyodide is bundled, never fetched. The server never runs or evaluates either; the import reads tests with Python's `ast` parser only.

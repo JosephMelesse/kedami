@@ -9,8 +9,8 @@ Kedami is a desktop app that takes course material for a week, module, or exam a
 - Math and physics
 - Computer science, in domains that decide how a lesson is built. Data structures and algorithms: lessons with comprehension checks, where the student picks LeetCode problems by number or name, and each is solved in Kedami in Python and checked against tests imported from LeetCodeDataset, or solved on LeetCode and marked done if the dataset lacks it. SQL: one chapter per lesson, with explanations drawn from a bundled open book and problems recommended from the Spider bank, or from pgexercises for chapters Spider lacks; or uploaded from the course with its own database; each query solved in Kedami and checked in SQLite against a reference query
 - General: any other course, such as computer architecture or chemistry, through the math and physics pipeline with no subject-specific rules
-- Two ways to build a lesson: the server's pipeline, using an API key, or agent mode, where the student's own Claude Code session builds it from Kedami's Terminal screen (math, physics, and general lessons; see `architecture/agent-mode.md`)
-- Local storage; Kedami's own outbound traffic goes only to the Anthropic API. Programs the student runs in the Terminal screen, Claude Code included, are their own
+- Two ways to build a lesson: the server's pipeline, using an API key, or agent mode, where the student's own Claude Code session builds it from Kedami's Terminal panel (math, physics, and general lessons; see `architecture/agent-mode.md`)
+- Local storage; Kedami's own outbound traffic goes only to the Anthropic API. Programs the student runs in the Terminal panel, Claude Code included, are their own
 - Dark theme
 
 **Out of scope for MVP**
@@ -26,7 +26,7 @@ See `roadmap.md` for the backlog.
 |---|---|
 | `architecture/system.md` | Processes, launch, model roles, usage log, run log, security |
 | `architecture/pipeline.md` | Ingestion through lesson generation, reruns |
-| `architecture/agent-mode.md` | Building lessons with Claude Code: the Terminal screen, the plugin, the MCP server, agent routes |
+| `architecture/agent-mode.md` | Building lessons with Claude Code: the Terminal panel, the plugin, the MCP server, agent routes |
 | `architecture/lesson-format.md` | Lesson structure, blocks, answers, hints, simulations |
 | `architecture/completion-and-verification.md` | Part states, mark done, answer checking, verification |
 | `architecture/code-problems.md` | LeetCode tests, the code editor, the sandboxed runner, test flags |

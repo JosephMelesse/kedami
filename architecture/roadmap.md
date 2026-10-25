@@ -28,7 +28,7 @@
 24. Agent routes: the `builder` column, the draft lesson, and every `/agent/` route, tested without Claude Code
 25. MCP server and the plugin the server writes: build one lesson with `claude --plugin-dir` against a server started by hand
 26. Builder choice on the Upload screen, the waiting state and Cancel on the Generating screen, and `/capabilities`
-27. Terminal screen: its own view, node-pty in main, Start Claude Code and Open a shell
+27. Terminal panel: its own view, node-pty in main, Start Claude Code and Open a shell
 28. Solutions and simulations without an API key, through `/kedami:solution` and `/kedami:simulation`
 
 Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the sequencing. Each later step is independent of the ones after it. Steps 24 to 28 are agent mode (see `agent-mode.md`); step 25 proves it before any UI exists.
@@ -45,4 +45,4 @@ Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the s
 - **More SQL:** solutions for query parts on request, showing a database's tables beside the lesson's explanations, flagging a bank exercise as broken, and Spider's three databases over 5 MB.
 - **More code problems:** design problems (a class tested by a sequence of calls), problems that change their input in place, and fixes for problems outside the NeetCode 150, such as by checking every test against the limits in its description at import.
 - **Packaging and distribution:** bundling the Python server, plus key handling for other users.
-- **More agent mode:** computer science lessons, reruns of agent lessons, Codex, Claude Code sessions started outside the Terminal screen, and agent builds in the run log.
+- **More agent mode:** computer science lessons, reruns of agent lessons, Codex, Claude Code sessions started outside the Terminal panel, and agent builds in the run log.

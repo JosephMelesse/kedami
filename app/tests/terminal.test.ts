@@ -2,7 +2,7 @@ import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { findOnPath, type Pty, sessionCommand, TerminalHub } from '../src/main/terminal'
+import { findOnPath, isToggleShortcut, type Pty, sessionCommand, TerminalHub } from '../src/main/terminal'
 
 class FakePty implements Pty {
   written: string[] = []
@@ -157,5 +157,29 @@ describe('findOnPath', () => {
     const root = mkdtempSync(join(tmpdir(), 'kedami-path-'))
     writeFileSync(join(root, 'claude.exe'), '')
     expect(findOnPath('claude', root, 'win32', '.COM;.EXE')).toBe(join(root, 'claude.exe'))
+  })
+})
+
+describe('the panel shortcut', () => {
+  const key = (overrides: Partial<Parameters<typeof isToggleShortcut>[0]>) => ({
+    type: 'keyDown',
+    key: '`',
+    control: false,
+    meta: false,
+    alt: false,
+    ...overrides
+  })
+
+  it('is Ctrl+` on Linux and Windows, and Cmd+` on macOS', () => {
+    expect(isToggleShortcut(key({ control: true }), 'linux')).toBe(true)
+    expect(isToggleShortcut(key({ control: true }), 'win32')).toBe(true)
+    expect(isToggleShortcut(key({ meta: true }), 'darwin')).toBe(true)
+    expect(isToggleShortcut(key({ control: true }), 'darwin')).toBe(false)
+  })
+
+  it('ignores a plain backtick, key releases, and Alt combinations', () => {
+    expect(isToggleShortcut(key({}), 'linux')).toBe(false)
+    expect(isToggleShortcut(key({ control: true, type: 'keyUp' }), 'linux')).toBe(false)
+    expect(isToggleShortcut(key({ control: true, alt: true }), 'linux')).toBe(false)
   })
 })
