@@ -35,6 +35,8 @@ class LessonRow:
     domain: str | None = None
     # The SQL chapter a lesson was made for, whose recommended problems are its problem set; null otherwise.
     chapter: int | None = None
+    # "pipeline" or "agent", set at upload and never changed.
+    builder: str = "pipeline"
 
     @property
     def shown_title(self) -> str:
@@ -62,14 +64,25 @@ def create_generating(
     folder_id: int | None = None,
     domain: str | None = None,
     chapter: int | None = None,
+    builder: str = "pipeline",
 ) -> None:
-    """Index a lesson whose generation is starting. The title arrives with the plan."""
+    """Index a lesson whose generation is starting. The title arrives with the plan. An agent lesson
+    with no current stage is waiting for Claude Code."""
     conn.execute(
         "INSERT INTO lessons"
-        " (id, title, subject, domain, chapter, status, current_stage, schema_version, created, folder_id)"
-        " VALUES (?, 'New lesson', ?, ?, ?, 'generating', NULL, ?, ?, ?)",
-        (lesson_id, subject, domain, chapter, schema_version, _now(), folder_id),
+        " (id, title, subject, domain, chapter, builder, status, current_stage, schema_version, created, folder_id)"
+        " VALUES (?, 'New lesson', ?, ?, ?, ?, 'generating', NULL, ?, ?, ?)",
+        (lesson_id, subject, domain, chapter, builder, schema_version, _now(), folder_id),
     )
+
+
+def waiting_for_agent(conn: sqlite3.Connection) -> list[LessonRow]:
+    """Agent lessons no Claude Code session has started yet, oldest first."""
+    rows = conn.execute(
+        "SELECT * FROM lessons WHERE builder = 'agent' AND status = 'generating' AND current_stage IS NULL"
+        " ORDER BY created, id"
+    ).fetchall()
+    return [LessonRow(**row) for row in rows]
 
 
 def set_stage(conn: sqlite3.Connection, lesson_id: str, stage: int) -> None:

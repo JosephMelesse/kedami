@@ -11,6 +11,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StringConstraints
 
 from . import databases, db, progress, queries, simulation_state, solution_state, test_flags, usage
+from .agent import draft as agent_draft
+from .agent.routes import agent_router
 from .checking import InvalidResponse, check
 from .config import Settings
 from .current_tests import with_current_tests
@@ -257,7 +259,10 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         folder: Annotated[int | None, Form()] = None,
         domain: Annotated[Domain | None, Form()] = None,
         chapter: Annotated[int | None, Form()] = None,
+        builder: Annotated[Literal["pipeline", "agent"], Form()] = "pipeline",
     ):
+        if builder == "agent" and subject not in agent_draft.SUBJECTS:
+            raise HTTPException(422, "Claude Code builds math, physics, and general lessons; computer science needs the API.")
         if (subject == "computer_science") != (domain is not None):
             raise HTTPException(422, "A computer science lesson needs a domain, and only it has one.")
         if chapter is not None:
@@ -300,18 +305,38 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
             databases.save_course(pipeline.materials_dir(settings.data_dir, lesson_id), name, image)
         with db.connect(settings.data_dir) as conn:
             create_generating(
-                conn, lesson_id, subject, schema_version=1, folder_id=folder, domain=domain, chapter=chapter
+                conn,
+                lesson_id,
+                subject,
+                schema_version=1,
+                folder_id=folder,
+                domain=domain,
+                chapter=chapter,
+                builder=builder,
             )
             for file in saved:
                 add_material(conn, lesson_id, file.filename, file.role, file.force_transcription)
-        start_generation(settings.data_dir, lesson_id, subject, 1)
+        # An agent lesson waits for Claude Code instead.
+        if builder == "pipeline":
+            start_generation(settings.data_dir, lesson_id, subject, 1)
         return {"id": lesson_id}
+
+    @app.post("/lessons/{lesson_id}/cancel")
+    def cancel(lesson_id: str):
+        if get_row(lesson_id).builder != "agent":
+            raise HTTPException(409, "Only a lesson Claude Code is building can be canceled.")
+        try:
+            return agent_draft.cancel(settings.data_dir, lesson_id)
+        except agent_draft.OutOfOrder as error:
+            raise HTTPException(409, str(error)) from error
 
     @app.post("/lessons/{lesson_id}/rerun")
     def rerun(lesson_id: str, body: RerunRequest):
         row = get_row(lesson_id)
         if row.status == "generating":
             raise HTTPException(409, "This lesson is already generating.")
+        if row.builder != "pipeline":
+            raise HTTPException(409, "A lesson built by Claude Code can't be rerun.")
         with db.connect(settings.data_dir) as conn:
             materials = {str(m.id): m for m in list_materials(conn, lesson_id)}
         unknown = sorted(body.force.keys() - materials.keys())
@@ -348,7 +373,9 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
                 {"id": m.id, "filename": m.filename, "role": m.role, "force_transcription": m.force_transcription}
                 for m in materials
             ],
-            "rerun_stages": pipeline.available_stages(settings.data_dir, lesson_id, bool(materials)),
+            "rerun_stages": pipeline.available_stages(settings.data_dir, lesson_id, bool(materials))
+            if row.builder == "pipeline"
+            else [],
             "reading_block": row.reading_block,
             "day_starts": library.day_starts(row, loaded) if loaded else [],
         }
@@ -667,4 +694,5 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
             library.delete_folder(conn, folder_id)
         return {"deleted": folder_id}
 
+    app.include_router(agent_router(settings.data_dir))
     return app

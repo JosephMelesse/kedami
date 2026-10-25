@@ -112,7 +112,7 @@ def add_hints(section: Section, materials: list[dict], call: Call) -> Section:
         dropped = (failing.keys() - replaced.keys()) | still_failing.keys()
         hints = {k: [h for i, h in enumerate(v) if (k, i) not in dropped] for k, v in hints.items()}
 
-    return _with_hints(section, hints)
+    return with_hints(section, hints)
 
 
 def _failing(hints: dict[str, list[str | None]], by_key: dict[str, Target], call: Call) -> dict[tuple[str, int], str]:
@@ -143,7 +143,7 @@ def _failing(hints: dict[str, list[str | None]], by_key: dict[str, Target], call
     return failing
 
 
-def _with_hints(section: Section, hints: dict[str, list[str]]) -> Section:
+def with_hints(section: Section, hints: dict[str, list[str]]) -> Section:
     blocks = []
     for block in section.blocks:
         if isinstance(block, CheckpointBlock):

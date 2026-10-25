@@ -86,8 +86,8 @@ def available_stages(data_dir: Path, lesson_id: str, has_materials: bool) -> lis
     work = work_dir(data_dir, lesson_id)
     outputs = [
         (work / NORMALIZED / PROBLEM_SET_FILE).exists(),
-        _load(work / "extraction.json", Extraction) is not None,
-        _load(work / "plan.json", Plan) is not None,
+        load_output(work / "extraction.json", Extraction) is not None,
+        load_output(work / "plan.json", Plan) is not None,
     ]
     return [stage for stage in STAGES if (has_materials if stage == 1 else all(outputs[: stage - 1]))]
 
@@ -140,7 +140,7 @@ def run(data_dir: Path, lesson_id: str, subject: str, start_stage: int = 1, call
 def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, call: Call, rerun: bool) -> None:
     work = work_dir(data_dir, lesson_id)
     work.mkdir(parents=True, exist_ok=True)
-    _clear_from(work, start_stage)
+    clear_from(work, start_stage)
     with db.connect(data_dir) as conn:
         materials = library.list_materials(conn, lesson_id)
         row = library.get_lesson_row(conn, lesson_id)
@@ -163,7 +163,7 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
         (work / NORMALIZED).mkdir(exist_ok=True)
         (work / NORMALIZED / PROBLEM_SET_FILE).write_text(normalized.problem_set)
         (work / NORMALIZED / REFERENCE_FILE).write_text(normalized.reference)
-        _write_json(work / "pages.json", [asdict(p) for p in pages])
+        write_json(work / "pages.json", [asdict(p) for p in pages])
     else:
         normalized = Normalized(
             (work / NORMALIZED / PROBLEM_SET_FILE).read_text(), (work / NORMALIZED / REFERENCE_FILE).read_text()
@@ -181,9 +181,9 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
             extraction = _extract_recommended(recommended, context, call)
         else:
             extraction = _extract(data_dir, subject, domain, normalized, context, call)
-        _write(work / "extraction.json", extraction)
+        write_output(work / "extraction.json", extraction)
     else:
-        extraction = _load(work / "extraction.json", Extraction)
+        extraction = load_output(work / "extraction.json", Extraction)
 
     if start_stage <= 3:
         _set_stage(data_dir, lesson_id, 3)
@@ -198,11 +198,11 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
             return plan, place_problems(plan, extraction)
 
         plan, outline = retrying("Planning", plan_attempt)
-        _write(work / "plan.json", plan)
-        _write_json(work / "outline.json", _outline_json(plan, outline))
+        write_output(work / "plan.json", plan)
+        write_json(work / "outline.json", outline_json(plan, outline))
         _record(data_dir, lambda conn: library.set_title(conn, lesson_id, plan.title))
     else:
-        plan = _load(work / "plan.json", Plan)
+        plan = load_output(work / "plan.json", Plan)
         outline = place_problems(plan, extraction)
 
     _set_stage(data_dir, lesson_id, 4)
@@ -246,13 +246,13 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
                 f"Verification for section {number}",
                 lambda _feedback, s=section: verify_section(s, context, call, image_for),
             )
-            _write_json(work / f"verification-{number}.json", [asdict(r) for r in results])
+            write_json(work / f"verification-{number}.json", [asdict(r) for r in results])
         except GenerationError as error:
             # Unverified is the safe state, so a verification pass that keeps failing leaves it there.
-            _write_json(work / f"verification-{number}.json", {"error": str(error)})
+            write_json(work / f"verification-{number}.json", {"error": str(error)})
         # Practice comes from the bank whole, so it is added after the model's hints and verification.
         section = add_practice(section, practice[number - 1])
-        _write(work / f"section-{number}.json", section)
+        write_output(work / f"section-{number}.json", section)
         sections.append(section)
 
     credits = [BOOK_CREDIT] if chapter is not None else []
@@ -260,7 +260,7 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
     lesson = assemble_lesson(lesson_id, plan.title, subject, filenames, sections, domain, credits)
     target = lesson_path(data_dir, lesson_id)
     target.parent.mkdir(parents=True, exist_ok=True)
-    _write(target, lesson)
+    write_output(target, lesson)
     with db.connect(data_dir) as conn:
         if rerun:
             progress.carry_over(conn, lesson_id, lesson)
@@ -343,7 +343,7 @@ def _extract(
     )
 
 
-def _clear_from(work: Path, stage: int) -> None:
+def clear_from(work: Path, stage: int) -> None:
     """Remove outputs of the stages a run will redo, so none are left over from a longer earlier run."""
     outputs = {
         1: ["pages.json", NORMALIZED],
@@ -359,7 +359,7 @@ def _clear_from(work: Path, stage: int) -> None:
                 shutil.rmtree(path) if path.is_dir() else path.unlink()
 
 
-def _outline_json(plan: Plan, outline: list[SectionPlan]) -> dict:
+def outline_json(plan: Plan, outline: list[SectionPlan]) -> dict:
     return {
         "title": plan.title,
         "sections": [
@@ -375,7 +375,7 @@ def _outline_json(plan: Plan, outline: list[SectionPlan]) -> dict:
     }
 
 
-def _load(path: Path, model: type[BaseModel]):
+def load_output(path: Path, model: type[BaseModel]):
     """A saved stage output, or None if it is missing or no longer matches its schema."""
     try:
         return model.model_validate_json(path.read_text())
@@ -393,9 +393,9 @@ def _record(data_dir: Path, update: Callable) -> None:
         update(conn)
 
 
-def _write(path: Path, model: BaseModel) -> None:
-    _write_json(path, model.model_dump(mode="json"))
+def write_output(path: Path, model: BaseModel) -> None:
+    write_json(path, model.model_dump(mode="json"))
 
 
-def _write_json(path: Path, data: object) -> None:
+def write_json(path: Path, data: object) -> None:
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")

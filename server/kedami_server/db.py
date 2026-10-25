@@ -123,6 +123,8 @@ ADDED_COLUMNS = {
         "active": "INTEGER NOT NULL DEFAULT 0",
         "domain": "TEXT",
         "chapter": "INTEGER",
+        # Who builds the lesson: the server's pipeline, or Claude Code in agent mode. See architecture/agent-mode.md.
+        "builder": "TEXT NOT NULL DEFAULT 'pipeline' CHECK (builder IN ('pipeline', 'agent'))",
     },
 }
 

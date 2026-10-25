@@ -130,10 +130,10 @@ def ingest(source_dir: Path, materials: list[Material], call: Callable) -> tuple
         )
         for material, page, route, reason in routed
     ]
-    return Normalized(_join(pages, "problem_set"), _join(pages, "reference")), pages
+    return Normalized(join_pages(pages, "problem_set"), join_pages(pages, "reference")), pages
 
 
-def _join(pages: list[RoutedPage], role: str) -> str:
+def join_pages(pages: list[RoutedPage], role: str) -> str:
     """One document per role, each page marked with where it came from. Blank pages are left out."""
     return "\n\n".join(
         f"[{p.file}, page {p.page}]\n\n{p.markdown.strip()}" for p in pages if p.role == role and p.markdown.strip()
