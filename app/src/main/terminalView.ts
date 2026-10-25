@@ -90,12 +90,10 @@ export function setUpTerminal(window: BrowserWindow, options: TerminalOptions): 
     if (!fromWindow(event.sender) || !isBounds(bounds)) return
     window.contentView.addChildView(view)
     view.setBounds(bounds)
-    view.webContents.focus()
   })
   ipcMain.on('kedami:terminal-hide', (event) => {
     if (!fromWindow(event.sender)) return
     window.contentView.removeChildView(view)
-    window.webContents.focus()
   })
   return hub
 }

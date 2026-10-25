@@ -19,6 +19,9 @@ const start = document.createElement('div')
 start.className = 'terminal-start'
 const screen = document.createElement('div')
 screen.className = 'terminal-screen'
+const fitHost = document.createElement('div')
+fitHost.className = 'terminal-fit'
+screen.append(fitHost)
 root.append(start, screen)
 
 const term = new Terminal({
@@ -34,7 +37,7 @@ const term = new Terminal({
 })
 const fit = new FitAddon()
 term.loadAddon(fit)
-term.open(screen)
+term.open(fitHost)
 term.onData((data) => window.terminal.input(data))
 term.onResize(({ cols, rows }) => window.terminal.resize(cols, rows))
 window.terminal.onData((data) => term.write(data))

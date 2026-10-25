@@ -24,8 +24,33 @@
 
 .terminal-screen {
   height: 100%;
+  min-height: 0;
+  display: flex;
   box-sizing: border-box;
   padding: 8px 16px;
+}
+
+.terminal-fit {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.terminal-fit .xterm {
+  height: 100%;
+}
+
+/* Whole terminal rows leave a few spare pixels at the bottom. xterm defaults that viewport area to black. */
+.terminal-fit .xterm-viewport {
+  background: var(--bg) !important;
+}
+
+/* ANSI and truecolor foregrounds render as the text token without changing the PTY stream.
+   Backgrounds and the cursor stay intact, so full-screen terminal programs keep their layout and controls. */
+.terminal-fit .xterm-rows span:not(.xterm-cursor) {
+  color: var(--text) !important;
+  opacity: 1 !important;
 }
 
 .terminal-screen[hidden],
