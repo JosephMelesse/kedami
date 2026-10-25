@@ -1,9 +1,6 @@
-import json
-
 import pytest
 
-from kedami_server.generation.hints import add_hints, leak_reason, targets
-from kedami_server.generation.schemas import HintDraft, HintJudgements, HintReplacements
+from kedami_server.generation.hints import leak_reason, targets
 from kedami_server.lesson import (
     ChoiceAnswer,
     ExpressionAnswer,
@@ -12,9 +9,6 @@ from kedami_server.lesson import (
     Section,
     SelfCheckAnswer,
 )
-from kedami_server.model import output_schema
-
-from .test_pipeline import FakeModel
 
 
 def numeric(value, tolerance=0.01):
@@ -64,7 +58,7 @@ def test_self_check_has_no_cheap_check():
     assert leak_reason(SelfCheckAnswer(kind="self_check", rubric="sin 2θ"), "sin 2θ") is None
 
 
-# Generation, judging, regeneration, and dropping
+# Targets
 
 
 @pytest.fixture
@@ -79,132 +73,6 @@ def section():
     })
 
 
-def judged(gives_away: set):
-    def reply(prompt):
-        data = json.loads(prompt[0]["text"].split("\n\n", 1)[1])
-        return {"results": [{"target": d["target"], "index": d["index"], "gives_away": (d["target"], d["index"]) in gives_away} for d in data]}
-    return reply
-
-
-def hints(cp, part):
-    return {"items": [{"target": "cp", "hints": cp}, {"target": "ps1-1/a", "hints": part}]}
-
-
-def result(section):
-    return section.blocks[0].hints, section.blocks[1].parts[0].hints
-
-
 def test_targets_name_parts_and_checkpoints(section):
     assert [t.key for t in targets(section)] == ["cp", "ps1-1/a"]
     assert "A ball." in targets(section)[1].question and "Time?" in targets(section)[1].question
-
-
-def test_passing_hints_are_kept_in_order(section):
-    fake = FakeModel({HintDraft: [hints(["c1", "c2"], ["p1", "p2", "p3"])], HintJudgements: [judged(set())]})
-    assert result(add_hints(section, [], fake)) == (["c1", "c2"], ["p1", "p2", "p3"])
-    assert fake.calls[HintJudgements][0]["role"] == "small_check"
-    assert HintReplacements not in fake.calls
-
-
-def test_failing_hint_is_regenerated_once_and_kept_if_it_passes(section):
-    fake = FakeModel({
-        HintDraft: [hints(["c1"], ["p1", "It takes 2.36 s.", "p3"])],
-        HintJudgements: [judged(set()), judged(set())],
-        HintReplacements: [{"replacements": [{"target": "ps1-1/a", "index": 1, "hint": "Use symmetry."}]}],
-    })
-    assert result(add_hints(section, [], fake)) == (["c1"], ["p1", "Use symmetry.", "p3"])
-    request = fake.calls[HintReplacements][0]["prompt"][-1]["text"]
-    assert "contains the answer 2.36" in request
-
-
-def test_hint_failing_twice_is_dropped(section):
-    fake = FakeModel({
-        HintDraft: [hints(["c1", "c2"], ["p1"])],
-        HintJudgements: [judged({("cp", 1)}), judged({("cp", 1)})],
-        HintReplacements: [{"replacements": [{"target": "cp", "index": 1, "hint": "Still too much."}]}],
-    })
-    assert result(add_hints(section, [], fake)) == (["c1"], ["p1"])
-
-
-def test_hint_with_no_replacement_is_dropped(section):
-    fake = FakeModel({
-        HintDraft: [hints(["c1", "c2"], ["p1"])],
-        HintJudgements: [judged({("cp", 0)})],
-        HintReplacements: [{"replacements": []}],
-    })
-    assert result(add_hints(section, [], fake)) == (["c2"], ["p1"])
-
-
-def test_hint_the_judge_skips_counts_as_failing(section):
-    fake = FakeModel({
-        HintDraft: [hints(["c1"], ["p1"])],
-        HintJudgements: [{"results": [{"target": "cp", "index": 0, "gives_away": False}]}, {"results": []}],
-        HintReplacements: [{"replacements": [{"target": "ps1-1/a", "index": 0, "hint": "p1 again"}]}],
-    })
-    assert result(add_hints(section, [], fake)) == (["c1"], [])
-
-
-def test_replacements_for_hints_that_did_not_fail_are_ignored(section):
-    fake = FakeModel({
-        HintDraft: [hints(["c1"], ["2.36 s"])],
-        HintJudgements: [judged(set()), judged(set())],
-        HintReplacements: [{"replacements": [{"target": "cp", "index": 0, "hint": "sneaky"},
-                                             {"target": "ps1-1/a", "index": 0, "hint": "Use symmetry."}]}],
-    })
-    assert result(add_hints(section, [], fake)) == (["c1"], ["Use symmetry."])
-
-
-def test_unknown_targets_and_missing_targets(section):
-    fake = FakeModel({
-        HintDraft: [{"items": [{"target": "nope", "hints": ["x"]}, {"target": "cp", "hints": ["c1"]}]}],
-        HintJudgements: [judged(set())],
-    })
-    assert result(add_hints(section, [], fake)) == (["c1"], [])
-
-
-def test_section_without_targets_makes_no_calls():
-    plain = Section.model_validate({"id": "s", "title": "S", "goal": "G", "blocks": [{"type": "explanation", "id": "e", "body": "x"}]})
-    fake = FakeModel({})
-    assert add_hints(plain, [], fake) == plain
-    assert not fake.calls
-
-
-# The cap of 3
-
-
-def test_hints_past_the_cap_are_dropped_not_rejected(section):
-    fake = FakeModel({HintDraft: [hints(["c1", "c2", "c3", "c4"], ["p1", "p2", "p3", "p4", "p5"])], HintJudgements: [judged(set())]})
-    assert result(add_hints(section, [], fake)) == (["c1", "c2", "c3"], ["p1", "p2", "p3"])
-    assert len(fake.calls[HintDraft]) == 1
-
-
-def test_hints_past_the_cap_are_never_judged(section):
-    fake = FakeModel({HintDraft: [hints(["c1", "c2", "c3", "c4"], ["p1"])], HintJudgements: [judged(set())]})
-    add_hints(section, [], fake)
-    assert "c3" in fake.calls[HintJudgements][0]["prompt"][0]["text"]
-    assert "c4" not in fake.calls[HintJudgements][0]["prompt"][0]["text"]
-
-
-def test_the_cap_applies_before_failing_hints_are_dropped(section):
-    # The second hint fails and is dropped. The fourth does not move up to take its place.
-    fake = FakeModel({
-        HintDraft: [hints(["c1", "c2", "c3", "c4"], ["p1"])],
-        HintJudgements: [judged({("cp", 1)})],
-        HintReplacements: [{"replacements": []}],
-    })
-    assert result(add_hints(section, [], fake)) == (["c1", "c3"], ["p1"])
-
-
-def test_a_replacement_past_the_cap_is_ignored(section):
-    fake = FakeModel({
-        HintDraft: [hints(["c1", "c2", "c3", "c4"], ["p1"])],
-        HintJudgements: [judged({("cp", 2)}), judged(set())],
-        HintReplacements: [{"replacements": [{"target": "cp", "index": 3, "hint": "extra"},
-                                             {"target": "cp", "index": 2, "hint": "better"}]}],
-    })
-    assert result(add_hints(section, [], fake)) == (["c1", "c2", "better"], ["p1"])
-
-
-def test_the_model_is_told_the_cap():
-    described = output_schema(HintDraft)["$defs"]["TargetHints"]["properties"]["hints"]["description"]
-    assert "At most 3 hints" in described

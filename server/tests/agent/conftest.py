@@ -43,11 +43,8 @@ class Agent:
     """A test client with the agent's tool calls as methods."""
 
     def __init__(self, data_dir):
-        self.runs = []
         self.data_dir = data_dir
-        self.client = TestClient(
-            create_app(Settings(0, "t", data_dir, ()), start_generation=lambda *args: self.runs.append(args))
-        )
+        self.client = TestClient(create_app(Settings(0, "t", data_dir, ())))
 
     def get(self, path):
         return self.client.get(path, headers=AUTH)
@@ -55,12 +52,8 @@ class Agent:
     def post(self, path, body=None):
         return self.client.post(path, json=body if body is not None else {}, headers=AUTH)
 
-    def upload(self, subject="physics", builder="agent", files=FILES):
-        data = {"subject": subject, "roles": [f[2] for f in files], "force": ["false"] * len(files)}
-        if builder is not None:
-            data["builder"] = builder
-        if subject == "computer_science":
-            data["domain"] = "dsa"
+    def upload(self, subject="physics", files=FILES):
+        data = {"subject": subject, "roles": [f[2] for f in files]}
         return self.client.post(
             "/lessons",
             data=data,

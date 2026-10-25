@@ -1,8 +1,8 @@
-"""The verification pass: a second, independent solve of every part and checkpoint.
+"""Verification: comparing a stored answer with an independent second solve.
 
-The solver sees the course material and each question with the form its answer takes,
-never the stored answer, hints, or lesson content. An item is verified only when SymPy
-finds the two results equivalent. self_check answers are not verified.
+The plugin's verifier subagent solves each part and checkpoint from the course material and the
+form its answer takes, never the stored answer. An item is verified only when the two agree, by
+SymPy for expressions. self_check answers are not verified. See architecture/agent-mode.md.
 """
 
 from collections.abc import Callable
@@ -22,9 +22,8 @@ from ..lesson import (
     Section,
 )
 from ..mathparse import MathParseError, parse_math
-from . import prompts
-from .hints import Call, Target, targets
-from .schemas import FinalAnswer, Solutions
+from .hints import Target, targets
+from .schemas import FinalAnswer
 
 
 @dataclass(frozen=True)
@@ -99,31 +98,6 @@ def agrees(answer: Answer, solution: FinalAnswer, image_for: ImageFor | None = N
                 return False
             return reason is None
     return False
-
-
-def verify_section(
-    section: Section, materials: list[dict], call: Call, image_for: ImageFor | None = None
-) -> tuple[Section, list[Result]]:
-    items = verifiable(section)
-    if not items:
-        return section, []
-    reply = call(
-        "second_solve",
-        system=prompts.SOLVE_SYSTEM,
-        prompt=materials + [prompts.solve_request([(t.key, t.question, answer_format(t.answer)) for t in items])],
-        output=Solutions,
-    )
-    solutions = {s.target: s for s in reply.solutions}
-    results = [
-        Result(
-            target=t.key,
-            stored=t.answer.model_dump(),
-            solution=solutions[t.key].model_dump() if t.key in solutions else None,
-            verified=t.key in solutions and agrees(t.answer, solutions[t.key], image_for),
-        )
-        for t in items
-    ]
-    return with_verified(section, {r.target for r in results if r.verified}), results
 
 
 def with_verified(section: Section, verified: set[str]) -> Section:

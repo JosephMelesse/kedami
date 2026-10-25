@@ -46,14 +46,11 @@
 
 ## Verifying stored answers
 
-- During stage 4, a second, independent model call solves each part and checkpoint from scratch: one call per section, after its hints.
-- The solver sees the course material and each question with the form its answer takes (a number in a given unit, an expression in given names, or the options). It never sees the stored answer, the hints, or the lesson content.
-- If SymPy finds the two results equivalent, the item is marked verified. Numbers agree within the stored tolerance, expressions by the same equivalence check used for student answers, and choices by the selected indexes.
-- A verification call whose replies stay malformed after its retries leaves the section unverified rather than failing the lesson. An API error still fails the lesson.
+- While Claude Code builds a lesson, the plugin's verifier subagent solves each part and checkpoint from scratch, one section at a time, after its hints. See `agent-mode.md`.
+- The verifier gets the course material and each question with the form its answer takes (a number in a given unit, an expression in given names, or the options) from the server. It never sees the stored answer, the hints, or the lesson content.
+- The server compares the answers. If SymPy finds the two results equivalent, the item is marked verified. Numbers agree within the stored tolerance, expressions by the same equivalence check used for student answers, and choices by the selected indexes.
+- A question the verifier doesn't answer stays unverified, and so does a section it never solves; neither stops the lesson from finishing.
 - Each section's results, with both answers, are saved to `work/{lesson_id}/verification-{n}.json`.
-- In agent mode, the plugin's verifier subagent does the second solve. It gets each question and the form of its answer from the server, never the stored answer, and the server does the comparison. See `agent-mode.md`.
-- If not, it shows an "Unverified answer" label. For problem parts, mark done is the way past it.
+- An item that isn't verified shows an "Unverified answer" label. For problem parts, mark done is the way past it.
 - `self_check` answers are not verified.
-- `code` answers are not verified: their tests come from the imported dataset. They show no "Unverified answer" label.
-- `external` answers (LeetCode problems not in the dataset) are not checked or verified, and show no "Unverified answer" label. Mark done is the only way to finish them.
-- `query` answers with a model-written reference are verified by a second solve that writes its own query, checked against the reference by the same comparison. Bank exercises are not verified, since their references come from the bank, and show no "Unverified answer" label.
+- In computer science lessons made earlier: `code` answers are not verified, since their tests come from the imported dataset, and show no "Unverified answer" label. `external` answers (LeetCode problems not in the dataset, and pgexercises problems) are not checked or verified, show no label, and mark done is the only way to finish them. `query` answers with a model-written reference were verified by a second solve that wrote its own query; bank exercises are not verified and show no label.

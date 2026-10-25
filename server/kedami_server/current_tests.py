@@ -1,5 +1,5 @@
-"""Code parts are served the import's current tests, so a new fix or import reaches every lesson without a
-rerun. The lesson JSON keeps its own copy, served when the problem is no longer imported under the same slug.
+"""Code parts are served the import's current tests, so a new fix or import reaches every lesson that has the
+problem. The lesson JSON keeps its own copy, served when the problem is no longer imported under the same slug.
 See architecture/code-problems.md, In a lesson.
 """
 

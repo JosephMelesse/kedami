@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ApiError, getSimulation, regenerateSimulation, reportSimulation } from '../../api'
+import { getSimulation, reportSimulation } from '../../api'
+import { AgentCommand, useAgentPoll } from '../AgentCommand'
 import { Markdown } from '../Markdown'
 import type { SimulationBlock } from '../types'
 import { simulationTokens } from './simulationTokens'
@@ -8,7 +9,8 @@ import { simulationTokens } from './simulationTokens'
 const READY_MS = 4000
 
 // unwritten: the code is written only when the student asks for it.
-type Status = 'loading' | 'unwritten' | 'running' | 'ready' | 'failed' | 'writing'
+// waiting: the student asked, and the command for Claude Code is showing until new code is saved.
+type Status = 'loading' | 'unwritten' | 'running' | 'ready' | 'failed' | 'waiting'
 
 export function SimulationBlockView({ block, lessonId }: { block: SimulationBlock; lessonId: string }) {
   const [code, setCode] = useState<string | null>(null)
@@ -49,22 +51,19 @@ export function SimulationBlockView({ block, lessonId }: { block: SimulationBloc
     [lessonId, block.id, flagged]
   )
 
-  const write = async () => {
-    const before = status
-    setStatus('writing')
+  // New code from Claude Code replaces whatever was there, so waiting ends when the stored code changes.
+  const checkForCode = useCallback(async () => {
+    const state = await getSimulation(lessonId, block.id)
+    if (!state.code || state.code === code) return false
+    setCode(state.code)
+    setFlagged(false)
     setMessage(null)
-    try {
-      const state = await regenerateSimulation(lessonId, block.id)
-      setCode(state.code)
-      setFlagged(false)
-      setAttempt((n) => n + 1)
-      setStatus('running')
-    } catch (error) {
-      setMessage(error instanceof ApiError ? error.message : 'Could not reach the server.')
-      // A failed first attempt leaves the simulation unwritten, so it can be asked for again.
-      setStatus(before === 'unwritten' ? 'unwritten' : 'failed')
-    }
-  }
+    setAttempt((n) => n + 1)
+    setStatus('running')
+    return true
+  }, [lessonId, block.id, code])
+
+  useAgentPoll(status === 'waiting', checkForCode)
 
   const showFrame = Boolean(code) && (status === 'running' || status === 'ready')
   const written = Boolean(code)
@@ -73,7 +72,6 @@ export function SimulationBlockView({ block, lessonId }: { block: SimulationBloc
     <figure className="card simulation">
       {showFrame && <SimulationFrame key={attempt} code={code!} title={block.caption} onDone={finish} />}
       {status === 'loading' && <div className="plot-placeholder">Loading simulation</div>}
-      {status === 'writing' && <div className="plot-placeholder">Writing the simulation</div>}
       {status === 'failed' && (
         <p className="muted">
           This simulation didn&apos;t load.{message ? ` ${message}` : ''}
@@ -84,18 +82,26 @@ export function SimulationBlockView({ block, lessonId }: { block: SimulationBloc
           <Markdown inline>{block.caption}</Markdown>
         </figcaption>
       )}
-      {status === 'unwritten' && message && <p className="answer-error">{message}</p>}
-      <div>
-        {status === 'unwritten' || (status === 'writing' && !written) ? (
-          <button type="button" className="button button-primary" disabled={status === 'writing'} onClick={write}>
-            Generate simulation
-          </button>
-        ) : (
-          <button type="button" className="button" disabled={status === 'writing' || status === 'loading'} onClick={write}>
-            Regenerate
-          </button>
-        )}
-      </div>
+      {status === 'waiting' ? (
+        <AgentCommand what="this simulation" command={`/kedami:simulation ${lessonId} ${block.id}`} />
+      ) : (
+        <div>
+          {written ? (
+            <button type="button" className="button" disabled={status === 'loading'} onClick={() => setStatus('waiting')}>
+              Regenerate
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="button button-primary"
+              disabled={status === 'loading'}
+              onClick={() => setStatus('waiting')}
+            >
+              Generate simulation
+            </button>
+          )}
+        </div>
+      )}
     </figure>
   )
 }

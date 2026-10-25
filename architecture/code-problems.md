@@ -1,6 +1,6 @@
 # Code problems
 
-In a data structures and algorithms (DSA) lesson, the student picks LeetCode problems by number or name, and each is solved in a workspace: the student writes Python, runs it in a sandboxed frame, and submits it against the problem's tests. The tests come from LeetCodeDataset, imported once by hand.
+Computer science lessons can no longer be created; this describes the data structures and algorithms (DSA) lessons the old API pipeline made, which still open and work. In a DSA lesson, each LeetCode problem is solved in a workspace: the student writes Python, runs it in a sandboxed frame, and submits it against the problem's tests. The tests come from LeetCodeDataset, imported once by hand.
 
 ## Dataset
 
@@ -39,26 +39,12 @@ The dataset's tests can fail correct work. Their inputs were written by a model 
 - The tests' inputs were written by a model, so edge cases may be thin: Linked List Cycle's tests have no cycle, and Valid Palindrome has two tests. Wrong code can pass such a problem.
 - Pyodide is 32-bit, so a `range` longer than 2^31 overflows (as in `bisect_left(range(10**10), ...)`) and memory runs out sooner than on LeetCode. It has no threads. When this was written, the dataset's own reference solutions failed 13 problems this way.
 
-## Picking problems
-
-A DSA lesson's problem set comes from a search box on the Upload screen, not from a file.
-
-- **Search:** typing a number or words shows up to 8 imported problems that match, each with its number, title, and difficulty. A number matches problems whose number starts with it, the exact number first. Words match problems where every word typed starts a word of the slug, in any order, so "two s" finds Two Sum. Matches are ordered by how closely the title matches, then by number.
-- **Titles:** the dataset has slugs, not titles, so a title is made from the slug: hyphens become spaces, each word is capitalized, and Roman numerals are upper case ("two-sum-ii-input-array-is-sorted" is "Two Sum II Input Array Is Sorted"). LeetCode's punctuation is lost ("powx-n" is "Powx N"), but a made title always derives back to its slug, so it passes the title check.
-- **Bubbles:** Enter, Tab, a comma, or a click turns the highlighted match into a bubble showing "#1 Two Sum", its difficulty, and a remove button. Arrow keys move through the matches, and Backspace in an empty box removes the last bubble. Bubbles keep the order they were picked in; a problem already picked can't be picked again.
-- **Pasting:** pasted text is split at commas and line breaks. A piece that is a number in the dataset, or a slug's exact title, becomes a bubble; any other piece stays in the box to be searched.
-- **Wrong titles:** a number followed by a title that names a different problem than the dataset's for that number is refused with both names, such as "#1 is Two Sum, not Add Two Numbers", as the server would refuse it.
-- **Problems not in the dataset:** a number followed by a title, such as "146 LRU Cache" or "146. LRU Cache", becomes a bubble marked "Solved on LeetCode" when the number isn't in the dataset. A number alone that isn't in the dataset shows a message saying to add its title.
-- With nothing imported, search finds nothing and the picker says so, pointing to the import. Every problem is then entered with its number and title and solved on LeetCode.
-- At least one bubble is needed to create the lesson. Reference files can be added beside the picker as for any lesson.
-- The server keeps the number, slug, title, and difficulty of every imported problem in memory for search, read from `leetcode.jsonl` the first time it is searched and again whenever the file changes.
-
 ## In a lesson
 
 - The picked problems reach the pipeline as a problem list (see Computer science lessons in `lesson-format.md`). At stage 2, each listed number is looked up in `leetcode.jsonl`.
 - A problem in the dataset gets a `code` answer, and its part prompt is the problem's description. A problem not in the dataset, or every problem when nothing has been imported, gets an `external` answer: solved on LeetCode and marked done. A missing problem never fails the lesson.
 - If a listed title's slug differs from the dataset's slug for that number, the problem list is rejected with the line named, since the number is probably wrong.
-- The lesson JSON keeps a copy of each code part's tests, but the server serves the import's current tests for the problem whenever it is in `leetcode.jsonl`, and uses them wherever it checks a test, as for a flag. So a new fix or import reaches every existing lesson without a rerun, and the lesson JSON is never edited. If the problem is no longer imported, the lesson's copy is served.
+- The lesson JSON keeps a copy of each code part's tests, but the server serves the import's current tests for the problem whenever it is in `leetcode.jsonl`, and uses them wherever it checks a test, as for a flag. So a new fix or import reaches every existing lesson, and the lesson JSON is never edited. If the problem is no longer imported, the lesson's copy is served.
 - Every problem keeps its LeetCode link.
 - In the lesson, a code problem's block shows its title, difficulty, the part's state label, the LeetCode link, mark done, and a Solve button, the primary action, which opens the workspace. The description is shown only in the workspace.
 
@@ -110,7 +96,7 @@ A LeetCode-style screen for one code problem: the description on the left, the e
 
 - A failed test's result has a Flag as broken button. Flagged tests are skipped by Run and Submit.
 - A problem with flags shows "2 tests flagged" and a Clear flags button.
-- Flags are saved on the server, keyed by lesson, block, part, and the test's text (arguments and expected value), so a rerun keeps them while the test still exists.
+- Flags are saved on the server, keyed by lesson, block, part, and the test's text (arguments and expected value).
 - Flagging doesn't change a part's state. The next Submit decides it.
 
 ## Not included

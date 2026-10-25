@@ -3,17 +3,15 @@ import type { Lesson } from './lesson/types'
 
 export type LessonStatus = 'generating' | 'ready' | 'failed'
 
-/** Who builds a lesson: the server's pipeline, or Claude Code. See architecture/agent-mode.md. */
+/** Who built a lesson: Claude Code, or the API pipeline Kedami no longer has. See architecture/agent-mode.md. */
 export type Builder = 'pipeline' | 'agent'
 
-// A SQL lesson's course database is uploaded with the role 'database' and kept apart from the material that is read.
-export type MaterialRole = 'problem_set' | 'reference' | 'database'
+export type MaterialRole = 'problem_set' | 'reference'
 
 export interface Material {
   id: number
   filename: string
   role: MaterialRole
-  force_transcription: boolean
 }
 
 export interface LessonResponse {
@@ -23,9 +21,7 @@ export interface LessonResponse {
   current_stage: number | null
   error: string | null
   materials: Material[]
-  /** Stages a rerun can start from. Empty if the lesson can't be rerun. */
-  rerun_stages: number[]
-  /** The block the student was last reading, which may be gone after a rerun. */
+  /** The block the student was last reading. */
   reading_block: string | null
   /** The blocks that begin day 2 onward, in lesson order. Empty if the lesson isn't split into days. */
   day_starts: string[]
@@ -34,7 +30,6 @@ export interface LessonResponse {
 export interface NewFile {
   file: File
   role: MaterialRole
-  force: boolean
 }
 
 export interface LessonSummary {
@@ -118,84 +113,17 @@ export async function listLessons(): Promise<LessonSummary[]> {
   return body.lessons
 }
 
-export async function createLesson(
-  subject: Lesson['subject'],
-  files: NewFile[],
-  folderId: number | null,
-  domain: Lesson['domain'] = null,
-  chapter: number | null = null,
-  builder: Builder = 'pipeline'
-): Promise<string> {
+/** Save a new lesson's files. It waits for Claude Code to build it. */
+export async function createLesson(subject: Lesson['subject'], files: NewFile[], folderId: number | null): Promise<string> {
   const form = new FormData()
   form.append('subject', subject)
-  if (builder === 'agent') form.append('builder', builder)
-  if (domain !== null) form.append('domain', domain)
-  if (chapter !== null) form.append('chapter', String(chapter))
   if (folderId !== null) form.append('folder', String(folderId))
-  for (const { file, role, force } of files) {
+  for (const { file, role } of files) {
     form.append('files', file, file.name)
     form.append('roles', role)
-    form.append('force', String(force))
   }
   const body = await request<{ id: string }>('POST', '/lessons', form)
   return body.id
-}
-
-/** An imported LeetCode problem, as the problem picker's search finds it. */
-export interface LeetCodeMatch {
-  number: number
-  slug: string
-  /** Made from the slug, since the dataset has no titles: "Two Sum II Input Array Is Sorted". */
-  title: string
-  difficulty: string
-}
-
-/** The matches, and whether any problems are imported at all. */
-export function searchLeetCode(query: string): Promise<{ problems: LeetCodeMatch[]; imported: boolean }> {
-  return request('GET', `/leetcode/search?q=${encodeURIComponent(query)}`)
-}
-
-/** A SQL chapter, with where its problems come from and how many it can recommend. */
-export interface SqlChapter {
-  number: number
-  name: string
-  source: 'spider' | 'pgexercises'
-  available: number
-}
-
-/** The chapters, and whether the Spider bank is imported at all. */
-export function listSqlChapters(): Promise<{ chapters: SqlChapter[]; imported: boolean }> {
-  return request('GET', '/sql/chapters')
-}
-
-/** A recommended problem: a Spider exercise on its database, or a pgexercises page by its path. */
-export interface Recommendation {
-  source: 'spider' | 'pgexercises'
-  id: string
-  text: string
-  database: string | null
-}
-
-/** Up to `count` problems for a chapter; `round` is how many times Recommend again was pressed. */
-export function recommendProblems(
-  chapter: number,
-  count: number,
-  round: number
-): Promise<{ problems: Recommendation[]; available: number }> {
-  return request('POST', '/sql/recommend', { chapter, count, round })
-}
-
-/** A course database's name and tables with their row counts, once the server has checked it. */
-export interface CheckedDatabase {
-  name: string
-  tables: { name: string; count: number }[]
-}
-
-/** Checks a course database as soon as it is picked; throws an ApiError with the reason it was refused. */
-export function checkDatabase(file: File): Promise<CheckedDatabase> {
-  const form = new FormData()
-  form.append('file', file, file.name)
-  return request('POST', '/sql/database', form)
 }
 
 /** A database table beside a query exercise: its columns, first rows, and how many rows it has. */
@@ -241,18 +169,9 @@ export function checkQuery(
   return request('POST', `${blockPath(lessonId, blockId)}/check`, { part_id: partId, response: query })
 }
 
-/** Whether the server has an API key, so the pipeline and on-request writing can run. */
-export function getCapabilities(): Promise<{ api: boolean }> {
-  return request('GET', '/capabilities')
-}
-
 /** End the build of a lesson Claude Code is building. */
 export async function cancelLesson(lessonId: string): Promise<void> {
   await request('POST', `${lessonPath(lessonId)}/cancel`)
-}
-
-export async function rerunLesson(lessonId: string, stage: number, force: Record<number, boolean>): Promise<void> {
-  await request('POST', `${lessonPath(lessonId)}/rerun`, { stage, force })
 }
 
 export function getLesson(lessonId: string): Promise<LessonResponse> {
@@ -373,10 +292,6 @@ export async function reportSimulation(lessonId: string, blockId: string, ok: bo
   await request('POST', `${blockPath(lessonId, blockId)}/simulation-status`, { ok, error })
 }
 
-export function regenerateSimulation(lessonId: string, blockId: string): Promise<SimulationState> {
-  return request('POST', `${blockPath(lessonId, blockId)}/regenerate`)
-}
-
 /** A problem part's step-by-step solution. Math and physics lines are bare LaTeX; general lines are Markdown. */
 export type SolutionSteps =
   | { format: 'math'; method: string; steps: string[] }
@@ -384,14 +299,15 @@ export type SolutionSteps =
   | { format: 'general'; steps: string[] }
 
 export interface SolutionResponse {
-  solution: SolutionSteps
+  /** Null until Claude Code has written it. */
+  solution: SolutionSteps | null
   /** Whether its final answer matches the stored one; null when the answer isn't compared. */
   matches: boolean | null
 }
 
-/** The stored solution, or one written now; the first request for a part waits on the model. */
+/** A part's solution once Claude Code has written it; see architecture/agent-mode.md, Solutions and simulations. */
 export function getSolution(lessonId: string, blockId: string, partId: string): Promise<SolutionResponse> {
-  return request('POST', `${blockPath(lessonId, blockId)}/solution`, { part_id: partId })
+  return request('GET', `${blockPath(lessonId, blockId)}/solution?part_id=${encodeURIComponent(partId)}`)
 }
 
 export interface Folder {

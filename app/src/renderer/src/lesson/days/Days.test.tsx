@@ -55,7 +55,6 @@ beforeEach(() => {
       current_stage: null,
       error: null,
       materials: [],
-      rerun_stages: [],
       reading_block: null,
       day_starts: dayStarts
     })
@@ -74,7 +73,7 @@ async function open() {
   await act(async () =>
     root.render(
       <DayBarProvider>
-        <LessonScreen lessonId={fixture.id} onBack={() => {}} onRerun={() => {}} />
+        <LessonScreen lessonId={fixture.id} onBack={() => {}} />
       </DayBarProvider>
     )
   )

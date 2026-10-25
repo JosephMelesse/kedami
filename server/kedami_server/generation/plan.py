@@ -1,7 +1,7 @@
 """Turns the model's plan into sections with their target problems.
 
 The model orders sections and assigns concepts; the server places problems, so the
-sequencing rules in architecture/pipeline.md hold by construction:
+sequencing rules in architecture/agent-mode.md hold by construction:
 - a concept is introduced before any problem that needs it,
 - each problem appears in the section where its last prerequisite is covered,
 - every problem appears exactly once.
@@ -26,8 +26,6 @@ class SectionPlan:
     problems: list[ExtractedProblem]
     # A brief for the section's simulation, if the plan calls for one.
     simulation: str | None = None
-    # SQL lessons: the SQL features the section teaches, which choose its practice exercises.
-    sql_features: frozenset[str] = frozenset()
 
 
 def place_problems(plan: Plan, extraction: Extraction) -> list[SectionPlan]:
@@ -65,7 +63,6 @@ def place_problems(plan: Plan, extraction: Extraction) -> list[SectionPlan]:
                 concepts=[concepts[c] for c in section.concepts],
                 problems=problems_in[index],
                 simulation=section.simulation,
-                sql_features=frozenset(section.sql_features),
             )
         )
     return sections

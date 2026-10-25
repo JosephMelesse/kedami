@@ -2,7 +2,6 @@
 
 import json
 import sqlite3
-from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -23,19 +22,19 @@ class LessonRow:
     created: str
     error: str | None = None
     folder_id: int | None = None
-    # The student's name for the lesson. It outlasts reruns, which replace `title` with the plan's.
+    # The student's name for the lesson, shown in place of `title`, which comes from the plan.
     custom_title: str | None = None
-    # The block the student was last reading. A rerun keeps it, even if that block is gone.
+    # The block the student was last reading.
     reading_block: str | None = None
-    # The blocks that begin day 2 onward, as a JSON list. A rerun keeps them; see `day_starts`.
+    # The blocks that begin day 2 onward, as a JSON list; see `day_starts`.
     day_starts: str | None = None
-    # Whether the student is working through it, shown in the home page's Active card. A rerun keeps it.
+    # Whether the student is working through it, shown in the home page's Active card.
     active: bool = False
     # Computer science only; see Lesson.domain. Rows made before domains existed have none.
     domain: str | None = None
     # The SQL chapter a lesson was made for, whose recommended problems are its problem set; null otherwise.
     chapter: int | None = None
-    # "pipeline" or "agent", set at upload and never changed.
+    # "agent" for Claude Code, or "pipeline" for a lesson the old API pipeline made.
     builder: str = "pipeline"
 
     @property
@@ -64,7 +63,7 @@ def create_generating(
     folder_id: int | None = None,
     domain: str | None = None,
     chapter: int | None = None,
-    builder: str = "pipeline",
+    builder: str = "agent",
 ) -> None:
     """Index a lesson whose generation is starting. The title arrives with the plan. An agent lesson
     with no current stage is waiting for Claude Code."""
@@ -93,40 +92,20 @@ def set_title(conn: sqlite3.Connection, lesson_id: str, title: str) -> None:
     conn.execute("UPDATE lessons SET title = ? WHERE id = ?", (title, lesson_id))
 
 
-def start_run(conn: sqlite3.Connection, lesson_id: str) -> None:
-    conn.execute(
-        "UPDATE lessons SET status = 'generating', current_stage = NULL, error = NULL WHERE id = ?", (lesson_id,)
-    )
-
-
-def set_ready(conn: sqlite3.Connection, lesson_id: str, rerun: bool = False) -> None:
-    """A rerun that replaces the lesson JSON increments its revision."""
-    conn.execute(
-        "UPDATE lessons SET status = 'ready', current_stage = NULL, error = NULL, revision = revision + ? WHERE id = ?",
-        (1 if rerun else 0, lesson_id),
-    )
+def set_ready(conn: sqlite3.Connection, lesson_id: str) -> None:
+    conn.execute("UPDATE lessons SET status = 'ready', current_stage = NULL, error = NULL WHERE id = ?", (lesson_id,))
 
 
 def set_failed(conn: sqlite3.Connection, lesson_id: str, error: str) -> None:
     conn.execute("UPDATE lessons SET status = 'failed', error = ? WHERE id = ?", (error, lesson_id))
 
 
-def set_rerun_failed(conn: sqlite3.Connection, lesson_id: str, error: str) -> None:
-    """A failed rerun leaves the existing lesson in place and usable, with the reason."""
+def fail_interrupted(conn: sqlite3.Connection) -> None:
+    """Closing the app ends the Terminal panel's session, so a build still going when it starts again is over."""
     conn.execute(
-        "UPDATE lessons SET status = 'ready', current_stage = NULL, error = ? WHERE id = ?",
-        (f"The last rerun failed. {error}", lesson_id),
+        "UPDATE lessons SET status = 'failed', error = ? WHERE status = 'generating'",
+        ("The build was interrupted when the app closed.",),
     )
-
-
-def fail_interrupted(conn: sqlite3.Connection, has_lesson: Callable[[str], bool]) -> None:
-    """Generation runs inside the server process, so a restart ends any run in progress."""
-    message = "Generation was interrupted when the app closed."
-    for row in conn.execute("SELECT id FROM lessons WHERE status = 'generating'").fetchall():
-        if has_lesson(row["id"]):
-            set_rerun_failed(conn, row["id"], message)
-        else:
-            set_failed(conn, row["id"], message)
 
 
 @dataclass(frozen=True)
@@ -138,20 +117,13 @@ class MaterialRow:
     force_transcription: bool
 
 
-def add_material(conn: sqlite3.Connection, lesson_id: str, filename: str, role: str, force: bool = False) -> None:
-    conn.execute(
-        "INSERT INTO materials (lesson_id, filename, role, force_transcription) VALUES (?, ?, ?, ?)",
-        (lesson_id, filename, role, int(force)),
-    )
+def add_material(conn: sqlite3.Connection, lesson_id: str, filename: str, role: str) -> None:
+    conn.execute("INSERT INTO materials (lesson_id, filename, role) VALUES (?, ?, ?)", (lesson_id, filename, role))
 
 
 def list_materials(conn: sqlite3.Connection, lesson_id: str) -> list[MaterialRow]:
     rows = conn.execute("SELECT * FROM materials WHERE lesson_id = ? ORDER BY id", (lesson_id,)).fetchall()
     return [MaterialRow(**{**dict(row), "force_transcription": bool(row["force_transcription"])}) for row in rows]
-
-
-def set_force(conn: sqlite3.Connection, material_id: int, force: bool) -> None:
-    conn.execute("UPDATE materials SET force_transcription = ? WHERE id = ?", (int(force), material_id))
 
 
 def list_lessons(conn: sqlite3.Connection) -> list[LessonRow]:
@@ -232,7 +204,7 @@ def set_day_starts(conn: sqlite3.Connection, lesson_id: str, block_ids: list[str
 
 
 def day_starts(row: LessonRow, lesson: Lesson) -> list[str]:
-    """The saved day starts still in the lesson, in lesson order, since a rerun can drop or move blocks."""
+    """The saved day starts still in the lesson, in lesson order."""
     saved = set(json.loads(row.day_starts)) if row.day_starts else set()
     block_ids = [block.id for section in lesson.sections for block in section.blocks]
     return [block_id for block_id in block_ids[1:] if block_id in saved]

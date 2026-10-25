@@ -6,6 +6,7 @@ import pytest
 
 from kedami_server import db, library
 from kedami_server.lesson import Lesson
+from kedami_server.storage import seed_sample
 
 from ..generation.factories import section_one, section_two
 from .conftest import PAGES, extraction_body, number
@@ -22,25 +23,13 @@ def test_an_agent_lesson_waits_for_claude_code(agent):
     lesson_id = agent.new_lesson()
     status = agent.lesson(lesson_id)
     assert (status["status"], status["current_stage"], status["lesson"]) == ("generating", None, None)
-    assert agent.runs == []
     assert [w["id"] for w in agent.get("/agent/lessons").json()["lessons"]] == [lesson_id]
 
 
-def test_pipeline_lessons_still_start_generation(agent):
-    response = agent.upload(builder=None)
-    assert response.status_code == 201
-    assert len(agent.runs) == 1
-    assert agent.get("/agent/lessons").json()["lessons"] == []
-
-
-def test_computer_science_lessons_cant_use_the_agent(agent):
+def test_computer_science_lessons_cant_be_created(agent):
     response = agent.upload(subject="computer_science")
     assert response.status_code == 422
     assert "computer science" in response.json()["detail"].lower()
-
-
-def test_unknown_builder_is_refused(agent):
-    assert agent.upload(builder="codex").status_code == 422
 
 
 # Starting
@@ -64,9 +53,10 @@ def test_start_again_resumes_with_the_steps_already_done(agent):
     assert agent.lesson(lesson_id)["current_stage"] == 4
 
 
-def test_tools_refuse_a_pipeline_lesson(agent):
-    lesson_id = agent.upload(builder=None).json()["id"]
-    assert agent.start(lesson_id).status_code == 409
+def test_tools_refuse_a_lesson_the_old_pipeline_made(agent):
+    # The bundled sample stands in for a lesson made before the API pipeline was removed.
+    seed_sample(agent.data_dir)
+    assert agent.start("sample").status_code == 409
 
 
 def test_tools_refuse_an_unknown_lesson(agent):
@@ -332,7 +322,6 @@ def test_finish_writes_a_ready_lesson(agent):
     part = lesson.find_block("ps1-1").parts[0]
     assert (part.hints, part.verified) == (["Split the velocity."], True)
     assert lesson.find_block("ps1-2").parts[0].verified is False
-    assert status["rerun_stages"] == []
 
 
 def test_a_finished_lesson_takes_no_more_tool_calls(agent):
@@ -340,13 +329,6 @@ def test_a_finished_lesson_takes_no_more_tool_calls(agent):
     agent.finish(lesson_id)
     assert agent.section(lesson_id, 1, section_one()).status_code == 409
     assert agent.finish(lesson_id).status_code == 409
-
-
-def test_agent_lessons_cant_be_rerun(agent):
-    lesson_id = agent.through_sections()
-    agent.finish(lesson_id)
-    response = agent.post(f"/lessons/{lesson_id}/rerun", {"stage": 1})
-    assert response.status_code == 409
 
 
 # Ending a build
@@ -371,15 +353,15 @@ def test_cancel_from_the_window_fails_a_waiting_or_started_build(agent):
     assert agent.client.delete(f"/lessons/{waiting}", headers={"Authorization": "Bearer t"}).status_code == 200
 
 
-def test_pipeline_lessons_cant_be_canceled(agent):
-    lesson_id = agent.upload(builder=None).json()["id"]
-    assert agent.post(f"/lessons/{lesson_id}/cancel").status_code == 409
+def test_a_ready_lesson_cant_be_canceled(agent):
+    seed_sample(agent.data_dir)
+    assert agent.post("/lessons/sample/cancel").status_code == 409
 
 
 def test_a_restart_fails_a_build_in_progress(agent):
     lesson_id = agent.through_plan()
     with db.connect(agent.data_dir) as conn:
-        library.fail_interrupted(conn, lambda _: False)
+        library.fail_interrupted(conn)
     assert agent.lesson(lesson_id)["status"] == "failed"
     assert agent.section(lesson_id, 1, section_one()).status_code == 409
 
@@ -387,20 +369,12 @@ def test_a_restart_fails_a_build_in_progress(agent):
 # What the window sees
 
 
-def test_lessons_say_who_builds_them(agent):
-    agent_id, pipeline_id = agent.new_lesson(), agent.upload(builder=None).json()["id"]
-    assert agent.lesson(agent_id)["builder"] == "agent"
-    assert agent.lesson(pipeline_id)["builder"] == "pipeline"
+def test_lessons_say_who_built_them(agent):
+    seed_sample(agent.data_dir)
+    lesson_id = agent.new_lesson()
+    assert agent.lesson(lesson_id)["builder"] == "agent"
+    assert agent.lesson("sample")["builder"] == "pipeline"
     builders = {s["id"]: s["builder"] for s in agent.get("/lessons").json()["lessons"]}
-    assert builders == {agent_id: "agent", pipeline_id: "pipeline"}
+    assert builders == {lesson_id: "agent", "sample": "pipeline"}
 
 
-@pytest.mark.parametrize("key, api", [("sk-test", True), ("", False), (None, False)])
-def test_capabilities_say_whether_an_api_key_is_set_without_revealing_it(agent, monkeypatch, key, api):
-    if key is None:
-        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    else:
-        monkeypatch.setenv("ANTHROPIC_API_KEY", key)
-    response = agent.get("/capabilities")
-    assert response.json() == {"api": api}
-    assert "sk-test" not in response.text

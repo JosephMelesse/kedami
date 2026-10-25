@@ -1,7 +1,8 @@
 import katex from 'katex'
-import { type ReactNode, useState } from 'react'
+import { type ReactNode, useCallback, useState } from 'react'
 import { ApiError, getSolution, type SolutionResponse, type SolutionSteps } from '../../api'
 import { ConfirmDialog } from '../../ConfirmDialog'
+import { AgentCommand, useAgentPoll } from '../AgentCommand'
 import { Markdown } from '../Markdown'
 
 interface ShowSolutionProps {
@@ -11,20 +12,30 @@ interface ShowSolutionProps {
   name: string
 }
 
-type Status = 'hidden' | 'confirming' | 'writing' | 'shown'
+// waiting: no solution is stored yet, so the student is shown the command for Claude Code to write one.
+type Status = 'hidden' | 'confirming' | 'loading' | 'waiting' | 'shown'
 
-/** A part's step-by-step solution, written the first time it is asked for, after a confirmation. */
+/** A part's step-by-step solution, after a confirmation. Claude Code writes it the first time it is asked for. */
 export function ShowSolution({ lessonId, blockId, partId, name }: ShowSolutionProps) {
   const [status, setStatus] = useState<Status>('hidden')
   const [result, setResult] = useState<SolutionResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  const fetchSolution = useCallback(async () => {
+    const response = await getSolution(lessonId, blockId, partId)
+    if (!response.solution) return false
+    setResult(response)
+    setStatus('shown')
+    return true
+  }, [lessonId, blockId, partId])
+
+  useAgentPoll(status === 'waiting', fetchSolution)
+
   const load = async () => {
-    setStatus('writing')
+    setStatus('loading')
     setError(null)
     try {
-      setResult(await getSolution(lessonId, blockId, partId))
-      setStatus('shown')
+      if (!(await fetchSolution())) setStatus('waiting')
     } catch (failure) {
       setError(failure instanceof ApiError ? failure.message : 'Could not reach the server.')
       setStatus('hidden')
@@ -41,12 +52,15 @@ export function ShowSolution({ lessonId, blockId, partId, name }: ShowSolutionPr
         <button
           type="button"
           className="button"
-          disabled={status === 'writing'}
+          disabled={status === 'loading' || status === 'waiting'}
           // Once seen, a solution opens again without asking.
           onClick={() => setStatus(result ? 'shown' : 'confirming')}
         >
-          {status === 'writing' ? 'Writing solution...' : 'Show solution'}
+          Show solution
         </button>
+      )}
+      {status === 'waiting' && (
+        <AgentCommand what="this solution" command={`/kedami:solution ${lessonId} ${blockId} ${partId}`} />
       )}
       {error && <p className="answer-error">{error}</p>}
       {status === 'confirming' && (
@@ -58,7 +72,7 @@ export function ShowSolution({ lessonId, blockId, partId, name }: ShowSolutionPr
           onConfirm={load}
         />
       )}
-      {status === 'shown' && result && <SolutionView solution={result.solution} matches={result.matches} />}
+      {status === 'shown' && result?.solution && <SolutionView solution={result.solution} matches={result.matches} />}
     </div>
   )
 }

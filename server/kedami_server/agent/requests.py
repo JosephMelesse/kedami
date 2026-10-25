@@ -1,9 +1,9 @@
-"""Solutions and simulations written by Claude Code for a student without an API key.
+"""Solutions and simulations Claude Code writes when the student asks for one.
 See architecture/agent-mode.md, Solutions and simulations.
 
-They follow the same rules as the ones the API writes: a solution's request never shows the
-stored answer, its final answer is compared with it, and simulation code is checked and stored
-apart from the lesson JSON. They work on a ready lesson from either builder.
+A solution's request never shows the stored answer, and its final answer is compared with it.
+Simulation code is checked and stored apart from the lesson JSON. They work on any ready lesson,
+including ones the old API pipeline made.
 """
 
 from pathlib import Path
@@ -11,7 +11,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from .. import db, simulation_state, solution_state
-from ..generation import pipeline, prompts
+from ..generation import prompts, stages
 from ..generation.schemas import SimulationCode
 from ..generation.solutions import OUTPUTS, Steps, has_solution
 from ..generation.verify import agrees, answer_format
@@ -115,5 +115,5 @@ def _simulation(data_dir: Path, lesson_id: str, block_id: str) -> tuple[Lesson, 
 
 def _materials(data_dir: Path, lesson_id: str) -> list[str]:
     """The lesson's normalized course material, as files Claude Code can read. Empty for a lesson with none."""
-    folder = pipeline.work_dir(data_dir, lesson_id) / pipeline.NORMALIZED
-    return [str(folder / name) for name in (pipeline.PROBLEM_SET_FILE, pipeline.REFERENCE_FILE) if (folder / name).exists()]
+    folder = stages.work_dir(data_dir, lesson_id) / stages.NORMALIZED
+    return [str(folder / name) for name in (stages.PROBLEM_SET_FILE, stages.REFERENCE_FILE) if (folder / name).exists()]

@@ -1,11 +1,10 @@
 """Hints for every problem part and checkpoint in a section.
 
-Each hint passes two checks: the answer does not appear in it, and a small model judges
-that it doesn't give the answer away. A failing hint is regenerated once, then dropped.
+Each hint passes two checks: the answer does not appear in it, checked here, and the plugin's
+hint-checker subagent judges that it doesn't give the answer away. See architecture/agent-mode.md.
 """
 
 import re
-from collections.abc import Callable
 from dataclasses import dataclass
 
 from ..lesson import (
@@ -20,8 +19,6 @@ from ..lesson import (
     QueryAnswer,
     Section,
 )
-from . import prompts
-from .schemas import HintDraft, HintJudgements, HintReplacements
 
 NUMBER = re.compile(r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?")
 
@@ -79,68 +76,6 @@ def _squash(text: str) -> str:
 def _option_in(option: str, lowered_hint: str) -> bool:
     plain = option.replace("$", "").strip().lower()
     return len(plain) >= 3 and plain in lowered_hint
-
-
-Call = Callable[..., object]
-
-
-def add_hints(section: Section, materials: list[dict], call: Call) -> Section:
-    found = targets(section)
-    if not found:
-        return section
-    by_key = {t.key: t for t in found}
-
-    draft = call("generate", system=prompts.HINTS_SYSTEM, prompt=materials + [prompts.hints_request(found)], output=HintDraft)
-    hints = {key: [] for key in by_key}
-    for item in draft.items:
-        if item.target in hints:
-            hints[item.target] = list(item.hints[:MAX_HINTS])
-
-    failing = _failing(hints, by_key, call)
-    if failing:
-        replacements = call(
-            "generate",
-            system=prompts.HINTS_SYSTEM,
-            prompt=materials + [prompts.replacement_request(failing, by_key, hints)],
-            output=HintReplacements,
-        )
-        replaced = {(r.target, r.index): r.hint for r in replacements.replacements if (r.target, r.index) in failing}
-        for (key, index), hint in replaced.items():
-            hints[key][index] = hint
-        retry = {k: [h if (k, i) in replaced else None for i, h in enumerate(v)] for k, v in hints.items()}
-        still_failing = _failing(retry, by_key, call)
-        dropped = (failing.keys() - replaced.keys()) | still_failing.keys()
-        hints = {k: [h for i, h in enumerate(v) if (k, i) not in dropped] for k, v in hints.items()}
-
-    return with_hints(section, hints)
-
-
-def _failing(hints: dict[str, list[str | None]], by_key: dict[str, Target], call: Call) -> dict[tuple[str, int], str]:
-    """Hints that fail either check, with the reason. None entries are skipped."""
-    failing = {}
-    to_judge = []
-    for key, items in hints.items():
-        for index, hint in enumerate(items):
-            if hint is None:
-                continue
-            reason = leak_reason(by_key[key].answer, hint)
-            if reason:
-                failing[(key, index)] = reason
-            else:
-                to_judge.append((key, index, hint))
-    if to_judge:
-        judged = call(
-            "small_check",
-            system=prompts.JUDGE_SYSTEM,
-            prompt=[prompts.judge_request(to_judge, by_key)],
-            output=HintJudgements,
-        )
-        verdicts = {(r.target, r.index): r.gives_away for r in judged.results}
-        for key, index, _ in to_judge:
-            # A hint the judge didn't rule on takes the safer route and counts as failing.
-            if verdicts.get((key, index), True):
-                failing[(key, index)] = "it gives the answer away"
-    return failing
 
 
 def with_hints(section: Section, hints: dict[str, list[str]]) -> Section:

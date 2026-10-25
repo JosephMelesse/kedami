@@ -3,6 +3,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest'
 import type { KedamiApi } from '../../../../preload/api'
 import type { SolutionResponse } from '../../api'
+import { AGENT_POLL_MS } from '../AgentCommand'
 import { ShowSolution } from './ShowSolution'
 
 const PHYSICS: SolutionResponse = {
@@ -84,8 +85,8 @@ describe('ShowSolution', () => {
     await confirm()
 
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('http://127.0.0.1:1/lessons/l1/blocks/ps1-1/solution')
-    expect([init.method, JSON.parse(init.body)]).toEqual(['POST', { part_id: 'a' }])
+    expect(url).toBe('http://127.0.0.1:1/lessons/l1/blocks/ps1-1/solution?part_id=a')
+    expect(init.method).toBe('GET')
     expect(labels()).toEqual(['Given', 'Required', 'Solution'])
     expect(lines()).toHaveLength(4)
     expect(lines().every((line) => line.querySelector('.katex-display'))).toBe(true)
@@ -154,15 +155,27 @@ describe('ShowSolution', () => {
     )
   })
 
-  it('waits while the solution is written', async () => {
-    let finish: (response: Response) => void = () => {}
-    fetchMock.mockReturnValueOnce(new Promise<Response>((resolve) => (finish = resolve)))
-    await mount()
-    await click('Show solution')
-    await confirm()
-    expect(button('Writing solution...')?.disabled).toBe(true)
-    await act(async () => finish(new Response(JSON.stringify(PHYSICS))))
-    expect(button('Hide solution')).toBeDefined()
+  it('shows the command for Claude Code until the solution is written, then shows it', async () => {
+    vi.useFakeTimers()
+    try {
+      reply({ solution: null, matches: null })
+      await mount()
+      await click('Show solution')
+      await confirm()
+      expect(container.querySelector('.agent-command code')?.textContent).toBe('/kedami:solution l1 ps1-1 a')
+      expect(button('Show solution')?.disabled).toBe(true)
+
+      reply({ solution: null, matches: null })
+      await act(async () => vi.advanceTimersByTimeAsync(AGENT_POLL_MS))
+      expect(container.querySelector('.solution-steps')).toBeNull()
+
+      reply(PHYSICS)
+      await act(async () => vi.advanceTimersByTimeAsync(AGENT_POLL_MS))
+      expect(container.querySelector('.agent-command')).toBeNull()
+      expect(labels()).toEqual(['Given', 'Required', 'Solution'])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('reports a failure and lets the student try again', async () => {

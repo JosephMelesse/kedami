@@ -1,7 +1,7 @@
 """Tests the student flagged as broken, kept apart from the lesson JSON.
 
-A flag is keyed by lesson, block, part, and the test's text (arguments and expected value), so a
-rerun keeps it while the test still exists. See architecture/code-problems.md, Flags.
+A flag is keyed by lesson, block, part, and the test's text (arguments and expected value). See
+architecture/code-problems.md, Flags.
 """
 
 import sqlite3
@@ -39,19 +39,3 @@ def clear(conn: sqlite3.Connection, lesson_id: str, block_id: str, part_id: str)
     conn.execute(
         "DELETE FROM test_flags WHERE lesson_id = ? AND block_id = ? AND part_id = ?", (lesson_id, block_id, part_id)
     )
-
-
-def carry_over(conn: sqlite3.Connection, lesson_id: str, lesson: Lesson) -> None:
-    """After a rerun, keep the flags whose test still exists in the same part."""
-    tests = {
-        (block.id, part.id, test.args, test.expected)
-        for section in lesson.sections
-        for block in section.blocks
-        if isinstance(block, ProblemBlock)
-        for part in block.parts
-        if isinstance(part.answer, CodeAnswer)
-        for test in part.answer.tests
-    }
-    for flag in load_all(conn, lesson_id):
-        if (flag["block_id"], flag["part_id"], flag["args"], flag["expected"]) not in tests:
-            set_flag(conn, lesson_id, flag["block_id"], flag["part_id"], flag["args"], flag["expected"], False)

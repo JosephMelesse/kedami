@@ -169,15 +169,6 @@ def test_flagging_doesnt_change_the_parts_state(client):
     assert state(client)[0]["status"] == "in_progress"
 
 
-def test_a_rerun_keeps_flags_whose_test_still_exists(client, data_dir):
-    for test in TESTS:
-        flag(client, "flag", {"args": test["args"], "expected": test["expected"]})
-    lesson = write_lesson(data_dir, code_block(tests=[TESTS[1], {**TESTS[0], "expected": "[1, 0]"}]))
-    with db.connect(data_dir) as conn:
-        test_flags.carry_over(conn, "sample", lesson)
-    assert [(f["args"], f["expected"]) for f in state(client)[1]] == [(TESTS[1]["args"], TESTS[1]["expected"])]
-
-
 def test_deleting_the_lesson_deletes_its_flags(client, data_dir):
     flag(client, "flag", {"args": TESTS[0]["args"], "expected": TESTS[0]["expected"]})
     assert client.delete("/lessons/sample", headers=AUTH).status_code == 200

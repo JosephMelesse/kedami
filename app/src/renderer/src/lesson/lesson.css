@@ -506,3 +506,26 @@ textarea.text-input {
 .solution-answer {
   font-weight: 500;
 }
+
+/* A command for Claude Code, shown while a solution or simulation waits for it. */
+.agent-command {
+  display: grid;
+  gap: 8px;
+}
+
+.agent-command-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.agent-command code {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9em;
+  font-variant-ligatures: none;
+}

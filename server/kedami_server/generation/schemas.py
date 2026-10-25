@@ -1,8 +1,8 @@
-"""What each generation stage asks the model to return.
+"""What Claude Code sends Kedami at each stage of building a lesson, through the MCP server's tools.
 
-Lesson IDs, problem text, hints, and the verified flag are not in these schemas: the
-server derives IDs, copies problem text verbatim from extraction, generates hints in a
-later call, and sets verified only in the verification pass.
+Lesson IDs, problem text, hints, and the verified flag are not in these schemas: the server
+derives IDs, copies problem text verbatim from extraction, takes hints in their own step, and
+sets verified only by comparing answers. See architecture/agent-mode.md.
 """
 
 from typing import Annotated, Literal
@@ -11,7 +11,6 @@ from pydantic import AliasChoices, Field, PrivateAttr, TypeAdapter, ValidationEr
 
 from ..ids import slugify
 from ..lesson import (
-    MAX_HINTS,
     Answer,
     CodeAnswer,
     ExternalAnswer,
@@ -22,22 +21,6 @@ from ..lesson import (
     QueryAnswer,
     Range,
 )
-
-# Stage 1: ingestion
-
-
-class PageCheck(Model):
-    page: int
-    clean: bool
-
-
-class TextChecks(Model):
-    pages: list[PageCheck]
-
-
-class Transcription(Model):
-    markdown: str = Field(description="The page as Markdown with LaTeX. Empty if the page is blank.")
-
 
 # Stage 2: extraction
 
@@ -105,28 +88,6 @@ class Extraction(ProblemsAndConcepts):
         return self
 
 
-class ProblemConcepts(Model):
-    number: int = Field(description="The problem number exactly as given.")
-    concepts: list[str] = Field(description="IDs of the concepts a student needs to solve this problem.")
-
-
-class ConceptMap(Model):
-    """What the extraction call returns for a computer science lesson. The server lists the problems."""
-
-    concepts: list[Concept]
-    problems: list[ProblemConcepts]
-
-    @model_validator(mode="after")
-    def references_are_consistent(self) -> "ConceptMap":
-        concept_ids = [c.id for c in self.concepts]
-        _require_unique(concept_ids, "concept ids")
-        for problem in self.problems:
-            unknown = set(problem.concepts) - set(concept_ids)
-            if unknown:
-                raise ValueError(f"problem {problem.number} needs unknown concepts: {', '.join(sorted(unknown))}")
-        return self
-
-
 def _require_unique(values: list[str], what: str) -> None:
     duplicates = sorted({v for v in values if values.count(v) > 1})
     if duplicates:
@@ -134,13 +95,6 @@ def _require_unique(values: list[str], what: str) -> None:
 
 
 # Stage 3: plan
-
-
-# The SQL features a section can teach, as queries.FEATURES lists them.
-SqlFeature = Literal[
-    "selecting", "filtering", "sorting", "limiting", "distinct", "aggregates", "grouping", "having", "joins",
-    "subqueries", "set operations", "patterns",
-]
 
 
 class PlannedSection(Model):
@@ -152,11 +106,6 @@ class PlannedSection(Model):
         description="A one-line brief for an interactive simulation, only where one would teach something a static "
         "plot or diagram can't. Otherwise null.",
     )
-    sql_features: list[SqlFeature] = Field(
-        default=[],
-        description="SQL lessons only: the SQL features this section teaches, which choose its practice exercises. "
-        "Otherwise empty.",
-    )
 
 
 class Plan(Model):
@@ -166,7 +115,7 @@ class Plan(Model):
 
 # Stage 4: section content
 #
-# The schema sent to the model is flat: one block object with a `type` and nullable
+# The schema Claude Code fills is flat: one block object with a `type` and nullable
 # fields, holding one answer object with a `kind`. Nested unions (6 block types, each
 # answer one of 5 kinds) compile to a grammar too large for structured output. Each
 # flat object converts to its typed form on validation, so a malformed reply is
@@ -339,39 +288,6 @@ class BlockDraft(Model):
 
 class SectionDraft(Model):
     blocks: Annotated[list[BlockDraft], Field(min_length=1)]
-
-
-# Hints
-
-
-class TargetHints(Model):
-    target: str = Field(description="The target ID exactly as given.")
-    # The cap is not enforced here: the server keeps the first few, so a hint too many can't reject the reply.
-    hints: list[str] = Field(description=f"At most {MAX_HINTS} hints, ordered from gentle to specific.")
-
-
-class HintDraft(Model):
-    items: list[TargetHints]
-
-
-class HintReplacement(Model):
-    target: str
-    index: int
-    hint: str
-
-
-class HintReplacements(Model):
-    replacements: list[HintReplacement]
-
-
-class HintJudgement(Model):
-    target: str
-    index: int
-    gives_away: bool
-
-
-class HintJudgements(Model):
-    results: list[HintJudgement]
 
 
 # Verification

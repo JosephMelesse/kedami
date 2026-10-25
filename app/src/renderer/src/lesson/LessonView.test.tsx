@@ -188,7 +188,7 @@ describe('LessonView edge cases', () => {
     const card = render(withSimulation).querySelector<HTMLElement>('.simulation')!
     expect(card.querySelector('figcaption .katex')).not.toBeNull()
     expect(text(card)).toContain('Loading simulation')
-    expect(text(card)).toContain('Regenerate')
+    expect(text(card)).toContain('Generate simulation')
     expect(card.innerHTML).not.toContain('SECRET_CODE')
   })
 

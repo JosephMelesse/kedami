@@ -4,7 +4,7 @@ import json
 import sys
 
 from kedami_server.agent import plugin
-from kedami_server.config import MODEL_ROLES
+from kedami_server.config import SUBAGENT_MODELS
 from kedami_server.generation import prompts
 
 
@@ -59,12 +59,12 @@ def test_skills_run_only_when_the_student_asks(tmp_path):
 def test_subagents_take_their_models_from_config_and_only_the_tools_they_need(tmp_path):
     root = plugin.write(tmp_path)
     verifier = frontmatter((root / "agents/verifier.md").read_text())
-    assert verifier["model"] == MODEL_ROLES["second_solve"].model
+    assert verifier["model"] == SUBAGENT_MODELS["verifier"]
     assert verifier["tools"] == (
         "Read, mcp__plugin_kedami_kedami__get_questions, mcp__plugin_kedami_kedami__save_verification"
     )
     checker = frontmatter((root / "agents/hint-checker.md").read_text())
-    assert (checker["model"], checker["tools"]) == (MODEL_ROLES["small_check"].model, "Read")
+    assert (checker["model"], checker["tools"]) == (SUBAGENT_MODELS["hint_checker"], "Read")
     assert prompts.SOLVE_SYSTEM in (root / "agents/verifier.md").read_text()
 
 

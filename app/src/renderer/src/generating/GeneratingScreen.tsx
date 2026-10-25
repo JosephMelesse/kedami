@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { cancelLesson, getLesson, type LessonResponse } from '../api'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { Game2048 } from '../game/Game2048'
-import { RerunDialog } from './RerunDialog'
 import { STAGES } from './stages'
 
 const POLL_MS = 2000
@@ -16,9 +15,8 @@ interface GeneratingProps {
 export function GeneratingScreen({ lessonId, onReady, onBack }: GeneratingProps) {
   const [status, setStatus] = useState<LessonResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [rerunning, setRerunning] = useState(false)
   const [canceling, setCanceling] = useState(false)
-  // Bumped after a rerun starts, to resume polling.
+  // Bumped after a cancel, to check on the lesson again.
   const [run, setRun] = useState(0)
 
   useEffect(() => {
@@ -50,12 +48,7 @@ export function GeneratingScreen({ lessonId, onReady, onBack }: GeneratingProps)
         </button>
       </nav>
       <div className="form-screen">
-        <GeneratingView
-          status={status}
-          error={error}
-          onRerun={() => setRerunning(true)}
-          onCancel={() => setCanceling(true)}
-        />
+        <GeneratingView status={status} error={error} onCancel={() => setCanceling(true)} />
       </div>
       {canceling && (
         <ConfirmDialog
@@ -75,18 +68,6 @@ export function GeneratingScreen({ lessonId, onReady, onBack }: GeneratingProps)
           }}
         />
       )}
-      {rerunning && status && (
-        <RerunDialog
-          lessonId={lessonId}
-          status={status}
-          onCancel={() => setRerunning(false)}
-          onStarted={() => {
-            setRerunning(false)
-            setStatus(null)
-            setRun(run + 1)
-          }}
-        />
-      )}
     </>
   )
 }
@@ -94,20 +75,18 @@ export function GeneratingScreen({ lessonId, onReady, onBack }: GeneratingProps)
 interface GeneratingViewProps {
   status: LessonResponse | null
   error: string | null
-  onRerun?: () => void
   /** Ends a build Claude Code is doing. */
   onCancel?: () => void
 }
 
-export function GeneratingView({ status, error, onRerun, onCancel }: GeneratingViewProps) {
+export function GeneratingView({ status, error, onCancel }: GeneratingViewProps) {
   if (error) return <p className="muted">Could not check on the lesson: {error}</p>
   if (!status) return <p className="muted">Checking on the lesson</p>
 
   const failed = status.status === 'failed'
   const current = status.current_stage ?? 0
-  const agent = status.builder === 'agent'
-  // An agent lesson has no stage until Claude Code starts it.
-  const waiting = agent && !failed && status.current_stage === null
+  // A lesson has no stage until Claude Code starts building it.
+  const waiting = !failed && status.current_stage === null
   return (
     <>
       <header className="lesson-header">
@@ -116,15 +95,11 @@ export function GeneratingView({ status, error, onRerun, onCancel }: GeneratingV
           <p className="muted">{status.error}</p>
         ) : waiting ? (
           <p className="muted">
-            Open the Terminal, start Claude Code, and run <code>/kedami:lesson</code>. It builds the lesson from your
+            Open the Terminal panel (Ctrl+`), start Claude Code, and run <code>/kedami:lesson</code>. It builds the lesson from your
             files, and this page follows along.
           </p>
         ) : (
-          <p className="muted">
-            {agent
-              ? 'Claude Code is building it. You can go back to the library; it keeps running.'
-              : 'This takes a few minutes. You can go back to the library; it keeps running.'}
-          </p>
+          <p className="muted">Claude Code is building it. You can go back to the library; it keeps running.</p>
         )}
       </header>
       <ol className="stages">
@@ -139,17 +114,10 @@ export function GeneratingView({ status, error, onRerun, onCancel }: GeneratingV
         })}
       </ol>
       {!failed && <Game2048 />}
-      {agent && !failed && onCancel && (
+      {!failed && onCancel && (
         <div>
           <button type="button" className="button" onClick={onCancel}>
             Cancel
-          </button>
-        </div>
-      )}
-      {failed && status.rerun_stages.length > 0 && onRerun && (
-        <div>
-          <button type="button" className="button button-primary" onClick={onRerun}>
-            Rerun
           </button>
         </div>
       )}

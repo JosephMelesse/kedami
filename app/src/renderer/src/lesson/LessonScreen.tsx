@@ -3,7 +3,6 @@ import { ApiError, getLesson, getProgress, type LessonResponse, type ProgressRec
 import { CodeRunnerProvider } from '../code/RunnerContext'
 import { type QueryTarget, SqlWorkspace } from '../code/SqlWorkspace'
 import { OpenWorkspace, Workspace } from '../code/Workspace'
-import { RerunDialog } from '../generating/RerunDialog'
 import { boundaries, lessonEnd, MAX_DAYS, splitDays } from './days/days'
 import { DaysDialog } from './days/DaysDialog'
 import { LessonView } from './LessonView'
@@ -24,12 +23,10 @@ const UNAVAILABLE = {
 interface LessonScreenProps {
   lessonId: string
   onBack: () => void
-  onRerun: (lessonId: string) => void
 }
 
-export function LessonScreen({ lessonId, onBack, onRerun }: LessonScreenProps) {
+export function LessonScreen({ lessonId, onBack }: LessonScreenProps) {
   const [state, setState] = useState<State>({ status: 'loading' })
-  const [rerunning, setRerunning] = useState(false)
   const [splitting, setSplitting] = useState(false)
   const [workspace, setWorkspace] = useState<{ blockId: string; partId: string | null } | null>(null)
   const open =
@@ -53,7 +50,6 @@ export function LessonScreen({ lessonId, onBack, onRerun }: LessonScreenProps) {
     }
   }, [lessonId])
 
-  const canRerun = state.status === 'ready' && state.response.rerun_stages.length > 0
 
   // Cuts the lesson as it is laid out now; the saved lines then stay with their blocks.
   const split = async (days: number): Promise<string | null> => {
@@ -84,11 +80,6 @@ export function LessonScreen({ lessonId, onBack, onRerun }: LessonScreenProps) {
               Days
             </button>
           )}
-          {canRerun && (
-            <button type="button" className="button" onClick={() => setRerunning(true)}>
-              Rerun
-            </button>
-          )}
         </div>
       </nav>
       {state.status === 'loading' && <p className="screen-message">Loading lesson</p>}
@@ -110,14 +101,6 @@ export function LessonScreen({ lessonId, onBack, onRerun }: LessonScreenProps) {
               max={Math.min(MAX_DAYS, state.lesson.sections.reduce((count, s) => count + s.blocks.length, 0))}
               onSplit={split}
               onCancel={() => setSplitting(false)}
-            />
-          )}
-          {rerunning && (
-            <RerunDialog
-              lessonId={lessonId}
-              status={state.response}
-              onCancel={() => setRerunning(false)}
-              onStarted={() => onRerun(lessonId)}
             />
           )}
         </>

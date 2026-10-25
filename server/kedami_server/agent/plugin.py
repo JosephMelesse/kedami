@@ -1,9 +1,9 @@
-"""The Claude Code plugin for agent mode, written to the data folder on every server start.
+"""The Claude Code plugin that builds lessons, written to the data folder on every server start.
 See architecture/agent-mode.md, The plugin.
 
-The skills carry the pipeline's own prompts as their rules, and the subagents take their models
-from MODEL_ROLES, so agent mode and the pipeline can't drift apart. No token is written: the MCP
-server gets KEDAMI_PORT and KEDAMI_TOKEN through ${VAR} expansion from the session's environment.
+The skills carry the rules in generation/prompts.py, and the subagents take their models from
+SUBAGENT_MODELS in config. No token is written: the MCP server gets KEDAMI_PORT and KEDAMI_TOKEN
+through ${VAR} expansion from the session's environment.
 """
 
 import json
@@ -11,7 +11,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from ..config import MODEL_ROLES
+from ..config import SUBAGENT_MODELS
 from ..generation import prompts
 
 NAME = "kedami"
@@ -220,7 +220,7 @@ def _verifier() -> str:
         _frontmatter(
             name="verifier",
             description="Solves one section of a Kedami lesson from scratch, so Kedami can check its stored answers.",
-            model=MODEL_ROLES["second_solve"].model,
+            model=SUBAGENT_MODELS["verifier"],
             tools=", ".join(["Read", tool("get_questions"), tool("save_verification")]),
         )
         + f"""You are given a Kedami lesson ID and a section number.
@@ -240,7 +240,7 @@ def _hint_checker() -> str:
         _frontmatter(
             name="hint-checker",
             description="Judges whether hints for a Kedami lesson give the answer away.",
-            model=MODEL_ROLES["small_check"].model,
+            model=SUBAGENT_MODELS["hint_checker"],
             tools="Read",
         )
         + f"""You are given questions, each with its answer and its hints.

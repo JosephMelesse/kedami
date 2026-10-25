@@ -1,7 +1,6 @@
-"""Per-simulation state kept apart from the lesson JSON: regenerated code and load failures.
+"""Per-simulation state kept apart from the lesson JSON: the code Claude Code wrote, and load failures.
 
-A row's code, when set, replaces the block's code from the lesson JSON. A rerun replaces
-the lesson, so it clears these rows.
+A row's code, when set, replaces the block's empty code from the lesson JSON, which is never edited.
 """
 
 import sqlite3
@@ -42,10 +41,6 @@ def set_status(conn: sqlite3.Connection, lesson_id: str, block_id: str, ok: bool
         " updated = excluded.updated",
         (lesson_id, block_id, int(not ok), None if ok else error, _now()),
     )
-
-
-def clear(conn: sqlite3.Connection, lesson_id: str) -> None:
-    conn.execute("DELETE FROM simulations WHERE lesson_id = ?", (lesson_id,))
 
 
 def _now() -> str:

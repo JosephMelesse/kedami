@@ -1,15 +1,12 @@
 import os
 import threading
 import time
-from pathlib import Path
 
 import uvicorn
-from dotenv import load_dotenv
 
-from . import db, library, run_log
+from . import db, library
 from .app import create_app
 from .config import from_env
-from .generation.pipeline import lesson_path
 from .agent import plugin
 from .storage import seed_sample
 
@@ -27,13 +24,10 @@ def exit_with_parent() -> None:
 
 
 def main() -> None:
-    # The Anthropic client reads ANTHROPIC_API_KEY from the environment; the key stays in this process.
-    load_dotenv(Path(__file__).resolve().parents[1] / ".env")
     settings = from_env()
-    run_log.code = run_log.read_code(Path(__file__).resolve().parent)
     db.init(settings.data_dir)
     with db.connect(settings.data_dir) as conn:
-        library.fail_interrupted(conn, lambda lesson_id: lesson_path(settings.data_dir, lesson_id).exists())
+        library.fail_interrupted(conn)
     seed_sample(settings.data_dir)
     plugin.write(settings.data_dir)
     exit_with_parent()

@@ -1,8 +1,7 @@
-"""Uploaded course files: what kind each is, how many pages it has, and each page's text or image."""
+"""Uploaded course files: what kind each is and how many pages it has, checked at upload."""
 
 import io
 import re
-from dataclasses import dataclass
 from pathlib import Path
 
 import pypdfium2 as pdfium
@@ -14,9 +13,6 @@ PDF_SUFFIXES = {".pdf"}
 
 MAX_FILE_BYTES = 30 * 1024 * 1024
 MAX_PAGES = 100
-# Claude scales larger images down to this edge anyway, so sending more only adds bytes.
-MAX_IMAGE_EDGE = 1568
-PDF_RENDER_SCALE = 2
 
 
 class SourceError(ValueError):
@@ -64,38 +60,6 @@ def page_count(filename: str, data: bytes) -> int:
         return len(pdfium.PdfDocument(data))
     except pdfium.PdfiumError as error:
         raise SourceError(f"{filename} could not be read as a PDF") from error
-
-
-@dataclass(frozen=True)
-class Page:
-    file: str
-    number: int
-    kind: str
-    # The text layer for a PDF page, or the whole file for text; None for an image.
-    text: str | None
-
-
-def read_pages(path: Path) -> list[Page]:
-    kind = kind_of(path.name)
-    if kind == "text":
-        return [Page(path.name, 1, "text", path.read_text())]
-    if kind == "image":
-        return [Page(path.name, 1, "image", None)]
-    pdf = pdfium.PdfDocument(path)
-    return [Page(path.name, i + 1, "pdf", pdf[i].get_textpage().get_text_bounded()) for i in range(len(pdf))]
-
-
-def page_png(path: Path, page: Page) -> bytes:
-    """The page as a PNG sized for the model. Not thread-safe for PDFs: call from one thread."""
-    if page.kind == "image":
-        image = _open_image(path.name, path.read_bytes())
-    else:
-        image = pdfium.PdfDocument(path)[page.number - 1].render(scale=PDF_RENDER_SCALE).to_pil()
-    image = image.convert("RGB")
-    image.thumbnail((MAX_IMAGE_EDGE, MAX_IMAGE_EDGE))
-    out = io.BytesIO()
-    image.save(out, "PNG")
-    return out.getvalue()
 
 
 def _open_image(filename: str, data: bytes) -> Image.Image:

@@ -19,7 +19,10 @@ from pydantic import (
 
 from .ids import ID_PATTERN, slugify
 from .mathparse import parse_math
-from .sql_chapters import PAGE_PATH, PGEXERCISES
+
+# pgexercises problems are linked by their section folder and page name, such as "joins/self2.html".
+PGEXERCISES = "https://pgexercises.com/questions/"
+PAGE_PATH = re.compile(r"^[a-z]+/[a-z0-9]+\.html$")
 
 MAX_HINTS = 3
 

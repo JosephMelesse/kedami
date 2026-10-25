@@ -1,7 +1,6 @@
 """HTTP API. Every route requires the session token."""
 
 import hmac
-import os
 import uuid
 from dataclasses import asdict
 from typing import Annotated, Any, Literal
@@ -11,43 +10,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StringConstraints
 
-from . import databases, db, progress, queries, simulation_state, solution_state, test_flags, usage
+from . import databases, db, library, progress, queries, simulation_state, solution_state, test_flags
 from .agent import draft as agent_draft
 from .agent.routes import agent_router
 from .checking import InvalidResponse, check
 from .config import Settings
 from .current_tests import with_current_tests
-from .model import ModelError, call_model
-from .generation import pipeline
-from .generation.retry import GenerationError
-from .generation.simulations import new_code
-from .generation.solutions import has_solution, write_solution
-from .leetcode_search import entries as leetcode_entries
-from .leetcode_search import search as search_leetcode
-from .lesson import CodeAnswer, Domain, Lesson, PlotBlock, ProblemBlock, QueryAnswer, SimulationBlock, Subject
+from .generation import stages
+from .generation.solutions import has_solution
 from .generation.sources import SourceError
-from . import library
-from .library import (
-    LessonRow,
-    add_material,
-    create_generating,
-    get_lesson_row,
-    list_lessons,
-    list_materials,
-    problem_ids,
-    set_force,
-    start_run,
-)
+from .lesson import CodeAnswer, Lesson, PlotBlock, ProblemBlock, QueryAnswer, SimulationBlock, Subject
+from .library import LessonRow, add_material, create_generating, get_lesson_row, list_lessons, list_materials, problem_ids
 from .plot import sample_points
-from .practice import load_bank
-from .recommend import DEFAULT_COUNT, MAX_COUNT, MIN_COUNT, available, recommend
-from .sql_chapters import CHAPTERS
-from .sql_chapters import chapter as sql_chapter
 from .storage import delete_lesson_files, load_lesson
 from .targets import Target, find_target
-from .generation.leetcode import ProblemListError
-from .uploads import Upload, chapter_material, check_problem_lists, check_recommended, check_uploads, save_uploads
-
+from .uploads import Upload, check_uploads, save_uploads
 
 class Body(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -63,26 +40,9 @@ class HintRequest(Body):
     count: StrictInt
 
 
-class RerunRequest(Body):
-    stage: Annotated[StrictInt, Field(ge=1, le=4)]
-    # Force transcription per material, keyed by material ID.
-    force: dict[str, StrictBool] = {}
-
-
 class SimulationStatusRequest(Body):
     ok: StrictBool
     error: Annotated[str, Field(max_length=2000)] | None = None
-
-
-class SolutionRequest(Body):
-    part_id: Annotated[str, StringConstraints(min_length=1, max_length=200)]
-
-
-class RecommendRequest(Body):
-    chapter: StrictInt
-    count: Annotated[StrictInt, Field(ge=MIN_COUNT, le=MAX_COUNT)] = DEFAULT_COUNT
-    # How many times Recommend again was pressed.
-    round: Annotated[StrictInt, Field(ge=0, le=100_000)] = 0
 
 
 class FolderRequest(Body):
@@ -172,7 +132,7 @@ class FlagRequest(Body):
     test: FlaggedTest | None = None
 
 
-def create_app(settings: Settings, start_generation=pipeline.start, call=call_model) -> FastAPI:
+def create_app(settings: Settings) -> FastAPI:
     app = FastAPI(title="Kedami", docs_url=None, redoc_url=None, openapi_url=None)
     expected = f"Bearer {settings.token}".encode()
 
@@ -246,11 +206,6 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
     def health():
         return {"status": "ok"}
 
-    @app.get("/capabilities")
-    def capabilities():
-        # Whether the pipeline, Show solution, and Generate simulation can call the API. The key itself stays here.
-        return {"api": bool(os.environ.get("ANTHROPIC_API_KEY"))}
-
     @app.get("/lessons")
     def lessons():
         with db.connect(settings.data_dir) as conn:
@@ -262,70 +217,29 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         subject: Annotated[Subject, Form()],
         files: Annotated[list[UploadFile], File()],
         roles: Annotated[list[str], Form()],
-        force: Annotated[list[bool], Form()],
         folder: Annotated[int | None, Form()] = None,
-        domain: Annotated[Domain | None, Form()] = None,
-        chapter: Annotated[int | None, Form()] = None,
-        builder: Annotated[Literal["pipeline", "agent"], Form()] = "pipeline",
     ):
-        if builder == "agent" and subject not in agent_draft.SUBJECTS:
-            raise HTTPException(422, "Claude Code builds math, physics, and general lessons; computer science needs the API.")
-        if (subject == "computer_science") != (domain is not None):
-            raise HTTPException(422, "A computer science lesson needs a domain, and only it has one.")
-        if chapter is not None:
-            if domain != "sql":
-                raise HTTPException(422, "Only a SQL lesson is made from a chapter.")
-            find_chapter(chapter)
-        if not len(files) == len(roles) == len(force):
-            raise HTTPException(422, "Each file needs a role and a force transcription setting.")
-        uploads = [Upload(f.filename or "file", f.file.read(), r, x) for f, r, x in zip(files, roles, force)]
-        # A SQL lesson's course database is checked and kept apart from the material that is read.
-        database_uploads = [u for u in uploads if u.role == "database"]
-        if database_uploads and domain != "sql":
-            raise HTTPException(422, "Only a SQL lesson takes a database.")
-        if len(database_uploads) > 1:
-            raise HTTPException(422, "A SQL lesson takes one database.")
-        uploads = [u for u in uploads if u.role != "database"]
+        """Save a new lesson's files. It waits for Claude Code to build it; see architecture/agent-mode.md."""
+        if subject not in agent_draft.SUBJECTS:
+            raise HTTPException(422, "Kedami builds math, physics, and general lessons. Computer science lessons can't be created.")
+        if len(files) != len(roles):
+            raise HTTPException(422, "Each file needs a role.")
+        uploads = [Upload(f.filename or "file", f.file.read(), r) for f, r in zip(files, roles)]
         if folder is not None:
             with db.connect(settings.data_dir) as conn:
                 if not library.folder_exists(conn, folder):
                     raise HTTPException(422, "That folder no longer exists.")
         try:
-            if chapter is not None:
-                if database_uploads:
-                    raise SourceError("A chapter lesson uses the book's example database, so it takes no database.")
-                check_recommended(uploads, settings.data_dir)
             check_uploads(uploads)
-            if subject == "computer_science" and domain == "dsa":
-                check_problem_lists(uploads, settings.data_dir)
-            course = [(u.name, databases.from_upload(u.name, u.data)) for u in database_uploads]
-        except (SourceError, ProblemListError, databases.DatabaseFileError) as error:
+        except SourceError as error:
             raise HTTPException(422, str(error)) from error
-        if chapter is not None:
-            reference, people = chapter_material(chapter)
-            uploads.append(reference)
-            course.append(people)
 
         lesson_id = str(uuid.uuid4())
-        saved = save_uploads(pipeline.materials_dir(settings.data_dir, lesson_id), uploads)
-        for name, image in course:
-            databases.save_course(pipeline.materials_dir(settings.data_dir, lesson_id), name, image)
+        saved = save_uploads(stages.materials_dir(settings.data_dir, lesson_id), uploads)
         with db.connect(settings.data_dir) as conn:
-            create_generating(
-                conn,
-                lesson_id,
-                subject,
-                schema_version=1,
-                folder_id=folder,
-                domain=domain,
-                chapter=chapter,
-                builder=builder,
-            )
+            create_generating(conn, lesson_id, subject, schema_version=1, folder_id=folder, builder="agent")
             for file in saved:
-                add_material(conn, lesson_id, file.filename, file.role, file.force_transcription)
-        # An agent lesson waits for Claude Code instead.
-        if builder == "pipeline":
-            start_generation(settings.data_dir, lesson_id, subject, 1)
+                add_material(conn, lesson_id, file.filename, file.role)
         return {"id": lesson_id}
 
     @app.post("/lessons/{lesson_id}/cancel")
@@ -336,30 +250,6 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
             return agent_draft.cancel(settings.data_dir, lesson_id)
         except agent_draft.OutOfOrder as error:
             raise HTTPException(409, str(error)) from error
-
-    @app.post("/lessons/{lesson_id}/rerun")
-    def rerun(lesson_id: str, body: RerunRequest):
-        row = get_row(lesson_id)
-        if row.status == "generating":
-            raise HTTPException(409, "This lesson is already generating.")
-        if row.builder != "pipeline":
-            raise HTTPException(409, "A lesson built by Claude Code can't be rerun.")
-        with db.connect(settings.data_dir) as conn:
-            materials = {str(m.id): m for m in list_materials(conn, lesson_id)}
-        unknown = sorted(body.force.keys() - materials.keys())
-        if unknown:
-            raise HTTPException(422, f"Unknown files: {', '.join(unknown)}")
-        changed = {key: value for key, value in body.force.items() if materials[key].force_transcription != value}
-        if changed and body.stage != 1:
-            raise HTTPException(422, "Changing force transcription needs a rerun from stage 1.")
-        if body.stage not in pipeline.available_stages(settings.data_dir, lesson_id, bool(materials)):
-            raise HTTPException(409, f"This lesson can't be rerun from stage {body.stage}.")
-        with db.connect(settings.data_dir) as conn:
-            for key, value in changed.items():
-                set_force(conn, int(key), value)
-            start_run(conn, lesson_id)
-        start_generation(settings.data_dir, lesson_id, row.subject, body.stage)
-        return {"id": lesson_id}
 
     @app.get("/lessons/{lesson_id}")
     def lesson(lesson_id: str):
@@ -377,13 +267,7 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
             "status": row.status,
             "current_stage": row.current_stage,
             "error": row.error,
-            "materials": [
-                {"id": m.id, "filename": m.filename, "role": m.role, "force_transcription": m.force_transcription}
-                for m in materials
-            ],
-            "rerun_stages": pipeline.available_stages(settings.data_dir, lesson_id, bool(materials))
-            if row.builder == "pipeline"
-            else [],
+            "materials": [{"id": m.id, "filename": m.filename, "role": m.role} for m in materials],
             "reading_block": row.reading_block,
             "day_starts": library.day_starts(row, loaded) if loaded else [],
         }
@@ -417,52 +301,6 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
             raise HTTPException(404, "plot block not found")
         return {"functions": sample_points(block)}
 
-    @app.get("/leetcode/search")
-    def leetcode_search(q: Annotated[str, Query(max_length=200)] = ""):
-        found = search_leetcode(settings.data_dir, q)
-        # Whether anything is imported, so the picker can say so instead of finding nothing.
-        imported = len(leetcode_entries(settings.data_dir)) > 0
-        return {"problems": [asdict(entry) for entry in found], "imported": imported}
-
-    def find_chapter(number: int):
-        try:
-            return sql_chapter(number)
-        except KeyError:
-            raise HTTPException(422, f"There is no SQL chapter {number}.") from None
-
-    @app.get("/sql/chapters")
-    def sql_chapters():
-        bank = load_bank(settings.data_dir)
-        chapters = [
-            {
-                "number": c.number,
-                "name": c.name,
-                "source": "pgexercises" if c.pages else "spider",
-                "available": available(bank, c),
-            }
-            for c in CHAPTERS
-        ]
-        # Whether Spider is imported, so Spider chapters can say why they recommend nothing.
-        return {"chapters": chapters, "imported": len(bank) > 0}
-
-    @app.post("/sql/recommend")
-    def sql_recommend(body: RecommendRequest):
-        chapter = find_chapter(body.chapter)
-        bank = load_bank(settings.data_dir)
-        problems = recommend(bank, chapter, body.count, body.round)
-        return {"problems": [asdict(p) for p in problems], "available": available(bank, chapter)}
-
-    @app.post("/sql/database")
-    def sql_database(file: Annotated[UploadFile, File()]):
-        """Check a course database when it is picked, without keeping it."""
-        name = file.filename or "database"
-        try:
-            image = databases.from_upload(name, file.file.read(databases.MAX_UPLOAD + 1))
-        except databases.DatabaseFileError as error:
-            raise HTTPException(422, str(error)) from error
-        found = [{"name": t["name"], "count": t["count"]} for t in databases.tables(image, rows=0)]
-        return {"name": databases.course_name(name), "tables": found}
-
     @app.get("/lessons/{lesson_id}/progress")
     def lesson_progress(lesson_id: str):
         get_lesson(lesson_id)
@@ -473,7 +311,7 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
 
     def query_database(lesson_id: str, answer: QueryAnswer) -> bytes:
         try:
-            return databases.image_for(settings.data_dir, pipeline.materials_dir(settings.data_dir, lesson_id), answer.database)
+            return databases.image_for(settings.data_dir, stages.materials_dir(settings.data_dir, lesson_id), answer.database)
         except databases.DatabaseMissing as error:
             raise HTTPException(409, str(error)) from error
 
@@ -597,45 +435,17 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
             simulation_state.set_status(conn, lesson_id, block_id, body.ok, body.error)
         return {"flagged": not body.ok}
 
-    @app.post("/lessons/{lesson_id}/blocks/{block_id}/regenerate")
-    def regenerate(lesson_id: str, block_id: str):
-        lesson = get_lesson(lesson_id)
-        block = get_simulation(lesson, block_id)
-        section = next(s for s in lesson.sections if any(b.id == block_id for b in s.blocks))
-        with db.connect(settings.data_dir) as conn:
-            state = simulation_state.load(conn, lesson_id, block_id)
-        materials = pipeline.normalized_materials(settings.data_dir, lesson_id, lesson.subject)
-        failure = state.error if state.flagged else None
-        try:
-            with usage.recording(settings.data_dir, lesson_id, "simulation"):
-                code = new_code(section, block, block.brief, materials, call, failure)
-        except (ModelError, GenerationError) as error:
-            raise HTTPException(502, str(error)) from error
-        with db.connect(settings.data_dir) as conn:
-            simulation_state.save_code(conn, lesson_id, block_id, code)
-        return {"code": code, "flagged": False, "error": None}
-
-    @app.post("/lessons/{lesson_id}/blocks/{block_id}/solution")
-    def solution(lesson_id: str, block_id: str, body: SolutionRequest):
+    @app.get("/lessons/{lesson_id}/blocks/{block_id}/solution")
+    def solution(lesson_id: str, block_id: str, part_id: Annotated[str, Query(min_length=1, max_length=200)]):
+        """A problem part's solution once Claude Code has written it, or null until then; see agent/requests.py."""
         lesson = get_lesson(lesson_id)
         block = lesson.find_block(block_id)
-        part = next((p for p in block.parts if p.id == body.part_id), None) if isinstance(block, ProblemBlock) else None
+        part = next((p for p in block.parts if p.id == part_id), None) if isinstance(block, ProblemBlock) else None
         if part is None or not has_solution(lesson.subject, part):
             raise HTTPException(404, "This part has no solution.")
         with db.connect(settings.data_dir) as conn:
             stored = solution_state.load(conn, lesson_id, block_id, part.id)
-        if stored:
-            return stored
-        materials = pipeline.normalized_materials(settings.data_dir, lesson_id, lesson.subject)
-        try:
-            with usage.recording(settings.data_dir, lesson_id, "solution"):
-                written = write_solution(lesson.subject, block, part, materials, call)
-        except (ModelError, GenerationError) as error:
-            raise HTTPException(502, str(error)) from error
-        solution = {"format": lesson.subject, **written.steps.model_dump()}
-        with db.connect(settings.data_dir) as conn:
-            solution_state.save(conn, lesson_id, block_id, part.id, solution, written.matches)
-        return {"solution": solution, "matches": written.matches}
+        return stored or {"solution": None, "matches": None}
 
     @app.delete("/lessons/{lesson_id}")
     def delete_lesson(lesson_id: str):

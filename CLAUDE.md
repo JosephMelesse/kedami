@@ -1,6 +1,6 @@
 # Kedami
 
-Kedami is a local-first desktop app that turns course material into one interactive lesson, sequenced so that finishing the lesson means the problem set is done. The MVP covers math, physics, computer science (data structures and algorithms), and a general subject for any other course, for a single user.
+Kedami is a local-first desktop app that turns course material into one interactive lesson, sequenced so that finishing the lesson means the problem set is done. The student's own Claude Code session builds each lesson from Kedami's Terminal panel; Kedami makes no model calls. The MVP covers math, physics, and a general subject for any other course, for a single user. Computer science lessons made earlier by the old API pipeline still work, but new ones can't be created.
 
 ## Read first
 
@@ -28,28 +28,27 @@ Before writing code, read `README.md` and every file in `architecture/`. Those d
 ## Rules that must hold
 
 **Boundaries**
-- The renderer is UI only. It never calls the model API and never sees the API key.
+- The renderer is UI only.
 - The server binds to `127.0.0.1` and rejects requests without the session token.
-- Kedami's only outbound traffic is to the Anthropic API. Fonts and audio are bundled, never fetched. Programs the student runs in the Terminal panel are their own.
+- Kedami itself sends nothing over the network. Fonts and audio are bundled, never fetched. Programs the student runs in the Terminal panel, Claude Code included, are their own.
 - The terminal is a separate view, and main accepts pseudo-terminal input only from it. The lesson window can never type into a shell.
 - Kedami never types into the terminal and never runs a coding agent non-interactively. The student drives Claude Code.
 
-**Model calls**
-- All model calls Kedami makes go through one server function. In agent mode it makes none; the student's Claude Code session does.
-- Model names live in config, never hardcoded at call sites.
-- That function adds every call that gets a reply to the usage log. Prices live in config beside the model names; update them when a model or its price changes.
+**Models**
+- Kedami makes no model calls and holds no API key. Claude Code builds lessons and writes solutions and simulations, through the plugin and the MCP server.
+- The plugin's subagent models live in `SUBAGENT_MODELS` in config, never hardcoded elsewhere.
+- In the build, the server is the only writer. The MCP server holds no state and touches no files.
 
 **Untrusted content**
-- Model-written code runs only in a sandboxed frame with no network, no Node access, and no access to app data. So do the student's code and the imported LeetCode tests, in the runner frame; the server never runs them.
-- SQL from the student, the exercise bank, or the model runs only in a fresh in-memory copy of its database, with the read-only authorizer. Never run it against the database file or `kedami.db`.
+- Code Claude Code writes for a simulation runs only in a sandboxed frame with no network, no Node access, and no access to app data. So do the student's code and the imported LeetCode tests, in the runner frame; the server never runs them.
+- SQL from the student or the exercise bank runs only in a fresh in-memory copy of its database, with the read-only authorizer. Never run it against the database file or `kedami.db`.
 - Diagram SVG is sanitized with DOMPurify before rendering.
-- Math strings are parsed only with the restricted, whitelisted parser. Never pass model or user input to SymPy's default string parsing or to `eval`.
+- Math strings are parsed only with the restricted, whitelisted parser. Never pass Claude Code's or the student's input to SymPy's default string parsing or to `eval`.
 
 **Lesson data**
-- Lesson JSON is never edited in place. Only a rerun replaces it. Regenerated simulation code is stored apart from it.
+- Lesson JSON is never edited or replaced once written. Simulation code is stored apart from it.
 - Progress is stored apart from the lesson, keyed by block and part ID.
-- The `verified` flag is set only by the server's verification pass. In agent mode the verifier subagent solves, and the server still compares and sets it.
-- In agent mode the server is the only writer. The MCP server holds no state and touches no files.
+- The `verified` flag is set only by the server, comparing a stored answer with the verifier subagent's second solve.
 - Problem block IDs derive from the source reference, and part IDs from the part label.
 
 **UI**
@@ -58,12 +57,11 @@ Before writing code, read `README.md` and every file in `architecture/`. Those d
 
 ## Secrets and data
 
-- The API key lives in `server/.env`. Never commit it, log it, or send it to the renderer.
 - Never commit anything under `data/`.
 
 ## Most likely to be wrong
 
-The lesson schema and ID derivation (`server/kedami_server/lesson.py`, `ids.py`), the restricted math parser (`mathparse.py`), the code problem harness (see `architecture/code-problems.md`), SQL result comparison and the read-only authorizer (see `architecture/sql-lessons.md`), and agent mode's draft lesson, assembled across many tool calls (see `architecture/agent-mode.md`). Every later step depends on them, so they get tests first and changes to them come with tests.
+The lesson schema and ID derivation (`server/kedami_server/lesson.py`, `ids.py`), the restricted math parser (`mathparse.py`), the code problem harness (see `architecture/code-problems.md`), SQL result comparison and the read-only authorizer (see `architecture/sql-lessons.md`), and the draft lesson Claude Code builds, assembled across many tool calls (see `architecture/agent-mode.md`). Every later step depends on them, so they get tests first and changes to them come with tests.
 
 ## Commands
 
@@ -75,12 +73,10 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m pytest
 .venv/bin/python -m kedami_server.export_schema   # after changing lesson models, then run gen:types in app/
-.venv/bin/python -m kedami_server.usage_report ../data   # time, tokens, and cost per lesson and stage
-.venv/bin/python -m kedami_server.run_report ../data     # every pipeline run as Markdown, from data/runs.jsonl
-.venv/bin/python -m kedami_server.import_leetcode ../data LeetCodeDataset-*.jsonl   # LeetCode tests for computer science lessons
+.venv/bin/python -m kedami_server.import_leetcode ../data LeetCodeDataset-*.jsonl   # LeetCode tests for computer science lessons made earlier
 ```
 
-The server will not start without `KEDAMI_PORT`, `KEDAMI_TOKEN`, and `KEDAMI_DATA_DIR`. Electron main sets them. Lesson generation also needs `ANTHROPIC_API_KEY`, which the server loads from `server/.env`; without it the server runs but new lessons fail. If the key is not scoped to a workspace, also set `ANTHROPIC_WORKSPACE_ID` there. To start it by hand:
+The server will not start without `KEDAMI_PORT`, `KEDAMI_TOKEN`, and `KEDAMI_DATA_DIR`. Electron main sets them. It needs no API key. To start it by hand:
 
 ```bash
 KEDAMI_PORT=8765 KEDAMI_TOKEN=dev KEDAMI_DATA_DIR=../data KEDAMI_ALLOWED_ORIGINS=http://localhost:5000 \

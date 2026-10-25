@@ -1,15 +1,14 @@
 import pytest
 
 from .conftest import AUTH
-from .test_pipeline import FakeModel, happy_script, run
 
 
 @pytest.fixture
 def two_lessons(started, data_dir):
-    client, create, _ = started
+    client, create, build = started
     ids = [create().json()["id"] for _ in range(2)]
     for lesson_id in ids:
-        run(data_dir, lesson_id, FakeModel(happy_script()))
+        build(lesson_id)
     return client, ids
 
 
@@ -40,13 +39,6 @@ def test_recording_again_replaces_it(two_lessons):
     assert reading_block(client, lesson_id) == "ps1-1"
 
 
-def test_a_rerun_keeps_it(two_lessons, data_dir):
-    client, (lesson_id, _) = two_lessons
-    record(client, lesson_id, {"block_id": "ps1-1"})
-    run(data_dir, lesson_id, FakeModel(happy_script()), start_stage=3)
-    assert reading_block(client, lesson_id) == "ps1-1"
-
-
 def test_a_block_not_in_the_lesson_is_rejected(two_lessons):
     client, (lesson_id, _) = two_lessons
     record(client, lesson_id, {"block_id": "ps1-1"})
@@ -61,7 +53,7 @@ def test_bad_requests(two_lessons, body):
 
 
 def test_unknown_or_generating_lessons(started):
-    client, create, _ = started
+    client, create, build = started
     generating = create().json()["id"]
     assert record(client, "nope", {"block_id": "ps1-1"}).status_code == 404
     assert record(client, generating, {"block_id": "ps1-1"}).status_code == 404

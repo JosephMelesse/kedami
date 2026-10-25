@@ -1,4 +1,4 @@
-// Pipeline stages from architecture/pipeline.md, as the student sees them.
+// The stages of building a lesson, from architecture/agent-mode.md, as the student sees them.
 export const STAGES = [
   { stage: 1, label: 'Reading the files' },
   { stage: 2, label: 'Finding the problems and concepts' },

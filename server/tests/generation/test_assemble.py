@@ -191,10 +191,3 @@ def test_a_part_offers_at_least_two_options():
     with pytest.raises(ValueError, match="at least 2"):
         part = {"label": "1", "prompt": "Q", "options": ["yes"]}
         extraction([{"source_ref": "R #1", "prompt": "", "parts": [part], "concepts": []}])
-
-
-def test_the_section_request_shows_the_options(options_plan):
-    from kedami_server.generation.prompts import section_request
-
-    text = section_request(options_plan, [options_plan])["text"]
-    assert '"options": [\n' in text and '"Address bus"' in text

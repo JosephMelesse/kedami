@@ -53,7 +53,7 @@ def test_the_request_shows_the_problem_and_answer_form_but_not_the_answer(sample
 def test_an_agreeing_solution_is_stored_and_served_to_the_window(sample):
     response = save(sample, "a", physics_steps(2.36))
     assert response.json()["matches"] is True
-    served = sample.post("/lessons/sample/blocks/ps3-4/solution", {"part_id": "a"}).json()
+    served = sample.get("/lessons/sample/blocks/ps3-4/solution?part_id=a").json()
     assert served["matches"] is True
     assert served["solution"]["format"] == "physics"
     assert served["solution"]["required"] == ["t"]
@@ -149,3 +149,8 @@ def test_simulation_code_that_never_calls_ready_is_rejected(agent):
 def test_a_block_that_isnt_a_simulation_has_no_request(agent):
     lesson_id = lesson_with_simulation(agent)
     assert agent.get(f"/agent/lessons/{lesson_id}/blocks/vectors-block-1/simulation-request").status_code == 404
+
+
+def test_the_window_gets_null_until_a_solution_is_written(sample):
+    assert sample.get("/lessons/sample/blocks/ps3-4/solution?part_id=a").json() == {"solution": None, "matches": None}
+    assert sample.get("/lessons/sample/blocks/ps3-4/solution?part_id=z").status_code == 404

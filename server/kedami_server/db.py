@@ -1,4 +1,4 @@
-"""SQLite database in the app data folder: the lesson index, progress, and the usage log."""
+"""SQLite database in the app data folder: the lesson index and progress."""
 
 import sqlite3
 from collections.abc import Iterator
@@ -52,21 +52,6 @@ CREATE TABLE IF NOT EXISTS solutions (
     matches INTEGER,
     updated TEXT NOT NULL,
     PRIMARY KEY (lesson_id, block_id, part_id)
-);
-
-CREATE TABLE IF NOT EXISTS model_calls (
-    id INTEGER PRIMARY KEY,
-    lesson_id TEXT NOT NULL REFERENCES lessons (id) ON DELETE CASCADE,
-    stage TEXT NOT NULL CHECK (stage IN ('ingest', 'extract', 'plan', 'generate', 'solution', 'simulation')),
-    role TEXT NOT NULL,
-    model TEXT NOT NULL,
-    started TEXT NOT NULL,
-    latency_ms INTEGER NOT NULL,
-    input_tokens INTEGER NOT NULL,
-    output_tokens INTEGER NOT NULL,
-    cache_write_tokens INTEGER NOT NULL,
-    cache_read_tokens INTEGER NOT NULL,
-    cost REAL
 );
 
 CREATE TABLE IF NOT EXISTS materials (
@@ -123,7 +108,7 @@ ADDED_COLUMNS = {
         "active": "INTEGER NOT NULL DEFAULT 0",
         "domain": "TEXT",
         "chapter": "INTEGER",
-        # Who builds the lesson: the server's pipeline, or Claude Code in agent mode. See architecture/agent-mode.md.
+        # Who built the lesson: "agent" for Claude Code, or "pipeline" for the API pipeline Kedami no longer has.
         "builder": "TEXT NOT NULL DEFAULT 'pipeline' CHECK (builder IN ('pipeline', 'agent'))",
     },
 }

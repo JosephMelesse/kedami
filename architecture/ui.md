@@ -47,11 +47,11 @@ The syntax tokens color code and nothing else. Each reads at 5.9:1 or more on `-
 
 | Screen | Contents |
 |---|---|
-| Library | The start screen. The Active card first, on the home page only (see Active lessons), then folder tiles, then the lessons in no folder, oldest first, with status and problem progress, then a New lesson tile that opens Upload. A New folder button creates a folder. Folders are one level deep; opening one shows its lessons, a Rename button, a Delete folder button (its lessons move back home), and a New lesson tile that creates the lesson in that folder. Each ready lesson tile has an Active checkbox in its top right corner, beside an options menu to rename it, move it to a folder or home, or delete it after a confirmation; a generating lesson can't be deleted, and a renamed lesson keeps its name through reruns |
-| Upload | A subject choice. Computer science then asks for its domain: Data structures and algorithms, or SQL. A DSA lesson picks its problems in the problem picker (see Picking problems in `code-problems.md`) and can add reference files. A SQL lesson either recommends problems for one chapter or takes an uploaded problem set with an optional course database; see SQL lessons below. Every other lesson has a file drop, with a role tag and force-transcription toggle per file. Math, physics, and general lessons also choose a builder: API, the default when a key is set, or Claude Code, the only choice without one; see `agent-mode.md`. Computer science without a key says it needs one |
-| Generating | Current pipeline stage, with a 2048 game below it while the lesson generates; a failed lesson shows the reason and a Rerun button. An agent lesson shows "Waiting for Claude Code" with the command to run, `/kedami:lesson`, until its first step arrives, has a Cancel button while generating, and has no Rerun button |
+| Library | The start screen. The Active card first, on the home page only (see Active lessons), then folder tiles, then the lessons in no folder, oldest first, with status and problem progress, then a New lesson tile that opens Upload. A New folder button creates a folder. Folders are one level deep; opening one shows its lessons, a Rename button, a Delete folder button (its lessons move back home), and a New lesson tile that creates the lesson in that folder. Each ready lesson tile has an Active checkbox in its top right corner, beside an options menu to rename it, move it to a folder or home, or delete it after a confirmation; a generating lesson can't be deleted until it is canceled |
+| Upload | A subject choice of Math, Physics, or General, a file drop with a role tag per file, and a Create lesson button. A line says Claude Code builds the lesson, and to run `/kedami:lesson` in the Terminal panel after creating it; see `agent-mode.md` |
+| Generating | "Waiting for Claude Code" with the command to run, `/kedami:lesson`, until the first step arrives; then the current stage. A 2048 game sits below the stages and a Cancel button below it while the lesson is generating. A failed lesson shows the reason |
 | Terminal panel | Claude Code or a shell in a pseudo-terminal, in a panel on the right that opens and closes beside any screen; see Terminal panel in `agent-mode.md` |
-| Lesson | Sections and blocks in order, with a progress indicator in the accent color. A Rerun button opens a dialog with the start stage and force-transcription toggles; a failed rerun shows its reason above the lesson. A Days button splits the lesson into days; see Finish lines. Opening a lesson returns to the block last read; see Reading position |
+| Lesson | Sections and blocks in order, with a progress indicator in the accent color. A Days button splits the lesson into days; see Finish lines. Opening a lesson returns to the block last read; see Reading position |
 | Workspace | One code problem, opened by its Solve button: description, editor, and console; see Workspace |
 
 The app header is visible on every screen and holds the music player and the Pomodoro timer. Clicking Kedami in it opens the Library home page from any screen, including from inside a folder. A Terminal button after Kedami, in `--text-muted` and `--text` while open, opens and closes the Terminal panel on the right; so does Ctrl+`.
@@ -66,25 +66,15 @@ Where a code problem is solved. Its contents are in `code-problems.md`; this is 
 - **Panes:** fixed proportions with no dividers to drag. The description pane takes the left 40% of the width and the full height. On the right, the editor takes the top 60% and the console the bottom 40%, with Run and Submit along the console's bottom edge. Each pane is a card on `--surface` with a 1px `--border`, 8px apart, and scrolls on its own; the editor and console fill the window's height.
 - **Narrow windows:** at 720px wide or less, the panes stack in one column: description, then editor, then console, and the page scrolls.
 
-## SQL lessons
-
-The Upload screen of a SQL lesson, after the domain choice. See Creating a SQL lesson in `sql-lessons.md`.
-
-- **How:** a choice of Learn a chapter, chosen by default, or Upload a problem set.
-- **Learn a chapter:** a chapter dropdown listing the 15 chapters in order, each with how many problems it can recommend; a number of problems from 1 to 10, 5 by default; and a Recommend problems button. The recommended problems show as a list: each problem's text, then its database or "Solved on pgexercises", and a remove button. Recommend again replaces the list with the next set. A chapter that has fewer problems than asked says so. A line says the explanations come from the book and the examples use its people database. There is no file drop.
-- **Upload a problem set:** the file drop, with a role tag and force-transcription toggle per file, then a Course database slot with a Choose button. The slot shows the file's name and the tables found with their row counts, or why it was refused, and a Remove button. Below it, a line says homework queries are checked against it, without it they are self checks, and practice comes from Spider either way.
-- Generate lesson needs at least one recommended problem, or a problem set file and a database that passed its check if one was chosen.
-- **In the lesson:** a chapter lesson's header has a muted line crediting the book: "Explanations draw on Structured Query Language, Wikibooks (CC BY-SA)", with the book's URL as plain text.
-
 ## Active lessons
 
 The student marks the lessons they are working through as active, and the home page shows how many problems each one has left.
 
 - **Marking:** a ready lesson's tile has an Active checkbox in its top right corner, left of the options button. Checking or unchecking it doesn't open the lesson. A generating lesson, or a new lesson that failed, has none.
 - **Card:** at the top of the home page, one card spanning the width of the library, on `--bg` with a 1px `--border` and the usual card radius. It holds an "Active" heading over a row per active lesson from any folder, oldest first. With no active lesson there is no card. Folders don't show it.
-- **Rows:** each row has the lesson title in 14px, then its boxes side by side, wrapping as needed, then "3 problems left" in `--text-muted`, or "All problems done" once none are. While the lesson reruns, "Generating" shows in place of the boxes. Clicking a row opens the lesson.
+- **Rows:** each row has the lesson title in 14px, then its boxes side by side, wrapping as needed, then "3 problems left" in `--text-muted`, or "All problems done" once none are. Clicking a row opens the lesson.
 - **Boxes:** one fills for each done problem, from the left, in `--correct`. The rest are `--surface-raised` with a 1px `--border`. A problem is done as defined in `completion-and-verification.md`, so undoing a mark done empties a box again.
-- **Persistence:** whether a lesson is active is saved on the server. New lessons start inactive, a rerun keeps it, and deleting the lesson removes it.
+- **Persistence:** whether a lesson is active is saved on the server. New lessons start inactive, and deleting the lesson removes it.
 
 ## Reading position
 
@@ -94,7 +84,7 @@ Kedami remembers where the student was reading in each lesson and reopens the le
 - It is saved when scrolling has stopped for one second and when the student leaves the lesson, only if it changed.
 - On open, the lesson jumps to that block with no animation, its top just below the app header.
 - Position is kept per block, not per pixel, so it holds when content above it changes height. Returning to a long block lands at its top.
-- A lesson with no saved position, or whose saved block is gone after a rerun, opens at the top.
+- A lesson with no saved position, or whose saved block is no longer in it, opens at the top.
 
 ## Finish lines
 
@@ -105,7 +95,7 @@ The student can split a lesson into days. Each day ends at a finish line, and th
 - **In the lesson:** each line shows between its blocks as a 1px `--border` rule with a muted "End of day 1" label.
 - **Bar:** while a lesson is open, the track name's background fills from left to right, stopping short of the play button, with `--accent` mixed to 20% over `--bg`. The reading point is the bottom edge of the window. The fill is how far it has moved from the previous line, or the lesson start, to the next line, or the lesson end. A lesson with no lines fills toward its end. On other screens the player shows no fill.
 - **Reaching a line:** when the reading point passes a line while scrolling down, "Done for today" replaces the track name in `--accent` for 4 seconds, then the bar starts the next day empty. The end of a split lesson counts as its last line. Opening a lesson past a line, or scrolling back up across one, shows no note.
-- **Persistence:** lines are saved on the server. A rerun keeps the lines whose blocks still exist.
+- **Persistence:** lines are saved on the server.
 
 ## Pomodoro timer
 

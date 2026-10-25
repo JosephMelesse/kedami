@@ -1,10 +1,10 @@
 """Agent mode's draft lesson: what Claude Code submits through the MCP server, one step at a time.
 See architecture/agent-mode.md, Building a lesson.
 
-The draft lives in work/{lesson_id}/ under the pipeline's file names, and the checks are the
-pipeline's. Each step needs the one before it, and saving a step again deletes the outputs of
-the steps after it. The draft is never served: the lesson JSON is written only by `finish`.
-Nothing here calls a model.
+The draft lives in work/{lesson_id}/ under the stage file names in generation/stages.py, and the
+checks are the ones in generation/. Each step needs the one before it, and saving a step again
+deletes the outputs of the steps after it. The draft is never served: the lesson JSON is written
+only by `finish`. Nothing here calls a model.
 """
 
 import threading
@@ -15,7 +15,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from .. import db, library
-from ..generation import pipeline
+from ..generation import stages
 from ..generation.assemble import SectionError, assemble_lesson, assemble_section
 from ..generation.hints import leak_reason, targets, with_hints
 from ..generation.ingest import Normalized, RoutedPage, join_pages
@@ -71,7 +71,7 @@ def start(data_dir: Path, lesson_id: str) -> dict:
             if row.current_stage is None:
                 library.set_stage(conn, lesson_id, 1)
             materials = library.list_materials(conn, lesson_id)
-        folder = pipeline.materials_dir(data_dir, lesson_id)
+        folder = stages.materials_dir(data_dir, lesson_id)
         return {
             "id": lesson_id,
             "subject": row.subject,
@@ -110,11 +110,11 @@ def save_pages(data_dir: Path, lesson_id: str, files: list[tuple[str, list[str]]
             raise Rejected("No text was given for the problem set.")
 
         work = _work(data_dir, lesson_id)
-        pipeline.clear_from(work, 1)
-        (work / pipeline.NORMALIZED).mkdir()
-        (work / pipeline.NORMALIZED / pipeline.PROBLEM_SET_FILE).write_text(normalized.problem_set)
-        (work / pipeline.NORMALIZED / pipeline.REFERENCE_FILE).write_text(normalized.reference)
-        pipeline.write_json(work / "pages.json", [asdict(p) for p in pages])
+        stages.clear_from(work, 1)
+        (work / stages.NORMALIZED).mkdir()
+        (work / stages.NORMALIZED / stages.PROBLEM_SET_FILE).write_text(normalized.problem_set)
+        (work / stages.NORMALIZED / stages.REFERENCE_FILE).write_text(normalized.reference)
+        stages.write_json(work / "pages.json", [asdict(p) for p in pages])
         _set_stage(data_dir, lesson_id, 2)
         return {"pages": len(pages)}
 
@@ -124,14 +124,14 @@ def save_extraction(data_dir: Path, lesson_id: str, draft: ProblemsAndConcepts) 
     with _locks[lesson_id]:
         _building(data_dir, lesson_id)
         work = _work(data_dir, lesson_id)
-        if not (work / pipeline.NORMALIZED / pipeline.PROBLEM_SET_FILE).exists():
+        if not (work / stages.NORMALIZED / stages.PROBLEM_SET_FILE).exists():
             raise OutOfOrder("Save the pages first.")
         try:
             extraction = Extraction.model_validate(draft.model_dump())
         except ValidationError as error:
             raise Rejected(str(error)) from error
-        pipeline.clear_from(work, 2)
-        pipeline.write_output(work / "extraction.json", extraction)
+        stages.clear_from(work, 2)
+        stages.write_output(work / "extraction.json", extraction)
         _set_stage(data_dir, lesson_id, 3)
         return {"problems": len(extraction.problems), "concepts": len(extraction.concepts)}
 
@@ -141,16 +141,16 @@ def save_plan(data_dir: Path, lesson_id: str, plan: Plan) -> dict:
     with _locks[lesson_id]:
         _building(data_dir, lesson_id)
         work = _work(data_dir, lesson_id)
-        extraction = pipeline.load_output(work / "extraction.json", Extraction)
+        extraction = stages.load_output(work / "extraction.json", Extraction)
         if extraction is None:
             raise OutOfOrder("Save the extraction first.")
         try:
             outline = place_problems(plan, extraction)
         except PlanError as error:
             raise Rejected(str(error)) from error
-        pipeline.clear_from(work, 3)
-        pipeline.write_output(work / "plan.json", plan)
-        pipeline.write_json(work / "outline.json", pipeline.outline_json(plan, outline))
+        stages.clear_from(work, 3)
+        stages.write_output(work / "plan.json", plan)
+        stages.write_json(work / "outline.json", stages.outline_json(plan, outline))
         with db.connect(data_dir) as conn:
             library.set_title(conn, lesson_id, plan.title)
         _set_stage(data_dir, lesson_id, 4)
@@ -169,7 +169,7 @@ def save_section(data_dir: Path, lesson_id: str, number: int, draft: SectionDraf
         except (SectionError, ValidationError) as error:
             raise Rejected(str(error)) from error
         (work / f"verification-{number}.json").unlink(missing_ok=True)
-        pipeline.write_output(work / f"section-{number}.json", section)
+        stages.write_output(work / f"section-{number}.json", section)
         return {
             "section": number,
             "id": section.id,
@@ -199,7 +199,7 @@ def save_hints(data_dir: Path, lesson_id: str, number: int, items: list[tuple[st
                 else:
                     kept.append(hint)
             hints[key] = kept
-        pipeline.write_output(work / f"section-{number}.json", with_hints(section, hints))
+        stages.write_output(work / f"section-{number}.json", with_hints(section, hints))
         return {"dropped": dropped}
 
 
@@ -209,12 +209,12 @@ def questions(data_dir: Path, lesson_id: str, number: int) -> dict:
         _building(data_dir, lesson_id)
         work = _work(data_dir, lesson_id)
         section = _section(work, number)
-        folder = work / pipeline.NORMALIZED
+        folder = work / stages.NORMALIZED
         return {
             "questions": [
                 {"target": t.key, "question": t.question, "answer": answer_format(t.answer)} for t in verifiable(section)
             ],
-            "materials": [str(folder / pipeline.PROBLEM_SET_FILE), str(folder / pipeline.REFERENCE_FILE)],
+            "materials": [str(folder / stages.PROBLEM_SET_FILE), str(folder / stages.REFERENCE_FILE)],
         }
 
 
@@ -247,8 +247,8 @@ def save_verification(data_dir: Path, lesson_id: str, number: int, solutions: So
             for t in items
         ]
         verified = [r.target for r in results if r.verified]
-        pipeline.write_output(work / f"section-{number}.json", with_verified(section, set(verified)))
-        pipeline.write_json(work / f"verification-{number}.json", [asdict(r) for r in results])
+        stages.write_output(work / f"section-{number}.json", with_verified(section, set(verified)))
+        stages.write_json(work / f"verification-{number}.json", [asdict(r) for r in results])
         return {"verified": verified, "unverified": [r.target for r in results if not r.verified]}
 
 
@@ -258,16 +258,16 @@ def finish(data_dir: Path, lesson_id: str) -> dict:
         row = _building(data_dir, lesson_id)
         work = _work(data_dir, lesson_id)
         plan, outline, _ = _outline(work)
-        sections = [pipeline.load_output(work / f"section-{n}.json", Section) for n in range(1, len(outline) + 1)]
+        sections = [stages.load_output(work / f"section-{n}.json", Section) for n in range(1, len(outline) + 1)]
         missing = [str(n) for n, s in enumerate(sections, start=1) if s is None]
         if missing:
             raise OutOfOrder(f"These sections aren't saved yet: {', '.join(missing)}")
         with db.connect(data_dir) as conn:
             filenames = [m.filename for m in library.list_materials(conn, lesson_id)]
         lesson = assemble_lesson(lesson_id, plan.title, row.subject, filenames, sections)
-        target = pipeline.lesson_path(data_dir, lesson_id)
+        target = stages.lesson_path(data_dir, lesson_id)
         target.parent.mkdir(parents=True, exist_ok=True)
-        pipeline.write_output(target, lesson)
+        stages.write_output(target, lesson)
         with db.connect(data_dir) as conn:
             library.set_ready(conn, lesson_id)
         return {"id": lesson_id, "title": lesson.title}
@@ -293,7 +293,7 @@ def _building(data_dir: Path, lesson_id: str, started: bool = True) -> LessonRow
     if row is None:
         raise NotFound("lesson not found")
     if row.builder != "agent":
-        raise OutOfOrder("This lesson is built by the pipeline, not Claude Code.")
+        raise OutOfOrder("This lesson was made by the old API pipeline, not Claude Code.")
     if row.status != "generating":
         raise OutOfOrder(f"This lesson is {row.status}; its build is over.")
     if started and row.current_stage is None:
@@ -302,7 +302,7 @@ def _building(data_dir: Path, lesson_id: str, started: bool = True) -> LessonRow
 
 
 def _work(data_dir: Path, lesson_id: str) -> Path:
-    work = pipeline.work_dir(data_dir, lesson_id)
+    work = stages.work_dir(data_dir, lesson_id)
     work.mkdir(parents=True, exist_ok=True)
     return work
 
@@ -313,8 +313,8 @@ def _set_stage(data_dir: Path, lesson_id: str, stage: int) -> None:
 
 
 def _outline(work: Path) -> tuple[Plan, list[SectionPlan], Extraction]:
-    plan = pipeline.load_output(work / "plan.json", Plan)
-    extraction = pipeline.load_output(work / "extraction.json", Extraction)
+    plan = stages.load_output(work / "plan.json", Plan)
+    extraction = stages.load_output(work / "extraction.json", Extraction)
     if plan is None or extraction is None:
         raise OutOfOrder("Save the plan first.")
     return plan, place_problems(plan, extraction), extraction
@@ -329,7 +329,7 @@ def _section_plan(work: Path, number: int) -> tuple[SectionPlan, Extraction]:
 
 def _section(work: Path, number: int) -> Section:
     _section_plan(work, number)
-    section = pipeline.load_output(work / f"section-{number}.json", Section)
+    section = stages.load_output(work / f"section-{number}.json", Section)
     if section is None:
         raise OutOfOrder(f"Save section {number} first.")
     return section
@@ -348,10 +348,10 @@ def _hints(section: Section) -> dict[str, list[str]]:
 
 def _done(data_dir: Path, lesson_id: str) -> dict:
     """Which steps a resumed session can skip."""
-    work = pipeline.work_dir(data_dir, lesson_id)
+    work = stages.work_dir(data_dir, lesson_id)
     numbers = lambda prefix: sorted(int(p.stem.removeprefix(prefix)) for p in work.glob(f"{prefix}*.json"))  # noqa: E731
     return {
-        "pages": (work / pipeline.NORMALIZED / pipeline.PROBLEM_SET_FILE).exists(),
+        "pages": (work / stages.NORMALIZED / stages.PROBLEM_SET_FILE).exists(),
         "extraction": (work / "extraction.json").exists(),
         "plan": (work / "plan.json").exists(),
         "sections": numbers("section-"),

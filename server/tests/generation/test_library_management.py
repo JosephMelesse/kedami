@@ -3,21 +3,19 @@ import sqlite3
 import pytest
 
 from kedami_server import db, simulation_state
-from kedami_server.generation.schemas import Plan
 from kedami_server.progress import Record, save
 from kedami_server.storage import seed_sample
 
 from .conftest import AUTH, upload
 from .factories import plan
-from .test_pipeline import FakeModel, happy_script, run
 
 
 @pytest.fixture
 def two_lessons(started, data_dir):
-    client, create, _ = started
+    client, create, build = started
     ids = [create().json()["id"] for _ in range(2)]
     for lesson_id in ids:
-        run(data_dir, lesson_id, FakeModel(happy_script()))
+        build(lesson_id)
     return client, ids
 
 
@@ -52,7 +50,7 @@ def test_delete_removes_everything_for_that_lesson_only(two_lessons, data_dir):
 
 
 def test_generating_lesson_cannot_be_deleted(started, data_dir):
-    client, create, _ = started
+    client, create, build = started
     lesson_id = create().json()["id"]
     response = client.delete(f"/lessons/{lesson_id}", headers=AUTH)
     assert response.status_code == 409
@@ -246,21 +244,8 @@ def test_renaming_again_replaces_the_name(two_lessons):
     assert served_title(client, lesson_id) == "Second"
 
 
-def test_a_rerun_keeps_the_new_name(two_lessons, data_dir):
-    client, (renamed, other) = two_lessons
-    rename(client, renamed, {"title": "My projectiles"})
-    new_plan = plan(("Vectors", ["vectors"]), ("Flight", ["gravity", "range"]), title="Projectile motion, revised")
-    for lesson_id in (renamed, other):
-        run(data_dir, lesson_id, FakeModel(happy_script({Plan: [new_plan]})), start_stage=3)
-    assert served_title(client, renamed) == "My projectiles"
-    assert titles(client)[renamed] == "My projectiles"
-    # A lesson never renamed takes the new plan's title.
-    assert served_title(client, other) == "Projectile motion, revised"
-    assert titles(client)[other] == "Projectile motion, revised"
-
-
 def test_a_generating_lesson_can_be_renamed(started):
-    client, create, _ = started
+    client, create, build = started
     lesson_id = create().json()["id"]
     assert titles(client)[lesson_id] == "New lesson"
     assert rename(client, lesson_id, {"title": "Exam review"}).status_code == 200

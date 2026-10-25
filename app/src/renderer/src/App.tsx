@@ -70,7 +70,7 @@ export function App() {
           <GeneratingScreen key={screen.lessonId} lessonId={screen.lessonId} onReady={openLesson} onBack={openLibrary} />
         )}
         {screen.name === 'lesson' && (
-          <LessonScreen lessonId={screen.lessonId} onBack={openLibrary} onRerun={openGenerating} />
+          <LessonScreen lessonId={screen.lessonId} onBack={openLibrary} />
         )}
       </main>
     </DayBarProvider>

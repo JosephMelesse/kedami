@@ -29,20 +29,18 @@
 25. MCP server and the plugin the server writes: build one lesson with `claude --plugin-dir` against a server started by hand
 26. Builder choice on the Upload screen, the waiting state and Cancel on the Generating screen, and `/capabilities`
 27. Terminal panel: its own view, node-pty in main, Start Claude Code and Open a shell
-28. Solutions and simulations without an API key, through `/kedami:solution` and `/kedami:simulation`
+28. Remove the API: Claude Code builds every lesson and writes every solution and simulation, through `/kedami:solution` and `/kedami:simulation`. Reruns, the usage log, the run log, and creating computer science lessons go
 
-Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the sequencing. Each later step is independent of the ones after it. Steps 24 to 28 are agent mode (see `agent-mode.md`); step 25 proves it before any UI exists.
+Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the sequencing. Each later step is independent of the ones after it. Steps 24 to 28 move lesson building to Claude Code (see `agent-mode.md`); step 25 proves it before any UI exists.
 
 ## Backlog
 
-- **Jev (TypeSafe AI):** use it for page routing and yes/no checks once access is available, in place of the small Claude model.
-- **Practice problem generation:** a popup with number of questions, difficulty, and type mix (free response, multiple choice, selection), for lessons with no problem set or when more problems are requested. This also removes the requirement that every lesson has a problem set.
+- **Practice problem generation:** a Claude Code command with number of questions, difficulty, and type mix (free response, multiple choice, selection), for lessons with no problem set or when more problems are requested. This also removes the requirement that every lesson has a problem set.
 - **Similar-problem generation:** replace or supplement problems whose stored answer is unverified.
-- **Per-page re-transcribe:** a page review screen with a control to re-transcribe a single page.
 - **Short text answers:** an answer kind for a term or name, matched against a list of accepted answers ignoring case and spacing, in place of a self check for questions such as "Which flag is set on unsigned overflow?"
 - **Light theme:** same token names, same accent, feedback, and syntax hues, darkened to reach at least 4.5:1 contrast on white.
 - **Workspace panes:** draggable dividers between the panes, and previous and next problem buttons.
-- **More SQL:** solutions for query parts on request, showing a database's tables beside the lesson's explanations, flagging a bank exercise as broken, and Spider's three databases over 5 MB.
-- **More code problems:** design problems (a class tested by a sequence of calls), problems that change their input in place, and fixes for problems outside the NeetCode 150, such as by checking every test against the limits in its description at import.
-- **Packaging and distribution:** bundling the Python server, plus key handling for other users.
-- **More agent mode:** computer science lessons, reruns of agent lessons, Codex, Claude Code sessions started outside the Terminal panel, and agent builds in the run log.
+- **Packaging and distribution:** bundling the Python server.
+- **Computer science lessons through Claude Code:** DSA with the LeetCode lookup, and SQL with recommendations and course databases, as tools.
+- **Changing a ready lesson from the Terminal panel:** asking Claude Code for a change to a section, in place of reruns, with progress carried over.
+- **Codex**, and **Claude Code sessions started outside the Terminal panel**.

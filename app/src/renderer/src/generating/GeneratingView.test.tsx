@@ -4,12 +4,12 @@ import type { LessonResponse } from '../api'
 import { GeneratingView } from './GeneratingScreen'
 
 function status(overrides: Partial<LessonResponse>): LessonResponse {
-  return { lesson: null, builder: 'pipeline', status: 'generating', current_stage: null, error: null, materials: [], rerun_stages: [], reading_block: null, day_starts: [], ...overrides }
+  return { lesson: null, builder: 'agent', status: 'generating', current_stage: null, error: null, materials: [], reading_block: null, day_starts: [], ...overrides }
 }
 
 function render(value: LessonResponse | null, error: string | null = null): HTMLElement {
   const root = document.createElement('div')
-  root.innerHTML = renderToString(<GeneratingView status={value} error={error} onRerun={() => {}} onCancel={() => {}} />)
+  root.innerHTML = renderToString(<GeneratingView status={value} error={error} onCancel={() => {}} />)
   return root
 }
 
@@ -42,31 +42,23 @@ describe('GeneratingView', () => {
     expect(root.textContent).toContain('Section 2 failed after 3 attempts.')
   })
 
-  it('offers a rerun only for a failed lesson that can be rerun', () => {
-    const rerun = (s: LessonResponse) => render(s).textContent?.includes('Rerun')
-    expect(rerun(status({ status: 'failed', current_stage: 2, rerun_stages: [1, 2] }))).toBe(true)
-    expect(rerun(status({ status: 'failed', current_stage: 2, rerun_stages: [] }))).toBe(false)
-    expect(rerun(status({ current_stage: 2, rerun_stages: [1, 2] }))).toBe(false)
-  })
-
   it('shows an agent lesson waiting for Claude Code with the command to run', () => {
-    const root = render(status({ builder: 'agent' }))
+    const root = render(status({}))
     expect(root.querySelector('h1')?.textContent).toBe('Waiting for Claude Code')
     expect(root.querySelector('code')?.textContent).toBe('/kedami:lesson')
   })
 
   it('shows an agent lesson Claude Code has started like any other', () => {
-    const root = render(status({ builder: 'agent', current_stage: 2 }))
+    const root = render(status({ current_stage: 2 }))
     expect(root.querySelector('h1')?.textContent).toBe('Generating your lesson')
     expect(stages(root)).toEqual(['done', 'current', 'pending', 'pending'])
     expect(root.textContent).toContain('Claude Code is building it')
   })
 
-  it('offers Cancel only while Claude Code is building', () => {
-    const cancel = (s: LessonResponse) => [...render(s).querySelectorAll('button')].some((b) => b.textContent === 'Cancel')
-    expect(cancel(status({ builder: 'agent' }))).toBe(true)
-    expect(cancel(status({ builder: 'agent', current_stage: 3 }))).toBe(true)
-    expect(cancel(status({ current_stage: 3 }))).toBe(false)
-    expect(cancel(status({ builder: 'agent', status: 'failed', current_stage: 3, error: 'Canceled.' }))).toBe(false)
+  it('offers Cancel while Claude Code is building, and no Rerun once failed', () => {
+    const buttons = (s: LessonResponse) => [...render(s).querySelectorAll('button')].map((b) => b.textContent)
+    expect(buttons(status({}))).toContain('Cancel')
+    expect(buttons(status({ current_stage: 3 }))).toContain('Cancel')
+    expect(buttons(status({ status: 'failed', current_stage: 3, error: 'Canceled.' }))).toEqual([])
   })
 })

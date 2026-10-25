@@ -1,7 +1,6 @@
 """Step-by-step solutions kept apart from the lesson JSON, keyed by block and part ID.
 
-A solution is written the first time the student asks and served from here after that. A
-rerun replaces the lesson, so it clears these rows.
+Claude Code writes a solution when the student asks for one, and it is served from here after that.
 """
 
 import json
@@ -29,10 +28,6 @@ def save(
         " matches = excluded.matches, updated = excluded.updated",
         (lesson_id, block_id, part_id, json.dumps(solution), None if matches is None else int(matches), _now()),
     )
-
-
-def clear(conn: sqlite3.Connection, lesson_id: str) -> None:
-    conn.execute("DELETE FROM solutions WHERE lesson_id = ?", (lesson_id,))
 
 
 def _now() -> str:

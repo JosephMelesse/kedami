@@ -90,7 +90,7 @@ describe('Reading position', () => {
     expect(scrollTo).toHaveBeenCalledWith({ top: 4 * BLOCK_STEP - HEADER, behavior: 'instant' })
   })
 
-  it('opens at the top with no saved block, or one gone after a rerun', async () => {
+  it('opens at the top with no saved block, or one no longer in the lesson', async () => {
     await open(null)
     expect(scrollTo).toHaveBeenLastCalledWith({ top: 0, behavior: 'instant' })
     await act(async () => root.unmount())
