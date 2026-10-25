@@ -51,6 +51,7 @@
 - If SymPy finds the two results equivalent, the item is marked verified. Numbers agree within the stored tolerance, expressions by the same equivalence check used for student answers, and choices by the selected indexes.
 - A verification call whose replies stay malformed after its retries leaves the section unverified rather than failing the lesson. An API error still fails the lesson.
 - Each section's results, with both answers, are saved to `work/{lesson_id}/verification-{n}.json`.
+- In agent mode, the plugin's verifier subagent does the second solve. It gets each question and the form of its answer from the server, never the stored answer, and the server does the comparison. See `agent-mode.md`.
 - If not, it shows an "Unverified answer" label. For problem parts, mark done is the way past it.
 - `self_check` answers are not verified.
 - `code` answers are not verified: their tests come from the imported dataset. They show no "Unverified answer" label.

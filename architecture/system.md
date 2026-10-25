@@ -5,8 +5,10 @@
 | Process | Responsibility | Stack |
 |---|---|---|
 | Electron renderer | UI only: file drop, lesson rendering, answer input, progress, sandboxed simulation frames, code editor and sandboxed runner frame, Pomodoro timer, music player | TypeScript, React, KaTeX, DOMPurify, CodeMirror, Pyodide |
-| Electron main | Window management; spawns and kills the server; passes the port and session token to the renderer; copies and serves music player tracks | TypeScript |
-| Local server | Ingestion, model calls, verification, answer checking, storage | Python, FastAPI, SymPy, SQLite |
+| Electron main | Window management; spawns and kills the server; passes the port and session token to the renderer; copies and serves music player tracks; runs the Terminal screen's pseudo-terminal | TypeScript, node-pty |
+| Terminal view | The Terminal screen: draws the pseudo-terminal, in its own renderer process (see `agent-mode.md`) | TypeScript, xterm.js |
+| Local server | Ingestion, model calls, verification, answer checking, storage; writes the agent plugin and serves its routes | Python, FastAPI, SymPy, SQLite |
+| MCP server | Agent mode's tools, started by Claude Code; each tool calls an agent route | Python, MCP SDK |
 
 ## Launch
 
@@ -42,7 +44,7 @@ Anthropic is the only provider.
 | Solution | `claude-opus-5-5` at high effort | Step-by-step solutions to problem parts, on request |
 | Small checks | `claude-haiku-4-5` | Scoring extracted page text, hint leak check |
 
-- All calls go through one server function (`server/kedami_server/model.py`), so models and retry policy are set in one place. Model names live in `MODEL_ROLES` in `server/kedami_server/config.py`.
+- All calls Kedami makes go through one server function (`server/kedami_server/model.py`), so models and retry policy are set in one place. In agent mode Kedami makes no model calls: the student's Claude Code session makes them on their plan, and the plugin's subagents take their models from `MODEL_ROLES` (see `agent-mode.md`). Model names live in `MODEL_ROLES` in `server/kedami_server/config.py`.
 - Generate calls opt into server-side refusal fallback (`fallbacks: "default"`), so a declined request is re-run on Anthropic's recommended fallback model instead of failing the lesson.
 - Generation stages request structured output against the JSON Schema exported from the server's lesson models.
 - When a small check is uncertain, the server takes the safer route (for example, transcribe the page).
@@ -107,7 +109,9 @@ Most likely to be wrong: counting the calls made on the transcription threads un
 
 - The server binds to `127.0.0.1` only and rejects requests without the session token.
 - The API key lives in the server's `.env`. The renderer never sees it.
-- The only outbound traffic is to the Anthropic API. Fonts and the alarm sound are bundled.
+- Kedami's only outbound traffic is to the Anthropic API. Fonts and the alarm sound are bundled. Programs the student runs in the Terminal screen, Claude Code included, make their own connections.
+- The Terminal screen is a separate view with its own preload. Main accepts pseudo-terminal input only from that view, so the lesson window can never type into a shell. See Isolation in `agent-mode.md`.
+- Kedami never types into the terminal and never runs a coding agent non-interactively. The student drives Claude Code.
 - Model-written code runs only inside a sandboxed frame with no network, no Node access, and no access to app data.
 - The student's code, and the dataset's test arguments and expected values, run only inside the runner frame, which has the same limits. Pyodide is bundled, never fetched. The server never runs or evaluates either; the import reads tests with Python's `ast` parser only.
 - SQL from the student, the exercise bank, or the model runs only on the server, in a fresh in-memory copy of its database, never in the database file or `kedami.db`. An authorizer allows reads only, one statement runs, and a query stops after 2 seconds. See `sql-lessons.md`.

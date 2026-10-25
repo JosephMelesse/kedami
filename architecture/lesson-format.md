@@ -1,6 +1,6 @@
 # Lesson format
 
-A lesson is a JSON document. It is produced by stage 4, never edited in place, and replaced only by a rerun.
+A lesson is a JSON document. It is produced by stage 4, by the pipeline or in agent mode, never edited in place, and replaced only by a rerun.
 
 The server's Pydantic models in `server/kedami_server/lesson.py` are the source of truth. The JSON Schema exported from them is committed at `server/schema/lesson.schema.json`, and the renderer's TypeScript types are generated from it. Field names below are the JSON keys.
 
@@ -89,6 +89,7 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 - The reply also gives its final answer in that form, which the server compares with the stored answer the way verification does. On a disagreement the call is repeated once with the stored answer shown; if they still disagree, the solution shows with a "Doesn't match the stored answer" label. `self_check` parts aren't compared.
 - A solution is stored apart from the lesson JSON, in the `solutions` table, keyed by block and part ID. A rerun replaces the lesson and clears these rows.
 - `code` and `external` parts (computer science) have no solutions.
+- Without an API key, the button asks for Claude Code instead: the student runs `/kedami:solution` in the Terminal screen and the same comparison applies. See Solutions and simulations in `agent-mode.md`.
 
 ## Simulations
 
@@ -98,6 +99,7 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 - The frame must report ready within a few seconds with no errors. Otherwise the block is hidden and flagged for regeneration.
 - Simulations are illustrative: they never count toward completion and never supply numbers the student is checked against.
 - Each simulation has a regenerate button.
+- Without an API key, Generate simulation and regenerate ask for Claude Code instead: the student runs `/kedami:simulation` in the Terminal screen. See `agent-mode.md`.
 - The plan gives a section a one-line simulation brief only where one would teach what a static plot or diagram can't. The section call places one `simulation` block (a caption) exactly when there is a brief. The block keeps the brief, and its code stays empty: the code is written by a separate call only when the student clicks Generate simulation, so lesson generation never waits on it.
 - The code is the body of `function simulation(root, canvas, tokens, ready)`: `root` is a div to build controls in, `canvas` is a 320 px tall canvas already in it, `tokens` holds the color token values and the font, and `ready()` must be called once it works. Code that never calls `ready(` is rejected and retried.
 - The frame is a separate page, `simulation.html`, loaded with `sandbox="allow-scripts"` and no same-origin access. Its CSP allows no network. The ready window is 4 seconds; an error or timeout before ready flags the simulation on the server and shows a one-line notice with the regenerate button in its place.
@@ -119,6 +121,6 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 - Display math in Markdown puts each `$$` on its own line. `$$...$$` on a single line renders as inline math.
 - The server checks answers and samples points for static plots, so the renderer never parses SymPy.
 - For plots with parameters, the server sends an expression tree that the renderer evaluates with plain arithmetic and `Math` functions, never as code. Nodes are numbers, names, sums, products, powers, and the whitelisted one-argument functions.
-- The `verified` flag is set only by the server's verification pass, never by the model.
+- The `verified` flag is set only by the server's verification pass, never by the model. In agent mode the second solve comes from the plugin's verifier subagent, and the server still does the comparison and sets the flag.
 - Titles, section goals, and simulation briefs are plain text, not Markdown. A model sometimes writes a character as a literal escape such as `\u0394`; the server decodes these in plain-text fields when it reads a plan or a lesson, so they show as the character (Δ). The lesson JSON on disk is left as written.
 - A model sometimes double-escapes the LaTeX in a Markdown field, writing `\\rightarrow` for `\rightarrow`. KaTeX reads `\\` as a line break, so the command name would show as text. When the server reads a lesson, it halves the backslashes in a math span if every backslash in the span is doubled and one comes before a command name. Text outside math is never changed, and the lesson JSON on disk is left as written.

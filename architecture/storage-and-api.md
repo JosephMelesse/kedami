@@ -10,6 +10,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 | Stage outputs | `work/{lesson_id}/`: `pages.json` (routes and text per page), `normalized/`, `extraction.json`, `plan.json`, `outline.json`, `section-{n}.json`, `verification-{n}.json` |
 | Lessons | `lessons/{lesson_id}.json` |
 | Music player tracks | `music/`, written and read only by Electron main |
+| Agent plugin | `agent-plugin/`: the Claude Code plugin for agent mode, rewritten by the server on every start (see `agent-mode.md`) |
 | LeetCode tests | `leetcode.jsonl`: the imported dataset (see `code-problems.md`). Written only by the import command, which applies the checked-in fixes. A lesson copies what it needs into its lesson JSON, but is served the import's current tests while the problem is imported (see In a lesson in `code-problems.md`) |
 | SQL exercise bank | `sql/databases/` and `sql/exercises.jsonl`: the imported Spider bank (see `sql-lessons.md`). Written only by the import command |
 | Run log | `runs.jsonl`: one line per pipeline run (see Run log in `system.md`). Deleting a lesson or the database keeps it |
@@ -19,7 +20,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 
 | Table | Key fields |
 |---|---|
-| `lessons` | id, title, custom title, subject, domain, chapter (a SQL chapter lesson's), status, current stage, schema version, revision, created, error, folder id, reading block, day starts, active |
+| `lessons` | id, title, custom title, subject, domain, chapter (a SQL chapter lesson's), builder, status, current stage, schema version, revision, created, error, folder id, reading block, day starts, active |
 | `folders` | id, name (unique, ignoring case), created |
 | `settings` | key, value (for example, that the sample lesson was added on the first start) |
 | `materials` | id, lesson id, filename, role, force transcription |
@@ -30,6 +31,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 | `model_calls` | id, lesson id, stage, role, model, started, latency in ms, input tokens, output tokens, cache write tokens, cache read tokens, cost in USD |
 
 - Lesson status is one of: generating, ready, failed. Only a ready lesson has lesson JSON to serve.
+- Builder is `pipeline` or `agent` (see `agent-mode.md`), set at upload and never changed. Lessons made before agent mode are `pipeline`. An agent lesson waiting for Claude Code is generating with no current stage. Only pipeline lessons can be rerun.
 - A lesson's title is the plan's until the student renames it. The custom title is kept in the index and served in place of the lesson JSON's title, which is never edited, and a rerun keeps it.
 - Material role is problem set or reference. A SQL lesson's course database is kept beside its materials, not as one (see Course databases in `sql-lessons.md`).
 - Progress status is one of: not started, in progress, correct, marked done.
@@ -46,7 +48,8 @@ All routes require the session token.
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/lessons` | Multipart upload: `subject`, `domain` for computer science, `chapter` for a SQL chapter lesson, optional `folder`, and per file `files`, `roles`, `force`; starts the pipeline |
+| POST | `/lessons` | Multipart upload: `subject`, `domain` for computer science, `chapter` for a SQL chapter lesson, optional `folder`, `builder` (`pipeline` by default, or `agent` for math, physics, and general), and per file `files`, `roles`, `force`; starts the pipeline, or leaves an agent lesson waiting for Claude Code |
+| GET | `/capabilities` | Whether an API key is set, so the window knows whether the pipeline, Show solution, and Generate simulation can call the API |
 | GET | `/sql/chapters` | The SQL chapters, each with how many problems it can recommend |
 | POST | `/sql/recommend` | Recommend problems for a SQL chapter: a chapter, a number, and how many times Recommend again was pressed |
 | POST | `/sql/database` | Check an uploaded course database without keeping it; returns its tables with their row counts, or why it was refused |
@@ -63,6 +66,7 @@ All routes require the session token.
 | GET | `/lessons/{id}` | Lesson JSON plus generation status, current stage, error, materials, the stages a rerun can start from, the reading block, and the day starts |
 | POST | `/lessons/{id}/reading-position` | Record the block being read; it must be a block in the lesson |
 | POST | `/lessons/{id}/days` | Replace the day starts; each must be a block in the lesson other than the first, in lesson order, with no repeats. An empty list removes them |
+| POST | `/lessons/{id}/cancel` | End a generating agent lesson's build, marking it failed with "Canceled". Pipeline lessons can't be canceled |
 | POST | `/lessons/{id}/rerun` | Rerun from a given stage, with force transcription per material ID |
 | GET | `/lessons/{id}/blocks/{block_id}/points` | Sampled points for a static plot |
 | POST | `/lessons/{id}/blocks/{block_id}/check` | Check a response for a part; records progress and returns the new state. For a query, also the reason it is wrong and the student's result |
@@ -79,3 +83,5 @@ All routes require the session token.
 | POST | `/lessons/{id}/blocks/{block_id}/solution` | A problem part's solution: the stored one, or written on request the first time |
 | GET | `/lessons/{id}/progress` | Progress for all blocks and parts, with code parts' saved code and test flags |
 | GET | `/health` | Used by main to detect server readiness |
+
+Agent mode adds routes under `/agent/`, called only by the MCP server; they are listed in `agent-mode.md`.

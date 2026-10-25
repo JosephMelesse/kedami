@@ -2,6 +2,8 @@
 
 Each stage writes its output to disk, so any stage can be rerun alone.
 
+This is the API pipeline. In agent mode, the student's Claude Code session does stages 1 to 4 through Kedami's tools and the server writes the same outputs; see `agent-mode.md`.
+
 | # | Stage | Input | Output |
 |---|---|---|---|
 | 1 | Ingest | Files, each tagged as problem set or reference | Normalized Markdown with LaTeX per page, plus the route each page took |

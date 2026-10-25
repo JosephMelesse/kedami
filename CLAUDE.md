@@ -30,10 +30,12 @@ Before writing code, read `README.md` and every file in `architecture/`. Those d
 **Boundaries**
 - The renderer is UI only. It never calls the model API and never sees the API key.
 - The server binds to `127.0.0.1` and rejects requests without the session token.
-- The only outbound traffic is to the Anthropic API. Fonts and audio are bundled, never fetched.
+- Kedami's only outbound traffic is to the Anthropic API. Fonts and audio are bundled, never fetched. Programs the student runs in the Terminal screen are their own.
+- The terminal is a separate view, and main accepts pseudo-terminal input only from it. The lesson window can never type into a shell.
+- Kedami never types into the terminal and never runs a coding agent non-interactively. The student drives Claude Code.
 
 **Model calls**
-- All model calls go through one server function.
+- All model calls Kedami makes go through one server function. In agent mode it makes none; the student's Claude Code session does.
 - Model names live in config, never hardcoded at call sites.
 - That function adds every call that gets a reply to the usage log. Prices live in config beside the model names; update them when a model or its price changes.
 
@@ -46,7 +48,8 @@ Before writing code, read `README.md` and every file in `architecture/`. Those d
 **Lesson data**
 - Lesson JSON is never edited in place. Only a rerun replaces it. Regenerated simulation code is stored apart from it.
 - Progress is stored apart from the lesson, keyed by block and part ID.
-- The `verified` flag is set only by the server's verification pass.
+- The `verified` flag is set only by the server's verification pass. In agent mode the verifier subagent solves, and the server still compares and sets it.
+- In agent mode the server is the only writer. The MCP server holds no state and touches no files.
 - Problem block IDs derive from the source reference, and part IDs from the part label.
 
 **UI**
@@ -60,7 +63,7 @@ Before writing code, read `README.md` and every file in `architecture/`. Those d
 
 ## Most likely to be wrong
 
-The lesson schema and ID derivation (`server/kedami_server/lesson.py`, `ids.py`), the restricted math parser (`mathparse.py`), the code problem harness (see `architecture/code-problems.md`), and SQL result comparison and the read-only authorizer (see `architecture/sql-lessons.md`). Every later step depends on them, so they get tests first and changes to them come with tests.
+The lesson schema and ID derivation (`server/kedami_server/lesson.py`, `ids.py`), the restricted math parser (`mathparse.py`), the code problem harness (see `architecture/code-problems.md`), SQL result comparison and the read-only authorizer (see `architecture/sql-lessons.md`), and agent mode's draft lesson, assembled across many tool calls (see `architecture/agent-mode.md`). Every later step depends on them, so they get tests first and changes to them come with tests.
 
 ## Commands
 
