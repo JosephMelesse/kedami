@@ -18,7 +18,6 @@ class LessonRow:
     status: str
     current_stage: int | None
     schema_version: int
-    revision: int
     created: str
     error: str | None = None
     folder_id: int | None = None
@@ -32,8 +31,6 @@ class LessonRow:
     active: bool = False
     # Computer science only; see Lesson.domain. Rows made before domains existed have none.
     domain: str | None = None
-    # The SQL chapter a lesson was made for, whose recommended problems are its problem set; null otherwise.
-    chapter: int | None = None
     # "agent" for Claude Code, or "pipeline" for a lesson the old API pipeline made.
     builder: str = "pipeline"
 
@@ -62,16 +59,15 @@ def create_generating(
     schema_version: int,
     folder_id: int | None = None,
     domain: str | None = None,
-    chapter: int | None = None,
     builder: str = "agent",
 ) -> None:
     """Index a lesson whose generation is starting. The title arrives with the plan. An agent lesson
     with no current stage is waiting for Claude Code."""
     conn.execute(
         "INSERT INTO lessons"
-        " (id, title, subject, domain, chapter, builder, status, current_stage, schema_version, created, folder_id)"
-        " VALUES (?, 'New lesson', ?, ?, ?, ?, 'generating', NULL, ?, ?, ?)",
-        (lesson_id, subject, domain, chapter, builder, schema_version, _now(), folder_id),
+        " (id, title, subject, domain, builder, status, current_stage, schema_version, created, folder_id)"
+        " VALUES (?, 'New lesson', ?, ?, ?, 'generating', NULL, ?, ?, ?)",
+        (lesson_id, subject, domain, builder, schema_version, _now(), folder_id),
     )
 
 
@@ -114,7 +110,6 @@ class MaterialRow:
     lesson_id: str
     filename: str
     role: str
-    force_transcription: bool
 
 
 def add_material(conn: sqlite3.Connection, lesson_id: str, filename: str, role: str) -> None:
@@ -123,7 +118,7 @@ def add_material(conn: sqlite3.Connection, lesson_id: str, filename: str, role: 
 
 def list_materials(conn: sqlite3.Connection, lesson_id: str) -> list[MaterialRow]:
     rows = conn.execute("SELECT * FROM materials WHERE lesson_id = ? ORDER BY id", (lesson_id,)).fetchall()
-    return [MaterialRow(**{**dict(row), "force_transcription": bool(row["force_transcription"])}) for row in rows]
+    return [MaterialRow(**row) for row in rows]
 
 
 def list_lessons(conn: sqlite3.Connection) -> list[LessonRow]:
@@ -169,7 +164,8 @@ def create_folder(conn: sqlite3.Connection, name: str) -> FolderRow:
 
 def list_folders(conn: sqlite3.Connection) -> list[FolderRow]:
     rows = conn.execute(
-        "SELECT f.id, f.name, COUNT(l.id) AS lessons FROM folders f LEFT JOIN lessons l ON l.folder_id = f.id"
+        "SELECT f.id, f.name, COUNT(l.id) AS lessons FROM folders f"
+        " LEFT JOIN lessons l ON l.folder_id = f.id AND l.subject != 'computer_science'"
         " GROUP BY f.id ORDER BY f.name COLLATE NOCASE"
     ).fetchall()
     return [FolderRow(**row) for row in rows]

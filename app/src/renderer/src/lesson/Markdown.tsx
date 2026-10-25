@@ -1,6 +1,5 @@
-// Markdown with LaTeX, GitHub-style tables, and highlighted Python and SQL. Raw HTML in the source is not rendered.
+// Markdown with LaTeX, GitHub-style tables, and highlighted Python. Raw HTML in the source is not rendered.
 import python from 'highlight.js/lib/languages/python'
-import sql from 'highlight.js/lib/languages/sql'
 import ReactMarkdown, { type Components, type Options } from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeKatex from 'rehype-katex'
@@ -10,8 +9,8 @@ import remarkMath from 'remark-math'
 const remarkPlugins: Options['remarkPlugins'] = [remarkGfm, remarkMath]
 const rehypePlugins: Options['rehypePlugins'] = [
   [rehypeKatex, { errorColor: 'var(--text-muted)' }],
-  // Python only: lessons write all code in Python, and other grammars would only add size.
-  [rehypeHighlight, { languages: { python, sql }, detect: false }]
+  // Python only: other grammars would only add size. Other languages show in JetBrains Mono.
+  [rehypeHighlight, { languages: { python }, detect: false }]
 ]
 const inlineComponents: Components = { p: ({ children }) => <>{children}</> }
 

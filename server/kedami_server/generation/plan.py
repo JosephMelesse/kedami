@@ -10,7 +10,7 @@ sequencing rules in architecture/agent-mode.md hold by construction:
 from dataclasses import dataclass
 
 from ..ids import slugify
-from .schemas import Concept, Extraction, ExtractedProblem, Plan
+from .schemas import Concept, ExtractedProblem, Plan, ProblemsAndConcepts
 
 
 class PlanError(ValueError):
@@ -28,7 +28,7 @@ class SectionPlan:
     simulation: str | None = None
 
 
-def place_problems(plan: Plan, extraction: Extraction) -> list[SectionPlan]:
+def place_problems(plan: Plan, extraction: ProblemsAndConcepts) -> list[SectionPlan]:
     concepts = {c.id: c for c in extraction.concepts}
     section_of: dict[str, int] = {}
     for index, section in enumerate(plan.sections):

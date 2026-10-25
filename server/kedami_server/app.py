@@ -3,23 +3,22 @@
 import hmac
 import uuid
 from dataclasses import asdict
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StringConstraints
 
-from . import databases, db, library, progress, queries, simulation_state, solution_state, test_flags
+from . import db, library, progress, simulation_state, solution_state
 from .agent import draft as agent_draft
 from .agent.routes import agent_router
 from .checking import InvalidResponse, check
 from .config import Settings
-from .current_tests import with_current_tests
 from .generation import stages
 from .generation.solutions import has_solution
 from .generation.sources import SourceError
-from .lesson import CodeAnswer, Lesson, PlotBlock, ProblemBlock, QueryAnswer, SimulationBlock, Subject
+from .lesson import Lesson, PlotBlock, ProblemBlock, SimulationBlock, Subject
 from .library import LessonRow, add_material, create_generating, get_lesson_row, list_lessons, list_materials, problem_ids
 from .plot import sample_points
 from .storage import delete_lesson_files, load_lesson
@@ -76,62 +75,6 @@ class MarkDoneRequest(Body):
     done: StrictBool
 
 
-# Longest code a code part saves, in characters.
-MAX_CODE = 100_000
-
-
-class CodeRequest(Body):
-    # Null for a query checkpoint.
-    part_id: str | None = None
-    code: Annotated[str, StringConstraints(max_length=MAX_CODE)]
-
-
-class SubmitRequest(CodeRequest):
-    # Whether every unflagged test passed, as the sandboxed runner reported. The server can't run the code.
-    passed: StrictBool
-
-
-class QueryRequest(Body):
-    # Null for a checkpoint.
-    part_id: str | None = None
-    query: Annotated[str, StringConstraints(max_length=queries.MAX_QUERY_LENGTH)]
-
-
-# Rows of a query's result sent back for showing.
-SHOWN_ROWS = 100
-SHOWN_TEXT = 1000
-
-
-def shown(result: queries.Result) -> dict:
-    """A query's result as the workspace shows it: at most SHOWN_ROWS rows, long text cut, blobs as hex."""
-
-    def value(v):
-        if isinstance(v, bytes):
-            return f"x'{v[:SHOWN_TEXT // 2].hex()}'"
-        if isinstance(v, str) and len(v) > SHOWN_TEXT:
-            return v[: SHOWN_TEXT - 3] + "..."
-        return v
-
-    return {
-        "columns": result.columns,
-        "rows": [[value(v) for v in row] for row in result.rows[:SHOWN_ROWS]],
-        "count": len(result.rows),
-        "truncated": result.truncated,
-    }
-
-
-class FlaggedTest(Body):
-    args: str
-    expected: str
-
-
-class FlagRequest(Body):
-    part_id: str
-    action: Literal["flag", "unflag", "clear"]
-    # The test to flag or unflag; clear removes every flag on the part.
-    test: FlaggedTest | None = None
-
-
 def create_app(settings: Settings) -> FastAPI:
     app = FastAPI(title="Kedami", docs_url=None, redoc_url=None, openapi_url=None)
     expected = f"Bearer {settings.token}".encode()
@@ -159,7 +102,11 @@ def create_app(settings: Settings) -> FastAPI:
         return row
 
     def get_lesson(lesson_id: str) -> Lesson:
-        lesson = load_lesson(settings.data_dir, lesson_id) if get_row(lesson_id).status == "ready" else None
+        row = get_row(lesson_id)
+        # Computer science lessons made earlier are not opened.
+        if row.subject == "computer_science" or row.status != "ready":
+            raise HTTPException(404, "lesson not found")
+        lesson = load_lesson(settings.data_dir, lesson_id)
         if lesson is None:
             raise HTTPException(404, "lesson not found")
         return lesson
@@ -190,7 +137,7 @@ def create_app(settings: Settings) -> FastAPI:
             "id": row.id,
             "title": row.shown_title,
             "subject": row.subject,
-            "domain": row.domain or ("dsa" if row.subject == "computer_science" else None),
+            "domain": row.domain,
             "status": row.status,
             "current_stage": row.current_stage,
             "error": row.error,
@@ -210,7 +157,7 @@ def create_app(settings: Settings) -> FastAPI:
     def lessons():
         with db.connect(settings.data_dir) as conn:
             rows = list_lessons(conn)
-        return {"lessons": [summary(row) for row in rows]}
+        return {"lessons": [summary(row) for row in rows if row.subject != "computer_science"]}
 
     @app.post("/lessons", status_code=201)
     def new_lesson(
@@ -254,8 +201,10 @@ def create_app(settings: Settings) -> FastAPI:
     @app.get("/lessons/{lesson_id}")
     def lesson(lesson_id: str):
         row = get_row(lesson_id)
+        if row.subject == "computer_science":
+            raise HTTPException(404, "lesson not found")
         loaded = get_lesson(lesson_id) if row.status == "ready" else None
-        body = with_current_tests(settings.data_dir, loaded).model_dump(mode="json") if loaded else None
+        body = loaded.model_dump(mode="json") if loaded else None
         if body and row.custom_title:
             # A renamed lesson is served under its new name; the JSON on disk keeps the plan's.
             body["title"] = row.custom_title
@@ -306,51 +255,11 @@ def create_app(settings: Settings) -> FastAPI:
         get_lesson(lesson_id)
         with db.connect(settings.data_dir) as conn:
             records = progress.load_all(conn, lesson_id)
-            flags = test_flags.load_all(conn, lesson_id)
-        return {"progress": [asdict(record) for record in records], "flags": flags}
-
-    def query_database(lesson_id: str, answer: QueryAnswer) -> bytes:
-        try:
-            return databases.image_for(settings.data_dir, stages.materials_dir(settings.data_dir, lesson_id), answer.database)
-        except databases.DatabaseMissing as error:
-            raise HTTPException(409, str(error)) from error
-
-    def query_target(lesson_id: str, block_id: str, part_id: str | None) -> tuple[Target, QueryAnswer, bytes]:
-        target = get_target(get_lesson(lesson_id), block_id, part_id)
-        if not isinstance(target.answer, QueryAnswer):
-            raise HTTPException(422, "This part isn't a query.")
-        return target, target.answer, query_database(lesson_id, target.answer)
-
-    @app.get("/lessons/{lesson_id}/blocks/{block_id}/tables")
-    def query_tables(lesson_id: str, block_id: str, part_id: str | None = None):
-        _, _, image = query_target(lesson_id, block_id, part_id)
-        return {"tables": databases.tables(image)}
-
-    @app.post("/lessons/{lesson_id}/blocks/{block_id}/run-query")
-    def run_query(lesson_id: str, block_id: str, body: QueryRequest):
-        _, _, image = query_target(lesson_id, block_id, body.part_id)
-        try:
-            return shown(queries.run(image, body.query)) | {"error": None}
-        except queries.QueryError as error:
-            return {"columns": [], "rows": [], "count": 0, "truncated": False, "error": str(error)}
-
-    def check_query(lesson_id: str, target: Target, answer: QueryAnswer, response) -> dict:
-        if not isinstance(response, str):
-            raise HTTPException(422, "Write a query.")
-        try:
-            reason, got = queries.check(query_database(lesson_id, answer), answer.reference, answer.ordered, response)
-        except queries.QueryError as error:
-            raise HTTPException(422, str(error)) from error
-        except queries.BrokenReference as error:
-            raise HTTPException(409, f"This exercise's reference query doesn't run: {error}") from error
-        record = update(lesson_id, target, lambda r: progress.after_check(r, reason is None, response))
-        return {"correct": reason is None, "progress": asdict(record), "reason": reason, "result": shown(got)}
+        return {"progress": [asdict(record) for record in records]}
 
     @app.post("/lessons/{lesson_id}/blocks/{block_id}/check")
     def check_response(lesson_id: str, block_id: str, body: CheckRequest):
         target = get_target(get_lesson(lesson_id), block_id, body.part_id)
-        if isinstance(target.answer, QueryAnswer):
-            return check_query(lesson_id, target, target.answer, body.response)
         try:
             correct = check(target.answer, body.response)
         except InvalidResponse as error:
@@ -369,51 +278,6 @@ def create_app(settings: Settings) -> FastAPI:
         target = get_target(get_lesson(lesson_id), block_id, body.part_id)
         record = update(lesson_id, target, lambda r: progress.after_mark_done(r, body.done))
         return {"progress": asdict(record)}
-
-    def get_code_target(lesson_id: str, block_id: str, part_id: str | None) -> tuple[Target, CodeAnswer]:
-        target = get_target(get_lesson(lesson_id), block_id, part_id)
-        if not isinstance(target.answer, CodeAnswer):
-            raise HTTPException(422, "This part isn't a code problem.")
-        return target, target.answer
-
-    @app.post("/lessons/{lesson_id}/blocks/{block_id}/code")
-    def save_code(lesson_id: str, block_id: str, body: CodeRequest):
-        """Save a code part's code, or a query part's or checkpoint's query, as it is typed."""
-        target = get_target(get_lesson(lesson_id), block_id, body.part_id)
-        match target.answer:
-            case CodeAnswer():
-                starter = target.answer.starter_code
-            case QueryAnswer():
-                starter = ""
-            case _:
-                raise HTTPException(422, "This part isn't a code problem or a query.")
-        record = update(lesson_id, target, lambda r: progress.after_code_saved(r, body.code, starter))
-        return {"progress": asdict(record)}
-
-    @app.post("/lessons/{lesson_id}/blocks/{block_id}/submit")
-    def submit_code(lesson_id: str, block_id: str, body: SubmitRequest):
-        target, _ = get_code_target(lesson_id, block_id, body.part_id)
-        record = update(lesson_id, target, lambda r: progress.after_check(r, body.passed, body.code))
-        return {"progress": asdict(record)}
-
-    @app.post("/lessons/{lesson_id}/blocks/{block_id}/flags")
-    def flag_test(lesson_id: str, block_id: str, body: FlagRequest):
-        # Only a test the part is served can be flagged.
-        target = get_target(with_current_tests(settings.data_dir, get_lesson(lesson_id)), block_id, body.part_id)
-        if not isinstance(target.answer, CodeAnswer):
-            raise HTTPException(422, "This part isn't a code problem.")
-        answer = target.answer
-        with db.connect(settings.data_dir) as conn:
-            if body.action == "clear":
-                test_flags.clear(conn, lesson_id, block_id, body.part_id)
-            else:
-                test = body.test
-                if test is None or not any(t.args == test.args and t.expected == test.expected for t in answer.tests):
-                    raise HTTPException(422, "No such test in this problem.")
-                flagged = body.action == "flag"
-                test_flags.set_flag(conn, lesson_id, block_id, body.part_id, test.args, test.expected, flagged)
-            flags = test_flags.load_all(conn, lesson_id)
-        return {"flags": [f for f in flags if (f["block_id"], f["part_id"]) == (block_id, body.part_id)]}
 
     def get_simulation(lesson: Lesson, block_id: str) -> SimulationBlock:
         block = lesson.find_block(block_id)

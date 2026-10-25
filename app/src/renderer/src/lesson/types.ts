@@ -56,15 +56,7 @@ export type Brief = string | null;
 export type Type5 = "checkpoint";
 export type Id7 = string;
 export type Prompt1 = string;
-export type Answer =
-  | NumericAnswer
-  | ExpressionAnswer
-  | SelfCheckAnswer
-  | ChoiceAnswer
-  | MultiChoiceAnswer
-  | ExternalAnswer
-  | CodeAnswer
-  | QueryAnswer;
+export type Answer = NumericAnswer | ExpressionAnswer | SelfCheckAnswer | ChoiceAnswer | MultiChoiceAnswer;
 export type Kind = "numeric";
 export type Value = number;
 export type RelTolerance = number;
@@ -88,40 +80,6 @@ export type Options1 = [string, string, ...string[]];
  * @minItems 1
  */
 export type CorrectIndexes = [number, ...number[]];
-export type Kind5 = "external";
-export type Platform = "leetcode" | "pgexercises";
-export type Title2 = string;
-export type Number = number | null;
-export type Slug = string | null;
-export type Path = string | null;
-export type Kind6 = "code";
-export type Platform1 = "leetcode";
-export type Number1 = number;
-export type Title3 = string;
-export type Slug1 = string;
-export type Difficulty = "Easy" | "Medium" | "Hard";
-export type Method = string;
-export type StarterCode = string;
-/**
- * @minItems 1
- */
-export type Tests = [CodeTest, ...CodeTest[]];
-export type Args = string;
-export type Expected = string;
-export type Compare =
-  | "equal"
-  | "same_list"
-  | "same_tree"
-  | "unordered"
-  | "unordered_nested"
-  | "longest_palindrome"
-  | "course_order"
-  | "alien_order";
-export type Kind7 = "query";
-export type Database = string;
-export type Reference = string;
-export type Ordered = boolean;
-export type Exercise = string | null;
 /**
  * @maxItems 3
  */
@@ -138,15 +96,7 @@ export type Parts = [Part, ...Part[]];
 export type Id9 = string;
 export type Label1 = string;
 export type Prompt3 = string;
-export type Answer1 =
-  | NumericAnswer
-  | ExpressionAnswer
-  | SelfCheckAnswer
-  | ChoiceAnswer
-  | MultiChoiceAnswer
-  | ExternalAnswer
-  | CodeAnswer
-  | QueryAnswer;
+export type Answer1 = NumericAnswer | ExpressionAnswer | SelfCheckAnswer | ChoiceAnswer | MultiChoiceAnswer;
 /**
  * @maxItems 3
  */
@@ -302,65 +252,6 @@ export interface MultiChoiceAnswer {
   kind: Kind4;
   options: Options1;
   correct_indexes: CorrectIndexes;
-}
-/**
- * A problem solved elsewhere and marked done here. Never checked or verified. A LeetCode problem has its
- * number and slug; a pgexercises page its path, such as "joins/self2.html".
- *
- * This interface was referenced by `Lesson`'s JSON-Schema
- * via the `definition` "ExternalAnswer".
- */
-export interface ExternalAnswer {
-  kind: Kind5;
-  platform: Platform;
-  title: Title2;
-  number: Number;
-  slug: Slug;
-  path: Path;
-}
-/**
- * A LeetCode problem solved in the workspace against tests from LeetCodeDataset. The tests run in
- * the sandboxed runner, which reports the result; the server never runs them and never verifies them.
- *
- * This interface was referenced by `Lesson`'s JSON-Schema
- * via the `definition` "CodeAnswer".
- */
-export interface CodeAnswer {
-  kind: Kind6;
-  platform: Platform1;
-  number: Number1;
-  title: Title3;
-  slug: Slug1;
-  difficulty: Difficulty;
-  method: Method;
-  starter_code: StarterCode;
-  tests: Tests;
-}
-/**
- * One test from LeetCodeDataset: Python source for the arguments and the expected value, evaluated
- * only in the sandboxed runner. See architecture/code-problems.md.
- *
- * This interface was referenced by `Lesson`'s JSON-Schema
- * via the `definition` "CodeTest".
- */
-export interface CodeTest {
-  args: Args;
-  expected: Expected;
-  compare: Compare;
-}
-/**
- * A SQL query, checked by running it and the reference against a fresh copy of the database and comparing
- * their results. See architecture/sql-lessons.md, Query answers.
- *
- * This interface was referenced by `Lesson`'s JSON-Schema
- * via the `definition` "QueryAnswer".
- */
-export interface QueryAnswer {
-  kind: Kind7;
-  database: Database;
-  reference: Reference;
-  ordered: Ordered;
-  exercise: Exercise;
 }
 /**
  * This interface was referenced by `Lesson`'s JSON-Schema

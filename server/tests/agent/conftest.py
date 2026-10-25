@@ -6,7 +6,6 @@ from fastapi.testclient import TestClient
 from kedami_server import db
 from kedami_server.app import create_app
 from kedami_server.config import Settings
-from kedami_server.generation.schemas import ProblemsAndConcepts
 
 from ..generation.factories import extraction, plan, section_one, section_two
 
@@ -26,7 +25,7 @@ PAGES = {
 
 
 def extraction_body() -> dict:
-    return ProblemsAndConcepts.model_validate(extraction().model_dump(exclude={"answers"})).model_dump()
+    return extraction().model_dump()
 
 
 def plan_body() -> dict:
@@ -121,4 +120,4 @@ def agent(data_dir):
 
 
 def number(target, value):
-    return {"target": target, "value": value, "expression": None, "correct": None, "query": None}
+    return {"target": target, "value": value, "expression": None, "correct": None}

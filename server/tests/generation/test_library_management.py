@@ -194,9 +194,14 @@ def test_older_database_gains_the_folder_column(tmp_path):
     conn = sqlite3.connect(tmp_path / "kedami.db")
     conn.execute(
         "CREATE TABLE lessons (id TEXT PRIMARY KEY, title TEXT NOT NULL, subject TEXT NOT NULL, status TEXT NOT NULL,"
-        " current_stage INTEGER, schema_version INTEGER NOT NULL, revision INTEGER NOT NULL DEFAULT 1, created TEXT NOT NULL)"
+        " current_stage INTEGER, schema_version INTEGER NOT NULL, revision INTEGER NOT NULL DEFAULT 1, chapter INTEGER,"
+        " created TEXT NOT NULL)"
     )
-    conn.execute("INSERT INTO lessons VALUES ('old', 'Old', 'math', 'ready', NULL, 1, 1, '2026-01-01')")
+    conn.execute("INSERT INTO lessons VALUES ('old', 'Old', 'math', 'ready', NULL, 1, 1, NULL, '2026-01-01')")
+    conn.execute(
+        "CREATE TABLE materials (id INTEGER PRIMARY KEY, lesson_id TEXT NOT NULL, filename TEXT NOT NULL,"
+        " role TEXT NOT NULL, force_transcription INTEGER NOT NULL DEFAULT 0)"
+    )
     conn.commit()
     conn.close()
     db.init(tmp_path)
@@ -204,7 +209,11 @@ def test_older_database_gains_the_folder_column(tmp_path):
         row = conn.execute(
             "SELECT error, folder_id, custom_title, reading_block, day_starts FROM lessons WHERE id = 'old'"
         ).fetchone()
+        columns = {info["name"] for info in conn.execute("PRAGMA table_info(lessons)")}
+        material_columns = {info["name"] for info in conn.execute("PRAGMA table_info(materials)")}
     assert [row[key] for key in row.keys()] == [None] * 5
+    assert "revision" not in columns and "chapter" not in columns
+    assert "force_transcription" not in material_columns
 
 
 # Renaming lessons

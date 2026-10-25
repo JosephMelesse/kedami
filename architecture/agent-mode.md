@@ -6,7 +6,7 @@ The student drives Claude Code: they start it, type the request, and approve its
 
 ## Scope
 
-- Math, physics, and general lessons. Computer science lessons can no longer be created; those made earlier by the API pipeline still open and work.
+- Math, physics, and general lessons. Computer science lessons are not opened, and new ones can't be created.
 - A ready lesson is never rebuilt: there are no reruns.
 - Claude Code only.
 - Claude Code runs inside Kedami's Terminal panel. A session started in another terminal can't reach the server.
@@ -148,7 +148,7 @@ All require the session token, like every route. The build routes refuse a lesso
 **Don't belong in Kedami**
 - Kedami calling a model, Claude Code, or any coding agent CLI itself, or typing into the terminal
 - Offering claude.ai login inside Kedami
-- Running code Claude Code writes anywhere but the sandboxed frames
+- Running code Claude Code writes anywhere but the sandboxed simulation frame
 
 **Cut to ship faster (backlog)**
 - Creating computer science lessons through Claude Code

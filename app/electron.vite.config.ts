@@ -1,7 +1,6 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'electron-vite'
 import { resolve } from 'node:path'
-import { bundlePlugin } from './scripts/bundle-plugin'
 
 export default defineConfig({
   main: {},
@@ -17,19 +16,15 @@ export default defineConfig({
     }
   },
   renderer: {
-    plugins: [react(), bundlePlugin()],
+    plugins: [react()],
     // The dev server's port. Main reads the address Vite actually uses, so a taken port only moves it.
     server: { port: 5000 },
-    // The code runner's vendored Python package; see src/renderer/src/code/harness.ts.
-    assetsInclude: ['**/*.whl'],
     build: {
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/renderer/index.html'),
           // The sandboxed page simulations run in.
           simulation: resolve(__dirname, 'src/renderer/simulation.html'),
-          // The sandboxed page the student's code runs in.
-          runner: resolve(__dirname, 'src/renderer/runner.html'),
           // The Terminal screen, in a view of its own.
           terminal: resolve(__dirname, 'src/renderer/terminal.html')
         }

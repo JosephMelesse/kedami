@@ -17,7 +17,7 @@ def physics_steps(value):
         "given": ["v_0 = 25\\,\\mathrm{m/s}"],
         "required": ["t"],
         "steps": ["t = \\frac{2 v_0 \\sin\\theta}{g}"],
-        "final": {"value": value, "expression": None, "correct": None, "query": None},
+        "final": {"value": value, "expression": None, "correct": None},
     }
 
 
@@ -70,7 +70,7 @@ def test_a_first_disagreement_returns_the_stored_answer_without_saving(sample):
 
 
 def test_a_self_check_part_is_not_compared(sample):
-    steps = {**physics_steps(None), "final": {"value": None, "expression": None, "correct": None, "query": None}}
+    steps = {**physics_steps(None), "final": {"value": None, "expression": None, "correct": None}}
     assert save(sample, "d", steps).json() == {"saved": True, "matches": None}
 
 

@@ -8,7 +8,7 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 
 | Level | Fields |
 |---|---|
-| Lesson | `schema_version` (currently 1), `id`, `title`, `subject` (`math`, `physics`, `computer_science`, or `general`), `domain` (computer science only: `dsa` or `sql`; null otherwise), `credits` (plain-text lines naming bundled sources a lesson draws on, such as the SQL book; empty otherwise), `source_files`, `sections` |
+| Lesson | `schema_version` (currently 1), `id`, `title`, `subject` (`math`, `physics`, `computer_science`, or `general`), `domain` (null; it was set only on computer science lessons, which are not opened), `credits` (plain-text lines naming sources a lesson draws on; empty otherwise), `source_files`, `sections` |
 | Section | `id`, `title`, `goal` (one line), `blocks` |
 | Block | `id`, `type`, plus the fields for that type |
 
@@ -46,29 +46,16 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 | `self_check` | `rubric` | The rubric is shown after the student commits; they grade themselves |
 | `choice` | `options` (at least 2), `correct_index` | Index match |
 | `multi_choice` | `options` (at least 2), `correct_indexes` (at least 1, no duplicates) | Exact set match, for "select all that apply" |
-| `code` | `platform` (`leetcode`), `number`, `title`, `slug`, `difficulty`, `method`, `starter_code`, `tests` (each `args`, `expected`, `compare`) | Run in the sandboxed runner against its tests; see `code-problems.md`. Problem parts only |
-| `external` | `platform` (`leetcode` or `pgexercises`); for LeetCode `number`, `title`, `slug`; for pgexercises `path`, `title` | Not checked. A LeetCode problem not in the imported dataset, or a pgexercises problem in a SQL lesson (see `sql-lessons.md`): the student solves it there and marks it done. Problem parts only |
-| `query` | `database`, `reference`, `ordered`, `exercise` | The student's query and the reference run on a fresh copy of the database and their results are compared; see `sql-lessons.md`. SQL lessons only |
 
 ## Computer science lessons
 
-Computer science lessons can no longer be created. This section describes the ones the old API pipeline made, which still open and work.
-
-- A computer science lesson has a domain, which decides how it is built and shown. `dsa` (data structures and algorithms) is described below and in `code-problems.md`. `sql` is described in `sql-lessons.md`. A computer science lesson saved before domains existed has no `domain` and reads as `dsa`.
-- In a DSA lesson, the student picks the problems in the problem picker (see Picking problems in `code-problems.md`). The renderer writes the picks as the problem set, a text file `problems.md` with one problem per line, each with its number and title, such as `1. Two Sum`, and the pipeline reads it like any problem set.
-- The server reads the list strictly: blank lines and Markdown headings are ignored; any other line is an error, as are a missing title and a repeated number.
-- Each listed problem becomes a problem block with source reference `LeetCode #N` and one part. A problem in the imported dataset gets a `code` answer, and its part text is the problem's description. Any other gets an `external` answer, and its text is "Complete LeetCode #N: Title." See `code-problems.md`.
-- Every problem links to `https://leetcode.com/problems/{slug}/`. The slug is the dataset's when the problem is in it. Otherwise it is the title lowercased, with characters other than letters, digits, spaces, and hyphens removed and spaces turned into hyphens (`Pow(x, n)` becomes `powx-n`).
-- The problem list is parsed by the server, not the model. The model maps each problem to the concepts it needs, from its title and, when the problem is in the dataset, its description. It must cover every listed number exactly once.
-- Hints for a computer science problem part are written from its title and, for a `code` part, its description. The tests are never sent to the model.
-- Comprehension checks use the existing answer kinds: `choice` and `multi_choice` for complexity and approach, `numeric` for questions such as what a snippet prints, and `self_check` for explanations.
-- Code in lessons is Python, in fenced `python` blocks. No lesson content walks through a solution to an assigned LeetCode problem.
+Computer science lessons are not opened. Ones the old API pipeline made stay on disk and are left out of the library. New ones can't be created.
 
 ## General lessons
 
-- For courses that aren't math, physics, or data structures and algorithms.
+- For courses that aren't math or physics.
 - The problem set is free-form and goes through the same extraction, planning, generation, hints, and verification as math and physics.
-- Every answer kind except `external` is allowed. A question with a short factual answer, such as a term or a name, is a `self_check` with the answer in the rubric. A True/False question is a `choice` with the options True and False.
+- Every answer kind is allowed. A question with a short factual answer, such as a term or a name, is a `self_check` with the answer in the rubric. A True/False question is a `choice` with the options True and False.
 - Code in lessons uses the language of the course material, in fenced blocks tagged with that language. Only Python is highlighted; other languages show in JetBrains Mono without highlighting.
 
 ## Hints
@@ -90,7 +77,6 @@ Computer science lessons can no longer be created. This section describes the on
 - Claude Code is given the course material and the whole problem, with the part to solve and the form its answer takes. It isn't given the stored answer, hints, or lesson content.
 - The solution also gives its final answer in that form, which the server compares with the stored answer the way verification does. On a disagreement Claude Code is shown the stored answer and writes it once more; if they still disagree, the solution shows with a "Doesn't match the stored answer" label. `self_check` parts aren't compared.
 - A solution is stored apart from the lesson JSON, in the `solutions` table, keyed by block and part ID.
-- `code` and `external` parts (computer science) have no solutions.
 
 ## Simulations
 

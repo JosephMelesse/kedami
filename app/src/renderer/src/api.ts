@@ -126,49 +126,6 @@ export async function createLesson(subject: Lesson['subject'], files: NewFile[],
   return body.id
 }
 
-/** A database table beside a query exercise: its columns, first rows, and how many rows it has. */
-export interface TableView {
-  name: string
-  columns: string[]
-  rows: unknown[][]
-  count: number
-}
-
-/** A query's result as the workspace shows it: at most 100 rows of `count`, with `truncated` past 1,000. */
-export interface QueryResult {
-  columns: string[]
-  rows: unknown[][]
-  count: number
-  truncated: boolean
-}
-
-const partQuery = (partId: string | null) => (partId === null ? '' : `?part_id=${encodeURIComponent(partId)}`)
-
-export async function getTables(lessonId: string, blockId: string, partId: string | null): Promise<TableView[]> {
-  const body = await request<{ tables: TableView[] }>('GET', `${blockPath(lessonId, blockId)}/tables${partQuery(partId)}`)
-  return body.tables
-}
-
-/** Run a query without checking it. A query that can't run comes back with its error, not as a failure. */
-export function runQuery(
-  lessonId: string,
-  blockId: string,
-  partId: string | null,
-  query: string
-): Promise<QueryResult & { error: string | null }> {
-  return request('POST', `${blockPath(lessonId, blockId)}/run-query`, { part_id: partId, query })
-}
-
-/** Check a query. Wrong comes with the reason and the student's own result. */
-export function checkQuery(
-  lessonId: string,
-  blockId: string,
-  partId: string | null,
-  query: string
-): Promise<{ correct: boolean; progress: ProgressRecord; reason: string | null; result: QueryResult }> {
-  return request('POST', `${blockPath(lessonId, blockId)}/check`, { part_id: partId, response: query })
-}
-
 /** End the build of a lesson Claude Code is building. */
 export async function cancelLesson(lessonId: string): Promise<void> {
   await request('POST', `${lessonPath(lessonId)}/cancel`)
@@ -191,16 +148,9 @@ export async function getPlotPoints(lessonId: string, blockId: string): Promise<
   return body.functions
 }
 
-/** A test the student flagged as broken, named by its text. See architecture/code-problems.md, Flags. */
-export interface TestFlag {
-  block_id: string
-  part_id: string
-  args: string
-  expected: string
-}
-
-export function getProgress(lessonId: string): Promise<{ progress: ProgressRecord[]; flags: TestFlag[] }> {
-  return request('GET', `${lessonPath(lessonId)}/progress`)
+export async function getProgress(lessonId: string): Promise<ProgressRecord[]> {
+  const body = await request<{ progress: ProgressRecord[] }>('GET', `${lessonPath(lessonId)}/progress`)
+  return body.progress
 }
 
 export function checkResponse(
@@ -223,51 +173,6 @@ export async function revealHints(
     count
   })
   return body.progress
-}
-
-/** Save a code part's code, or a query part's or checkpoint's query (partId null), as it is typed. */
-export async function saveCode(
-  lessonId: string,
-  blockId: string,
-  partId: string | null,
-  code: string
-): Promise<ProgressRecord> {
-  const body = await request<{ progress: ProgressRecord }>('POST', `${blockPath(lessonId, blockId)}/code`, {
-    part_id: partId,
-    code
-  })
-  return body.progress
-}
-
-/** Record a Submit. The runner checked the code; the server records whether every unflagged test passed. */
-export async function submitCode(
-  lessonId: string,
-  blockId: string,
-  partId: string,
-  code: string,
-  passed: boolean
-): Promise<ProgressRecord> {
-  const body = await request<{ progress: ProgressRecord }>('POST', `${blockPath(lessonId, blockId)}/submit`, {
-    part_id: partId,
-    code,
-    passed
-  })
-  return body.progress
-}
-
-export async function flagTest(
-  lessonId: string,
-  blockId: string,
-  partId: string,
-  action: 'flag' | 'unflag' | 'clear',
-  test?: { args: string; expected: string }
-): Promise<TestFlag[]> {
-  const body = await request<{ flags: TestFlag[] }>('POST', `${blockPath(lessonId, blockId)}/flags`, {
-    part_id: partId,
-    action,
-    ...(test ? { test: { args: test.args, expected: test.expected } } : {})
-  })
-  return body.flags
 }
 
 export async function markDone(lessonId: string, blockId: string, partId: string, done: boolean): Promise<ProgressRecord> {

@@ -7,18 +7,15 @@ sets verified only by comparing answers. See architecture/agent-mode.md.
 
 from typing import Annotated, Literal
 
-from pydantic import AliasChoices, Field, PrivateAttr, TypeAdapter, ValidationError, field_validator, model_validator
+from pydantic import Field, PrivateAttr, TypeAdapter, ValidationError, field_validator, model_validator
 
 from ..ids import slugify
 from ..lesson import (
     Answer,
-    CodeAnswer,
-    ExternalAnswer,
     Model,
     PlainText,
     PlotFunction,
     PlotParameter,
-    QueryAnswer,
     Range,
 )
 
@@ -68,24 +65,6 @@ class ProblemsAndConcepts(Model):
 
     def problem(self, problem_id: str) -> ExtractedProblem:
         return next(p for p in self.problems if slugify(p.source_ref) == problem_id)
-
-
-class Extraction(ProblemsAndConcepts):
-    """The stage 2 output saved to disk and used by later stages."""
-
-    # Answers of problems the server listed, keyed by problem ID: LeetCode problems, solved in the workspace or
-    # on LeetCode, and a SQL chapter's recommended problems, from the bank or on pgexercises. The model never
-    # writes them. Read under their old name too.
-    answers: dict[str, Annotated[CodeAnswer | ExternalAnswer | QueryAnswer, Field(discriminator="kind")]] = Field(
-        default={}, validation_alias=AliasChoices("answers", "externals")
-    )
-
-    @model_validator(mode="after")
-    def answers_name_problems(self) -> "Extraction":
-        unknown = set(self.answers) - {slugify(p.source_ref) for p in self.problems}
-        if unknown:
-            raise ValueError(f"Listed answers for unknown problems: {', '.join(sorted(unknown))}")
-        return self
 
 
 def _require_unique(values: list[str], what: str) -> None:
@@ -185,7 +164,7 @@ _BLOCK = TypeAdapter(TypedBlock)
 class AnswerDraft(Model):
     """One answer, flat. Fill the fields for its kind and leave the others null."""
 
-    kind: Literal["numeric", "expression", "self_check", "choice", "multi_choice", "query"]
+    kind: Literal["numeric", "expression", "self_check", "choice", "multi_choice"]
     value: float | None = Field(default=None, description="numeric: the answer in the unit given.")
     rel_tolerance: float | None = Field(default=None, description="numeric: allowed relative error, such as 0.01.")
     unit: str | None = Field(default=None, description="numeric: the unit shown beside the input, if any.")
@@ -194,9 +173,6 @@ class AnswerDraft(Model):
     options: list[str] | None = Field(default=None, description="choice and multi_choice: the options.")
     correct: list[int] | None = Field(
         default=None, description="choice: the one correct index; multi_choice: every correct index."
-    )
-    reference: str | None = Field(
-        default=None, description="query: one SQLite query against the course database that answers the question."
     )
     _typed: Answer = PrivateAttr()
 
@@ -218,9 +194,6 @@ class AnswerDraft(Model):
                 fields |= {"options": self.options, "correct_index": self.correct[0]}
             case "multi_choice":
                 fields |= {"options": self.options, "correct_indexes": self.correct}
-            case "query":
-                # The server names the course database and decides whether order matters; see generation/sql.py.
-                fields |= {"database": "course/pending", "reference": self.reference}
         try:
             self._typed = _ANSWER.validate_python(fields)
         except ValidationError as error:
@@ -299,7 +272,6 @@ class FinalAnswer(Model):
     value: float | None = Field(default=None, description="number: the answer in the unit given.")
     expression: str | None = Field(default=None, description="expression: the answer in SymPy syntax.")
     correct: list[int] | None = Field(default=None, description="choice: the one correct index; select_all: every correct index.")
-    query: str | None = Field(default=None, description="query: the SQLite query that answers the question.")
 
 
 class Solution(FinalAnswer):

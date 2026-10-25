@@ -1,19 +1,16 @@
 import { useEffect, useState } from 'react'
-import { ApiError, getLesson, getProgress, type LessonResponse, type ProgressRecord, saveDays, type TestFlag } from '../api'
-import { CodeRunnerProvider } from '../code/RunnerContext'
-import { type QueryTarget, SqlWorkspace } from '../code/SqlWorkspace'
-import { OpenWorkspace, Workspace } from '../code/Workspace'
+import { ApiError, getLesson, getProgress, type LessonResponse, type ProgressRecord, saveDays } from '../api'
 import { boundaries, lessonEnd, MAX_DAYS, splitDays } from './days/days'
 import { DaysDialog } from './days/DaysDialog'
 import { LessonView } from './LessonView'
 import { ProgressProvider } from './progress/ProgressContext'
-import type { CodeAnswer, Lesson, Part, ProblemBlock, QueryAnswer } from './types'
+import type { Lesson } from './types'
 
 type State =
   | { status: 'loading' }
   | { status: 'error'; message: string }
   | { status: 'unavailable'; message: string }
-  | { status: 'ready'; lesson: Lesson; progress: ProgressRecord[]; flags: TestFlag[]; response: LessonResponse }
+  | { status: 'ready'; lesson: Lesson; progress: ProgressRecord[]; response: LessonResponse }
 
 const UNAVAILABLE = {
   generating: 'This lesson is still being generated.',
@@ -28,16 +25,6 @@ interface LessonScreenProps {
 export function LessonScreen({ lessonId, onBack }: LessonScreenProps) {
   const [state, setState] = useState<State>({ status: 'loading' })
   const [splitting, setSplitting] = useState(false)
-  const [workspace, setWorkspace] = useState<{ blockId: string; partId: string | null } | null>(null)
-  const open =
-    state.status === 'ready' && workspace ? findWorkspace(lessonId, state.lesson, workspace.blockId, workspace.partId) : null
-
-  // The page underneath can't scroll while the workspace covers it, so it comes back where it was.
-  useEffect(() => {
-    if (!open) return
-    document.documentElement.classList.add('in-workspace')
-    return () => document.documentElement.classList.remove('in-workspace')
-  }, [open])
 
   useEffect(() => {
     let cancelled = false
@@ -49,7 +36,6 @@ export function LessonScreen({ lessonId, onBack }: LessonScreenProps) {
       cancelled = true
     }
   }, [lessonId])
-
 
   // Cuts the lesson as it is laid out now; the saved lines then stay with their blocks.
   const split = async (days: number): Promise<string | null> => {
@@ -68,7 +54,7 @@ export function LessonScreen({ lessonId, onBack }: LessonScreenProps) {
     return null
   }
 
-  const screen = (
+  return (
     <>
       <nav className="screen-nav lesson-nav">
         <button type="button" className="link-button" onClick={onBack}>
@@ -86,15 +72,13 @@ export function LessonScreen({ lessonId, onBack }: LessonScreenProps) {
       {state.status === 'error' && <p className="screen-message">Could not load the lesson: {state.message}</p>}
       {state.status === 'unavailable' && <p className="screen-message">{state.message}</p>}
       {state.status === 'ready' && (
-        <>
+        <ProgressProvider key={lessonId} lessonId={lessonId} initial={state.progress}>
           {state.response.error && <p className="notice">{state.response.error}</p>}
-          <OpenWorkspace.Provider value={(blockId, partId) => setWorkspace({ blockId, partId })}>
-            <LessonView
-              lesson={state.lesson}
-              readingBlock={state.response.reading_block}
-              dayStarts={state.response.day_starts}
-            />
-          </OpenWorkspace.Provider>
+          <LessonView
+            lesson={state.lesson}
+            readingBlock={state.response.reading_block}
+            dayStarts={state.response.day_starts}
+          />
           {splitting && (
             <DaysDialog
               current={state.response.day_starts.length + 1}
@@ -103,76 +87,10 @@ export function LessonScreen({ lessonId, onBack }: LessonScreenProps) {
               onCancel={() => setSplitting(false)}
             />
           )}
-        </>
+        </ProgressProvider>
       )}
     </>
   )
-  if (state.status !== 'ready') return screen
-
-  // The workspace covers the lesson, which stays mounted underneath, inert, and keeps its place.
-  return (
-    <CodeRunnerProvider enabled={hasCodeParts(state.lesson)}>
-      <ProgressProvider key={lessonId} lessonId={lessonId} initial={state.progress} initialFlags={state.flags}>
-        <div inert={open !== null}>{screen}</div>
-        {open?.kind === 'code' && (
-          <Workspace
-            key={`${open.block.id}/${open.part.id}`}
-            block={open.block}
-            part={open.part}
-            onBack={() => setWorkspace(null)}
-          />
-        )}
-        {open?.kind === 'query' && (
-          <SqlWorkspace
-            key={`${open.target.blockId}/${open.target.partId ?? ''}`}
-            target={open.target}
-            onBack={() => setWorkspace(null)}
-          />
-        )}
-      </ProgressProvider>
-    </CodeRunnerProvider>
-  )
-}
-
-function codeParts(lesson: Lesson): { block: ProblemBlock; part: Part & { answer: CodeAnswer } }[] {
-  return lesson.sections.flatMap((section) =>
-    section.blocks.flatMap((block) =>
-      block.type === 'problem'
-        ? block.parts
-            .filter((part): part is Part & { answer: CodeAnswer } => part.answer.kind === 'code')
-            .map((part) => ({ block, part }))
-        : []
-    )
-  )
-}
-
-function hasCodeParts(lesson: Lesson): boolean {
-  return codeParts(lesson).length > 0
-}
-
-type OpenTarget =
-  | { kind: 'code'; block: ProblemBlock; part: Part & { answer: CodeAnswer } }
-  | { kind: 'query'; target: QueryTarget }
-
-/** What the workspace opens for: a code part, or a query part or checkpoint (partId null). */
-function findWorkspace(lessonId: string, lesson: Lesson, blockId: string, partId: string | null): OpenTarget | null {
-  const block = lesson.sections.flatMap((section) => section.blocks).find((b) => b.id === blockId)
-  if (block?.type === 'checkpoint' && partId === null && block.answer.kind === 'query') {
-    const answer: QueryAnswer = block.answer
-    const title = answer.exercise ? 'Practice' : 'Checkpoint'
-    return { kind: 'query', target: { lessonId, blockId, partId, title, prompt: block.prompt, answer, hints: block.hints } }
-  }
-  if (block?.type !== 'problem') return null
-  const part = block.parts.find((p) => p.id === partId)
-  if (!part) return null
-  if (part.answer.kind === 'code') return { kind: 'code', block, part: part as Part & { answer: CodeAnswer } }
-  if (part.answer.kind === 'query') {
-    const title = block.parts.length > 1 ? `${block.source_ref} ${part.label}` : block.source_ref
-    const prompt = [block.prompt, part.prompt].filter(Boolean).join('\n\n')
-    const target = { lessonId, blockId, partId: part.id, title, prompt, answer: part.answer, hints: part.hints }
-    return { kind: 'query', target }
-  }
-  return null
 }
 
 async function load(lessonId: string): Promise<State> {
@@ -180,6 +98,6 @@ async function load(lessonId: string): Promise<State> {
   if (body.status !== 'ready' || !body.lesson) {
     return { status: 'unavailable', message: UNAVAILABLE[body.status === 'failed' ? 'failed' : 'generating'] }
   }
-  const { progress, flags } = await getProgress(lessonId)
-  return { status: 'ready', lesson: body.lesson, progress, flags, response: body }
+  const progress = await getProgress(lessonId)
+  return { status: 'ready', lesson: body.lesson, progress, response: body }
 }

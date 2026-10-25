@@ -20,10 +20,6 @@ from pydantic import (
 from .ids import ID_PATTERN, slugify
 from .mathparse import parse_math
 
-# pgexercises problems are linked by their section folder and page name, such as "joins/self2.html".
-PGEXERCISES = "https://pgexercises.com/questions/"
-PAGE_PATH = re.compile(r"^[a-z]+/[a-z0-9]+\.html$")
-
 MAX_HINTS = 3
 
 Id = Annotated[str, StringConstraints(pattern=ID_PATTERN)]
@@ -144,97 +140,12 @@ class MultiChoiceAnswer(Model):
         return self
 
 
-class ExternalAnswer(Model):
-    """A problem solved elsewhere and marked done here. Never checked or verified. A LeetCode problem has its
-    number and slug; a pgexercises page its path, such as "joins/self2.html"."""
-
-    kind: Literal["external"]
-    platform: Literal["leetcode", "pgexercises"]
-    title: Annotated[str, StringConstraints(min_length=1, max_length=200)]
-    number: Annotated[int, Field(ge=1)] | None = None
-    slug: Id | None = None
-    path: Annotated[str, StringConstraints(pattern=PAGE_PATH.pattern, max_length=100)] | None = None
-
-    @model_validator(mode="after")
-    def fields_fit_platform(self) -> "ExternalAnswer":
-        leetcode = self.number is not None and self.slug is not None and self.path is None
-        pgexercises = self.path is not None and self.number is None and self.slug is None
-        if not (leetcode if self.platform == "leetcode" else pgexercises):
-            raise ValueError("a LeetCode problem has only a number and slug, and a pgexercises problem only a path")
-        return self
-
-    @property
-    def url(self) -> str:
-        if self.platform == "pgexercises":
-            return f"{PGEXERCISES}{self.path}"
-        return f"https://leetcode.com/problems/{self.slug}/"
-
-
-# How a test's returned value is checked. The first three come from the dataset's asserts; the rest only
-# from the checked-in fixes. See architecture/code-problems.md, Runner.
-Comparison = Literal[
-    "equal", "same_list", "same_tree",
-    "unordered", "unordered_nested", "longest_palindrome", "course_order", "alien_order",
-]
-
-
-class CodeTest(Model):
-    """One test from LeetCodeDataset: Python source for the arguments and the expected value, evaluated
-    only in the sandboxed runner. See architecture/code-problems.md."""
-
-    args: str
-    expected: Annotated[str, StringConstraints(min_length=1)]
-    compare: Comparison
-
-
-class CodeAnswer(Model):
-    """A LeetCode problem solved in the workspace against tests from LeetCodeDataset. The tests run in
-    the sandboxed runner, which reports the result; the server never runs them and never verifies them."""
-
-    kind: Literal["code"]
-    platform: Literal["leetcode"]
-    number: Annotated[int, Field(ge=1)]
-    title: Annotated[str, StringConstraints(min_length=1, max_length=200)]
-    slug: Id
-    difficulty: Literal["Easy", "Medium", "Hard"]
-    method: Annotated[str, StringConstraints(pattern=r"^[A-Za-z_][A-Za-z0-9_]*$")]
-    starter_code: Annotated[str, StringConstraints(min_length=1)]
-    tests: Annotated[list[CodeTest], Field(min_length=1)]
-
-    @property
-    def url(self) -> str:
-        return f"https://leetcode.com/problems/{self.slug}/"
-
-
-class QueryAnswer(Model):
-    """A SQL query, checked by running it and the reference against a fresh copy of the database and comparing
-    their results. See architecture/sql-lessons.md, Query answers."""
-
-    kind: Literal["query"]
-    # "bank/{db_id}" for a bank exercise, or "course/{name}" for the lesson's course database.
-    database: Annotated[str, StringConstraints(pattern=r"^(bank|course)/[A-Za-z0-9_-]{1,64}$")]
-    reference: Annotated[str, StringConstraints(min_length=1, max_length=20_000)]
-    # Whether row order matters. Set by the server from the reference, never by the model.
-    ordered: bool = False
-    # The bank exercise's ID, for a practice exercise; null for course homework.
-    exercise: Annotated[str, StringConstraints(max_length=200)] | None = None
-
-    @model_validator(mode="after")
-    def bank_exercises_name_their_exercise(self) -> "QueryAnswer":
-        if self.database.startswith("bank/") != (self.exercise is not None):
-            raise ValueError("a bank database comes with its exercise, and only a bank database does")
-        return self
-
-
 Answer = Annotated[
     NumericAnswer
     | ExpressionAnswer
     | SelfCheckAnswer
     | ChoiceAnswer
-    | MultiChoiceAnswer
-    | ExternalAnswer
-    | CodeAnswer
-    | QueryAnswer,
+    | MultiChoiceAnswer,
     Field(discriminator="kind"),
 ]
 
@@ -337,12 +248,6 @@ class CheckpointBlock(Model):
     answer: Answer
     hints: Hints = []
     verified: bool = False
-
-    @model_validator(mode="after")
-    def answered_here(self) -> "CheckpointBlock":
-        if isinstance(self.answer, ExternalAnswer | CodeAnswer):
-            raise ValueError("a checkpoint is answered in the lesson; LeetCode problems are homework only")
-        return self
 
 
 def _derive_id(data: Any, source_field: str) -> Any:

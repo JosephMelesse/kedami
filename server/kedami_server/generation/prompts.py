@@ -144,7 +144,6 @@ For each question, give only the final answer in the form requested:
 - expression: `expression`, using only the names listed.
 - choice: `correct` with the one correct option's index (0-based).
 - select_all: `correct` with the index of every correct option (0-based).
-- query: `query`, one SQLite query against the database named, whose tables are given with the material.
 Set the other fields to null. A question that builds on an earlier part of the same problem uses your own earlier
 results. {MATH_SYNTAX}"""
 

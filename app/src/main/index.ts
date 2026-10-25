@@ -1,7 +1,6 @@
-import { BrowserWindow, app, dialog, ipcMain, protocol, session, shell } from 'electron'
+import { BrowserWindow, app, dialog, ipcMain, protocol, session } from 'electron'
 import { join, resolve } from 'node:path'
 import type { MusicTrack, ServerConnection } from '../preload/api'
-import { leetcodeProblemUrl, pgexercisesPageUrl } from './links'
 import {
   addTrack,
   listTracks,
@@ -13,7 +12,6 @@ import {
   trackUrl
 } from './music'
 import { isAllowedRequest } from './requests'
-import { readRunnerFiles } from './runner'
 import { type ServerHandle, startServer } from './server'
 import type { TerminalHub } from './terminal'
 import { setUpTerminal } from './terminalView'
@@ -79,20 +77,7 @@ async function launch(): Promise<void> {
   }
   const connection: ServerConnection = { baseUrl: `http://127.0.0.1:${server.port}`, token: server.token }
   ipcMain.handle('kedami:server-connection', () => connection)
-  // The renderer can only ask for a LeetCode problem by slug; main builds and checks the URL.
-  ipcMain.handle('kedami:open-leetcode', async (_event, slug: unknown) => {
-    const url = leetcodeProblemUrl(slug)
-    if (!url) throw new Error('Not a LeetCode problem.')
-    await shell.openExternal(url)
-  })
-  // Likewise a pgexercises page, by its section and page name.
-  ipcMain.handle('kedami:open-pgexercises', async (_event, path: unknown) => {
-    const url = pgexercisesPageUrl(path)
-    if (!url) throw new Error('Not a pgexercises page.')
-    await shell.openExternal(url)
-  })
   serveMusic(join(dataDir, 'music'))
-  ipcMain.handle('kedami:runner-files', readRunnerFiles)
   createWindow(server.port, server.token)
 }
 

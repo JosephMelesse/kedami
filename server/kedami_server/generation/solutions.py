@@ -11,4 +11,4 @@ OUTPUTS: dict[str, type[Steps]] = {"math": MathSteps, "physics": PhysicsSteps, "
 
 
 def has_solution(subject: str, part: Part) -> bool:
-    return subject in OUTPUTS and part.answer.kind not in ("external", "code", "query")
+    return subject in OUTPUTS

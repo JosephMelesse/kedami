@@ -105,17 +105,6 @@ def test_every_badly_laid_out_diagram_is_named_in_one_error(section_plan):
     assert "block 3" not in message
 
 
-def test_on_the_last_attempt_bad_diagrams_are_dropped_and_ids_keep_their_place(section_plan):
-    blocks = [diagram(80), EXPLANATION, diagram(5), problem1(), problem2()]
-    section = assemble_section(section_plan, draft(*blocks), drop_bad_diagrams=True)
-    assert [(b.type, b.id) for b in section.blocks] == [
-        ("explanation", "projectiles-block-2"),
-        ("diagram", "projectiles-block-3"),
-        ("problem", "ps1-1"),
-        ("problem", "ps1-2"),
-    ]
-
-
 def test_lesson_assembly_validates(section_plan):
     section = assemble_section(section_plan, draft(EXPLANATION, problem1(), problem2()))
     lesson = assemble_lesson("abc-123", "Projectiles", "physics", ["problem-set.md"], [section])

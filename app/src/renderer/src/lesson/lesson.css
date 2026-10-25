@@ -421,7 +421,7 @@ textarea.text-input {
   line-height: 1.5;
 }
 
-/* Code colors, as in the workspace editor. See Consistency in architecture/ui.md. */
+/* Code colors. See Consistency in architecture/ui.md. */
 .hljs-keyword {
   color: var(--syntax-keyword);
 }
@@ -445,10 +445,6 @@ textarea.text-input {
 .hljs-comment {
   color: var(--text-muted);
   font-style: italic;
-}
-
-.external {
-  justify-content: space-between;
 }
 
 /* A part's step-by-step solution: short labels, with each line of math centered. */

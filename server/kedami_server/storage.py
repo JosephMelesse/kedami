@@ -1,5 +1,6 @@
 """Lesson files in the app data folder."""
 
+import json
 import re
 import shutil
 from pathlib import Path
@@ -47,4 +48,8 @@ def load_lesson(data_dir: Path, lesson_id: str) -> Lesson | None:
     path = lessons_dir(data_dir) / f"{lesson_id}.json"
     if not path.is_file():
         return None
-    return Lesson.model_validate_json(path.read_text())
+    parsed = json.loads(path.read_text())
+    # Computer science lessons made earlier are not opened.
+    if isinstance(parsed, dict) and parsed.get("subject") == "computer_science":
+        return None
+    return Lesson.model_validate(parsed)

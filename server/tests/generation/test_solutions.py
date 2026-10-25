@@ -81,13 +81,10 @@ def test_unusable_general_steps_are_rejected(change, message):
         GeneralSteps.model_validate({**general(1), **change})
 
 
-def test_only_math_physics_and_general_parts_with_checked_or_shown_answers_have_solutions():
-    part = lambda answer: Part.model_validate({"label": "(a)", "prompt": "x", "answer": answer})
-    numeric = part({"kind": "numeric", "value": 1})
-    external = part({"kind": "external", "platform": "leetcode", "number": 1, "title": "Two Sum", "slug": "two-sum"})
-    assert has_solution("math", numeric) and has_solution("physics", numeric) and has_solution("general", numeric)
-    assert not has_solution("computer_science", numeric)
-    assert not has_solution("computer_science", external)
+def test_only_math_physics_and_general_parts_have_solutions():
+    part = Part.model_validate({"label": "(a)", "prompt": "x", "answer": {"kind": "numeric", "value": 1}})
+    assert has_solution("math", part) and has_solution("physics", part) and has_solution("general", part)
+    assert not has_solution("computer_science", part)
 
 
 # Writing on request

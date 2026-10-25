@@ -65,6 +65,21 @@ def test_lesson_file_without_an_index_row_is_not_served(client, data_dir):
     assert "orphan" not in [row["id"] for row in client.get("/lessons", headers=AUTH).json()["lessons"]]
 
 
+def test_a_computer_science_lesson_is_not_listed_or_opened(client, data_dir):
+    lesson = json.loads((data_dir / "lessons" / "sample.json").read_text())
+    lesson["id"] = "old-cs"
+    lesson["subject"] = "computer_science"
+    lesson["domain"] = "dsa"
+    (data_dir / "lessons" / "old-cs.json").write_text(json.dumps(lesson))
+    with db.connect(data_dir) as conn:
+        conn.execute(
+            "INSERT INTO lessons (id, title, subject, domain, status, schema_version, created)"
+            " VALUES ('old-cs', 'Two Sum', 'computer_science', 'dsa', 'ready', 1, '2020-01-01T00:00:00+00:00')"
+        )
+    assert "old-cs" not in [row["id"] for row in client.get("/lessons", headers=AUTH).json()["lessons"]]
+    assert client.get("/lessons/old-cs", headers=AUTH).status_code == 404
+
+
 def test_status_must_be_known(data_dir):
     with pytest.raises(Exception, match="CHECK"):
         add_row(data_dir, "bad", "done", "2026-01-01T00:00:00+00:00")

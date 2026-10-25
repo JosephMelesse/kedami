@@ -30,8 +30,9 @@
 26. Builder choice on the Upload screen, the waiting state and Cancel on the Generating screen, and `/capabilities`
 27. Terminal panel: its own view, node-pty in main, Start Claude Code and Open a shell
 28. Remove the API: Claude Code builds every lesson and writes every solution and simulation, through `/kedami:solution` and `/kedami:simulation`. Reruns, the usage log, the run log, and creating computer science lessons go
+29. Computer science lessons made earlier are no longer opened. The code editor, runner, SQL checker, and their imports go
 
-Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the sequencing. Each later step is independent of the ones after it. Steps 24 to 28 move lesson building to Claude Code (see `agent-mode.md`); step 25 proves it before any UI exists.
+Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the sequencing. Each later step is independent of the ones after it. Steps 24 to 28 move lesson building to Claude Code (see `agent-mode.md`); step 25 proves it before any UI exists. Step 29 stops opening computer science lessons.
 
 ## Backlog
 
@@ -39,7 +40,6 @@ Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the s
 - **Similar-problem generation:** replace or supplement problems whose stored answer is unverified.
 - **Short text answers:** an answer kind for a term or name, matched against a list of accepted answers ignoring case and spacing, in place of a self check for questions such as "Which flag is set on unsigned overflow?"
 - **Light theme:** same token names, same accent, feedback, and syntax hues, darkened to reach at least 4.5:1 contrast on white.
-- **Workspace panes:** draggable dividers between the panes, and previous and next problem buttons.
 - **Packaging and distribution:** bundling the Python server.
 - **Computer science lessons through Claude Code:** DSA with the LeetCode lookup, and SQL with recommendations and course databases, as tools.
 - **Changing a ready lesson from the Terminal panel:** asking Claude Code for a change to a section, in place of reruns, with progress carried over.

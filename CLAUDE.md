@@ -1,6 +1,6 @@
 # Kedami
 
-Kedami is a local-first desktop app that turns course material into one interactive lesson, sequenced so that finishing the lesson means the problem set is done. The student's own Claude Code session builds each lesson from Kedami's Terminal panel; Kedami makes no model calls. The MVP covers math, physics, and a general subject for any other course, for a single user. Computer science lessons made earlier by the old API pipeline still work, but new ones can't be created.
+Kedami is a local-first desktop app that turns course material into one interactive lesson, sequenced so that finishing the lesson means the problem set is done. The student's own Claude Code session builds each lesson from Kedami's Terminal panel; Kedami makes no model calls. The MVP covers math, physics, and a general subject for any other course, for a single user. Computer science lessons are not opened, and new ones can't be created.
 
 ## Read first
 
@@ -40,8 +40,7 @@ Before writing code, read `README.md` and every file in `architecture/`. Those d
 - In the build, the server is the only writer. The MCP server holds no state and touches no files.
 
 **Untrusted content**
-- Code Claude Code writes for a simulation runs only in a sandboxed frame with no network, no Node access, and no access to app data. So do the student's code and the imported LeetCode tests, in the runner frame; the server never runs them.
-- SQL from the student or the exercise bank runs only in a fresh in-memory copy of its database, with the read-only authorizer. Never run it against the database file or `kedami.db`.
+- Code Claude Code writes for a simulation runs only in a sandboxed frame with no network, no Node access, and no access to app data.
 - Diagram SVG is sanitized with DOMPurify before rendering.
 - Math strings are parsed only with the restricted, whitelisted parser. Never pass Claude Code's or the student's input to SymPy's default string parsing or to `eval`.
 
@@ -61,7 +60,7 @@ Before writing code, read `README.md` and every file in `architecture/`. Those d
 
 ## Most likely to be wrong
 
-The lesson schema and ID derivation (`server/kedami_server/lesson.py`, `ids.py`), the restricted math parser (`mathparse.py`), the code problem harness (see `architecture/code-problems.md`), SQL result comparison and the read-only authorizer (see `architecture/sql-lessons.md`), and the draft lesson Claude Code builds, assembled across many tool calls (see `architecture/agent-mode.md`). Every later step depends on them, so they get tests first and changes to them come with tests.
+The lesson schema and ID derivation (`server/kedami_server/lesson.py`, `ids.py`), the restricted math parser (`mathparse.py`), and the draft lesson Claude Code builds, assembled across many tool calls (see `architecture/agent-mode.md`). Every later step depends on them, so they get tests first and changes to them come with tests.
 
 ## Commands
 
@@ -73,7 +72,6 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m pytest
 .venv/bin/python -m kedami_server.export_schema   # after changing lesson models, then run gen:types in app/
-.venv/bin/python -m kedami_server.import_leetcode ../data LeetCodeDataset-*.jsonl   # LeetCode tests for computer science lessons made earlier
 ```
 
 The server will not start without `KEDAMI_PORT`, `KEDAMI_TOKEN`, and `KEDAMI_DATA_DIR`. Electron main sets them. It needs no API key. To start it by hand:

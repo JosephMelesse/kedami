@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from kedami_server.lesson import ExternalAnswer, Lesson
+from kedami_server.lesson import Lesson
 
 
 def blocks(data):
@@ -343,34 +343,6 @@ def test_markdown_fields_have_doubled_math_repaired(lesson_data):
     )
     block = Lesson.model_validate(lesson_data).find_block("loop")
     assert (block.prompt, block.steps) == ("Find $\\Delta U$.", ["$A\\rightarrow B$"])
-
-
-# External answers: a LeetCode problem or a pgexercises page, solved there.
-
-LEETCODE = {"kind": "external", "platform": "leetcode", "number": 1, "title": "Two Sum", "slug": "two-sum"}
-PGEXERCISES = {"kind": "external", "platform": "pgexercises", "path": "joins/self2.html", "title": "Recommenders"}
-
-
-def test_external_answers_link_to_their_site():
-    assert ExternalAnswer.model_validate(LEETCODE).url == "https://leetcode.com/problems/two-sum/"
-    assert ExternalAnswer.model_validate(PGEXERCISES).url == "https://pgexercises.com/questions/joins/self2.html"
-
-
-@pytest.mark.parametrize("answer", [
-    {**LEETCODE, "slug": None},
-    {**LEETCODE, "number": None},
-    {**LEETCODE, "path": "joins/self2.html"},
-    {**PGEXERCISES, "path": None},
-    {**PGEXERCISES, "number": 1},
-    {**PGEXERCISES, "slug": "self2"},
-    {**PGEXERCISES, "path": "../joins/self2.html"},
-    {**PGEXERCISES, "path": "joins/self2.html?x=1"},
-    {**PGEXERCISES, "path": "https://example.org/a.html"},
-    {**PGEXERCISES, "platform": "hackerrank"},
-])
-def test_an_external_answer_has_its_sites_fields_only(answer):
-    with pytest.raises(ValidationError):
-        ExternalAnswer.model_validate(answer)
 
 
 def test_credits_default_to_none(lesson_data):

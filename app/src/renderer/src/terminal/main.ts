@@ -68,7 +68,7 @@ async function showStart(exitCode: number | null = null): Promise<void> {
   buttons.append(button('Start Claude Code', 'claude', !claude, true), button('Open a shell', 'shell', false, false))
   start.append(heading, about, buttons)
   if (!claude) {
-    // Plain text: the app opens no links but LeetCode's and pgexercises'.
+    // Plain text: the app opens no links.
     start.append(paragraph("Claude Code isn't installed. Install it from code.claude.com, then open the Terminal again."))
   }
   if (exitCode !== null) start.append(paragraph(`The last session ended with exit code ${exitCode}.`))

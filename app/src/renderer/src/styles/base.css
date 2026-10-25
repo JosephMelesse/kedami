@@ -377,7 +377,7 @@ input {
 
 .rest-screen {
   position: fixed;
-  /* Above the code workspace, which also covers the screen below the header. */
+  /* Covers everything below the app header. */
   z-index: 2;
   inset: 56px 0 0;
   display: flex;
@@ -435,7 +435,7 @@ main {
 
 .terminal-panel {
   position: fixed;
-  /* Above the code workspace, like the rest screen, which unmounts it while resting. */
+  /* Above the lesson page. Rest unmounts the panel. */
   z-index: 2;
   top: 56px;
   right: 0;

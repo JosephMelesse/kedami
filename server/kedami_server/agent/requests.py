@@ -2,8 +2,8 @@
 See architecture/agent-mode.md, Solutions and simulations.
 
 A solution's request never shows the stored answer, and its final answer is compared with it.
-Simulation code is checked and stored apart from the lesson JSON. They work on any ready lesson,
-including ones the old API pipeline made.
+Simulation code is checked and stored apart from the lesson JSON. They work on any ready math,
+physics, or general lesson, including ones the old API pipeline made.
 """
 
 from pathlib import Path

@@ -20,8 +20,7 @@ from ..generation.assemble import SectionError, assemble_lesson, assemble_sectio
 from ..generation.hints import leak_reason, targets, with_hints
 from ..generation.ingest import Normalized, RoutedPage, join_pages
 from ..generation.plan import PlanError, SectionPlan, place_problems
-from ..generation.schemas import Extraction, Plan, ProblemsAndConcepts, SectionDraft, Solutions
-from ..generation.sql import refuse_queries
+from ..generation.schemas import Plan, ProblemsAndConcepts, SectionDraft, Solutions
 from ..generation.verify import Result, agrees, answer_format, verifiable, with_verified
 from ..lesson import MAX_HINTS, CheckpointBlock, ProblemBlock, Section
 from ..library import LessonRow
@@ -126,14 +125,10 @@ def save_extraction(data_dir: Path, lesson_id: str, draft: ProblemsAndConcepts) 
         work = _work(data_dir, lesson_id)
         if not (work / stages.NORMALIZED / stages.PROBLEM_SET_FILE).exists():
             raise OutOfOrder("Save the pages first.")
-        try:
-            extraction = Extraction.model_validate(draft.model_dump())
-        except ValidationError as error:
-            raise Rejected(str(error)) from error
         stages.clear_from(work, 2)
-        stages.write_output(work / "extraction.json", extraction)
+        stages.write_output(work / "extraction.json", draft)
         _set_stage(data_dir, lesson_id, 3)
-        return {"problems": len(extraction.problems), "concepts": len(extraction.concepts)}
+        return {"problems": len(draft.problems), "concepts": len(draft.concepts)}
 
 
 def save_plan(data_dir: Path, lesson_id: str, plan: Plan) -> dict:
@@ -141,7 +136,7 @@ def save_plan(data_dir: Path, lesson_id: str, plan: Plan) -> dict:
     with _locks[lesson_id]:
         _building(data_dir, lesson_id)
         work = _work(data_dir, lesson_id)
-        extraction = stages.load_output(work / "extraction.json", Extraction)
+        extraction = stages.load_output(work / "extraction.json", ProblemsAndConcepts)
         if extraction is None:
             raise OutOfOrder("Save the extraction first.")
         try:
@@ -162,10 +157,9 @@ def save_section(data_dir: Path, lesson_id: str, number: int, draft: SectionDraf
     with _locks[lesson_id]:
         _building(data_dir, lesson_id)
         work = _work(data_dir, lesson_id)
-        section_plan, extraction = _section_plan(work, number)
+        section_plan = _section_plan(work, number)
         try:
-            section = assemble_section(section_plan, draft, extraction.answers)
-            refuse_queries(section)
+            section = assemble_section(section_plan, draft)
         except (SectionError, ValidationError) as error:
             raise Rejected(str(error)) from error
         (work / f"verification-{number}.json").unlink(missing_ok=True)
@@ -257,7 +251,7 @@ def finish(data_dir: Path, lesson_id: str) -> dict:
     with _locks[lesson_id]:
         row = _building(data_dir, lesson_id)
         work = _work(data_dir, lesson_id)
-        plan, outline, _ = _outline(work)
+        plan, outline = _outline(work)
         sections = [stages.load_output(work / f"section-{n}.json", Section) for n in range(1, len(outline) + 1)]
         missing = [str(n) for n, s in enumerate(sections, start=1) if s is None]
         if missing:
@@ -312,19 +306,19 @@ def _set_stage(data_dir: Path, lesson_id: str, stage: int) -> None:
         library.set_stage(conn, lesson_id, stage)
 
 
-def _outline(work: Path) -> tuple[Plan, list[SectionPlan], Extraction]:
+def _outline(work: Path) -> tuple[Plan, list[SectionPlan]]:
     plan = stages.load_output(work / "plan.json", Plan)
-    extraction = stages.load_output(work / "extraction.json", Extraction)
+    extraction = stages.load_output(work / "extraction.json", ProblemsAndConcepts)
     if plan is None or extraction is None:
         raise OutOfOrder("Save the plan first.")
-    return plan, place_problems(plan, extraction), extraction
+    return plan, place_problems(plan, extraction)
 
 
-def _section_plan(work: Path, number: int) -> tuple[SectionPlan, Extraction]:
-    _, outline, extraction = _outline(work)
+def _section_plan(work: Path, number: int) -> SectionPlan:
+    _, outline = _outline(work)
     if not 1 <= number <= len(outline):
         raise NotFound(f"The plan has sections 1 to {len(outline)}; there is no section {number}.")
-    return outline[number - 1], extraction
+    return outline[number - 1]
 
 
 def _section(work: Path, number: int) -> Section:

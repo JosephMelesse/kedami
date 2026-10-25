@@ -6,7 +6,6 @@ from fastapi.testclient import TestClient
 from kedami_server import db
 from kedami_server.app import create_app
 from kedami_server.config import Settings
-from kedami_server.generation.schemas import ProblemsAndConcepts
 
 from .factories import extraction, plan, section_one, section_two
 
@@ -52,7 +51,7 @@ def build(client, lesson_id, title="Projectiles"):
     steps = [
         ("start", None),
         ("pages", pages),
-        ("extraction", ProblemsAndConcepts.model_validate(extraction().model_dump(exclude={"answers"})).model_dump()),
+        ("extraction", extraction().model_dump()),
         ("plan", plan(("Vectors", ["vectors"]), ("Flight", ["gravity", "range"]), title=title).model_dump()),
         ("sections/1", section_one()),
         ("sections/2", section_two()),

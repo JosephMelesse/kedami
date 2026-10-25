@@ -41,8 +41,6 @@
 - Numeric: a stored value of zero uses the tolerance as an absolute one.
 - Expression: the response may use only the names in the stored answer. SymPy simplification is tried first; otherwise both sides are compared at 8 points with every name drawn from 0.5 to 3 with a fixed seed, so a response always gets the same result.
 - For `self_check`, the student's own judgment after seeing the rubric is recorded as the result.
-- For `code`, the sandboxed runner checks the code in the renderer and reports the result, which the server records as given. See `code-problems.md`.
-- For `query`, the server runs the student's query and the reference in fresh copies of the database and compares their results. A query that fails to run is malformed: rejected with SQLite's message and not an attempt. See `sql-lessons.md`.
 
 ## Verifying stored answers
 
@@ -53,4 +51,3 @@
 - Each section's results, with both answers, are saved to `work/{lesson_id}/verification-{n}.json`.
 - An item that isn't verified shows an "Unverified answer" label. For problem parts, mark done is the way past it.
 - `self_check` answers are not verified.
-- In computer science lessons made earlier: `code` answers are not verified, since their tests come from the imported dataset, and show no "Unverified answer" label. `external` answers (LeetCode problems not in the dataset, and pgexercises problems) are not checked or verified, show no label, and mark done is the only way to finish them. `query` answers with a model-written reference were verified by a second solve that wrote its own query; bank exercises are not verified and show no label.

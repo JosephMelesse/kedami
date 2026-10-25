@@ -21,12 +21,9 @@
           "discriminator": {
             "mapping": {
               "choice": "#/$defs/ChoiceAnswer",
-              "code": "#/$defs/CodeAnswer",
               "expression": "#/$defs/ExpressionAnswer",
-              "external": "#/$defs/ExternalAnswer",
               "multi_choice": "#/$defs/MultiChoiceAnswer",
               "numeric": "#/$defs/NumericAnswer",
-              "query": "#/$defs/QueryAnswer",
               "self_check": "#/$defs/SelfCheckAnswer"
             },
             "propertyName": "kind"
@@ -46,15 +43,6 @@
             },
             {
               "$ref": "#/$defs/MultiChoiceAnswer"
-            },
-            {
-              "$ref": "#/$defs/ExternalAnswer"
-            },
-            {
-              "$ref": "#/$defs/CodeAnswer"
-            },
-            {
-              "$ref": "#/$defs/QueryAnswer"
             }
           ],
           "title": "Answer"
@@ -112,114 +100,6 @@
         "correct_index"
       ],
       "title": "ChoiceAnswer",
-      "type": "object"
-    },
-    "CodeAnswer": {
-      "additionalProperties": false,
-      "description": "A LeetCode problem solved in the workspace against tests from LeetCodeDataset. The tests run in\nthe sandboxed runner, which reports the result; the server never runs them and never verifies them.",
-      "properties": {
-        "kind": {
-          "const": "code",
-          "title": "Kind",
-          "type": "string"
-        },
-        "platform": {
-          "const": "leetcode",
-          "title": "Platform",
-          "type": "string"
-        },
-        "number": {
-          "minimum": 1,
-          "title": "Number",
-          "type": "integer"
-        },
-        "title": {
-          "maxLength": 200,
-          "minLength": 1,
-          "title": "Title",
-          "type": "string"
-        },
-        "slug": {
-          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-          "title": "Slug",
-          "type": "string"
-        },
-        "difficulty": {
-          "enum": [
-            "Easy",
-            "Medium",
-            "Hard"
-          ],
-          "title": "Difficulty",
-          "type": "string"
-        },
-        "method": {
-          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
-          "title": "Method",
-          "type": "string"
-        },
-        "starter_code": {
-          "minLength": 1,
-          "title": "Starter Code",
-          "type": "string"
-        },
-        "tests": {
-          "items": {
-            "$ref": "#/$defs/CodeTest"
-          },
-          "minItems": 1,
-          "title": "Tests",
-          "type": "array"
-        }
-      },
-      "required": [
-        "kind",
-        "platform",
-        "number",
-        "title",
-        "slug",
-        "difficulty",
-        "method",
-        "starter_code",
-        "tests"
-      ],
-      "title": "CodeAnswer",
-      "type": "object"
-    },
-    "CodeTest": {
-      "additionalProperties": false,
-      "description": "One test from LeetCodeDataset: Python source for the arguments and the expected value, evaluated\nonly in the sandboxed runner. See architecture/code-problems.md.",
-      "properties": {
-        "args": {
-          "title": "Args",
-          "type": "string"
-        },
-        "expected": {
-          "minLength": 1,
-          "title": "Expected",
-          "type": "string"
-        },
-        "compare": {
-          "enum": [
-            "equal",
-            "same_list",
-            "same_tree",
-            "unordered",
-            "unordered_nested",
-            "longest_palindrome",
-            "course_order",
-            "alien_order"
-          ],
-          "title": "Compare",
-          "type": "string"
-        }
-      },
-      "required": [
-        "args",
-        "expected",
-        "compare"
-      ],
-      "title": "CodeTest",
       "type": "object"
     },
     "DiagramBlock": {
@@ -297,81 +177,6 @@
         "expression"
       ],
       "title": "ExpressionAnswer",
-      "type": "object"
-    },
-    "ExternalAnswer": {
-      "additionalProperties": false,
-      "description": "A problem solved elsewhere and marked done here. Never checked or verified. A LeetCode problem has its\nnumber and slug; a pgexercises page its path, such as \"joins/self2.html\".",
-      "properties": {
-        "kind": {
-          "const": "external",
-          "title": "Kind",
-          "type": "string"
-        },
-        "platform": {
-          "enum": [
-            "leetcode",
-            "pgexercises"
-          ],
-          "title": "Platform",
-          "type": "string"
-        },
-        "title": {
-          "maxLength": 200,
-          "minLength": 1,
-          "title": "Title",
-          "type": "string"
-        },
-        "number": {
-          "anyOf": [
-            {
-              "minimum": 1,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Number"
-        },
-        "slug": {
-          "anyOf": [
-            {
-              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Slug"
-        },
-        "path": {
-          "anyOf": [
-            {
-              "maxLength": 100,
-              "pattern": "^[a-z]+/[a-z0-9]+\\.html$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Path"
-        }
-      },
-      "required": [
-        "kind",
-        "platform",
-        "title",
-        "number",
-        "slug",
-        "path"
-      ],
-      "title": "ExternalAnswer",
       "type": "object"
     },
     "MultiChoiceAnswer": {
@@ -467,12 +272,9 @@
           "discriminator": {
             "mapping": {
               "choice": "#/$defs/ChoiceAnswer",
-              "code": "#/$defs/CodeAnswer",
               "expression": "#/$defs/ExpressionAnswer",
-              "external": "#/$defs/ExternalAnswer",
               "multi_choice": "#/$defs/MultiChoiceAnswer",
               "numeric": "#/$defs/NumericAnswer",
-              "query": "#/$defs/QueryAnswer",
               "self_check": "#/$defs/SelfCheckAnswer"
             },
             "propertyName": "kind"
@@ -492,15 +294,6 @@
             },
             {
               "$ref": "#/$defs/MultiChoiceAnswer"
-            },
-            {
-              "$ref": "#/$defs/ExternalAnswer"
-            },
-            {
-              "$ref": "#/$defs/CodeAnswer"
-            },
-            {
-              "$ref": "#/$defs/QueryAnswer"
             }
           ],
           "title": "Answer"
@@ -691,55 +484,6 @@
         "parts"
       ],
       "title": "ProblemBlock",
-      "type": "object"
-    },
-    "QueryAnswer": {
-      "additionalProperties": false,
-      "description": "A SQL query, checked by running it and the reference against a fresh copy of the database and comparing\ntheir results. See architecture/sql-lessons.md, Query answers.",
-      "properties": {
-        "kind": {
-          "const": "query",
-          "title": "Kind",
-          "type": "string"
-        },
-        "database": {
-          "pattern": "^(bank|course)/[A-Za-z0-9_-]{1,64}$",
-          "title": "Database",
-          "type": "string"
-        },
-        "reference": {
-          "maxLength": 20000,
-          "minLength": 1,
-          "title": "Reference",
-          "type": "string"
-        },
-        "ordered": {
-          "default": false,
-          "title": "Ordered",
-          "type": "boolean"
-        },
-        "exercise": {
-          "anyOf": [
-            {
-              "maxLength": 200,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Exercise"
-        }
-      },
-      "required": [
-        "kind",
-        "database",
-        "reference",
-        "ordered",
-        "exercise"
-      ],
-      "title": "QueryAnswer",
       "type": "object"
     },
     "Section": {

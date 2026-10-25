@@ -10,9 +10,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any
 
-from .checking import InvalidResponse, check
-from .lesson import CodeAnswer, Lesson, ProblemBlock, QueryAnswer, SelfCheckAnswer
-from .targets import find_target
+from .lesson import Lesson, ProblemBlock
 
 NOT_STARTED = "not_started"
 IN_PROGRESS = "in_progress"
@@ -55,15 +53,6 @@ def after_hints(record: Record, count: int, available: int) -> Record:
         raise Conflict(f"there are {available} hints")
     status = IN_PROGRESS if record.status == NOT_STARTED else record.status
     return replace(record, status=status, hints_used=max(record.hints_used, count))
-
-
-def after_code_saved(record: Record, code: str, starter_code: str) -> Record:
-    """Save a code part's code. Code changed from the starter code starts the part; a done part keeps its
-    state, since its code can still be edited and run."""
-    if record.status == NOT_STARTED and code == starter_code:
-        return record
-    status = IN_PROGRESS if record.status == NOT_STARTED else record.status
-    return replace(record, status=status, last_response=code)
 
 
 def after_mark_done(record: Record, done: bool) -> Record:

@@ -192,15 +192,6 @@ def test_problem_text_comes_from_the_extraction(agent):
     assert problem["prompt"] == "A ball is thrown at $10$ m/s."
 
 
-def test_query_answers_are_refused(agent):
-    lesson_id = agent.through_plan()
-    draft = section_one()
-    draft["blocks"][1]["answer"] = {"kind": "query", "reference": "SELECT 1"}
-    response = agent.section(lesson_id, 1, draft)
-    assert response.status_code == 422
-    assert "query" in response.json()["detail"]
-
-
 # Hints
 
 

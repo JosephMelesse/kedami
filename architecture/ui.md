@@ -39,7 +39,7 @@ The syntax tokens color code and nothing else. Each reads at 5.9:1 or more on `-
 
 - Inter, KaTeX, and JetBrains Mono (for code, with ligatures off so code shows as typed) fonts are bundled with the app.
 - The music player's ▶ and ⏸ come from `app/src/renderer/src/assets/media-symbols.woff2`, a two-glyph subset of Noto Sans Symbols2 (SIL OFL, license alongside it), so both symbols match in size.
-- Code is highlighted the same way in lesson code blocks and in the workspace editor, in Python and SQL, on `--surface-raised`: keywords in `--syntax-keyword`, strings in `--syntax-string`, numbers and constants (such as `True`, `None`, and `NULL`) in `--syntax-number`, the names of functions and classes, built-ins, and SQL types in `--syntax-name`, comments in `--text-muted` italic, and everything else in `--text`.
+- Python in lesson code blocks is highlighted on `--surface-raised`: keywords in `--syntax-keyword`, strings in `--syntax-string`, numbers and constants (such as `True` and `None`) in `--syntax-number`, the names of functions, classes, and built-ins in `--syntax-name`, comments in `--text-muted` italic, and everything else in `--text`. Other languages show in JetBrains Mono without highlighting.
 - Plots, diagrams, and simulations take their colors from the tokens.
 - The app icon is ፩ (U+1369, Ethiopic digit one) in `--accent` on a `--bg` rounded square, rendered from Noto Sans Ethiopic Medium to `app/resources/icon.png`. The same glyph, as an inline SVG outline in `--accent`, sits before "Kedami" in the app header.
 
@@ -52,19 +52,8 @@ The syntax tokens color code and nothing else. Each reads at 5.9:1 or more on `-
 | Generating | "Waiting for Claude Code" with the command to run, `/kedami:lesson`, until the first step arrives; then the current stage. A 2048 game sits below the stages and a Cancel button below it while the lesson is generating. A failed lesson shows the reason |
 | Terminal panel | Claude Code or a shell in a pseudo-terminal, in a panel on the right that opens and closes beside any screen; see Terminal panel in `agent-mode.md` |
 | Lesson | Sections and blocks in order, with a progress indicator in the accent color. A Days button splits the lesson into days; see Finish lines. Opening a lesson returns to the block last read; see Reading position |
-| Workspace | One code problem, opened by its Solve button: description, editor, and console; see Workspace |
 
 The app header is visible on every screen and holds the music player and the Pomodoro timer. Clicking Kedami in it opens the Library home page from any screen, including from inside a folder. A Terminal button after Kedami, in `--text-muted` and `--text` while open, opens and closes the Terminal panel on the right; so does Ctrl+`.
-
-## Workspace
-
-Where a code problem is solved. Its contents are in `code-problems.md`; this is the layout.
-
-- **Placement:** everything below the app header is replaced by the workspace, as the rest screen replaces it. The lesson underneath keeps its state and scroll position, and returns with the Back to lesson button at the top left. The header stays usable, and the rest screen covers the workspace like any other screen.
-- **Top bar:** Back to lesson, then the problem's title and difficulty, then the part's state label.
-- **Editor bar:** above the editor, the language, a Vim checkbox, the Vim mode while Vim is on, and, for code, Reset.
-- **Panes:** fixed proportions with no dividers to drag. The description pane takes the left 40% of the width and the full height. On the right, the editor takes the top 60% and the console the bottom 40%, with Run and Submit along the console's bottom edge. Each pane is a card on `--surface` with a 1px `--border`, 8px apart, and scrolls on its own; the editor and console fill the window's height.
-- **Narrow windows:** at 720px wide or less, the panes stack in one column: description, then editor, then console, and the page scrolls.
 
 ## Active lessons
 

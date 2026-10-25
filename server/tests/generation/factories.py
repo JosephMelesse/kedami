@@ -1,10 +1,10 @@
 """Small builders for generation test data."""
 
-from kedami_server.generation.schemas import Extraction, Plan
+from kedami_server.generation.schemas import Plan, ProblemsAndConcepts
 
 
-def extraction(problems=None, concepts=("vectors", "gravity", "range")) -> Extraction:
-    return Extraction.model_validate(
+def extraction(problems=None, concepts=("vectors", "gravity", "range")) -> ProblemsAndConcepts:
+    return ProblemsAndConcepts.model_validate(
         {
             "concepts": [{"id": c, "name": c.title(), "summary": f"About {c}."} for c in concepts],
             "problems": problems

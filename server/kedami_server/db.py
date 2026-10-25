@@ -25,7 +25,6 @@ CREATE TABLE IF NOT EXISTS lessons (
     status TEXT NOT NULL CHECK (status IN ('generating', 'ready', 'failed')),
     current_stage INTEGER,
     schema_version INTEGER NOT NULL,
-    revision INTEGER NOT NULL DEFAULT 1,
     created TEXT NOT NULL,
     error TEXT,
     folder_id INTEGER REFERENCES folders (id) ON DELETE SET NULL,
@@ -58,18 +57,7 @@ CREATE TABLE IF NOT EXISTS materials (
     id INTEGER PRIMARY KEY,
     lesson_id TEXT NOT NULL REFERENCES lessons (id) ON DELETE CASCADE,
     filename TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('problem_set', 'reference')),
-    force_transcription INTEGER NOT NULL DEFAULT 0
-);
-
-CREATE TABLE IF NOT EXISTS test_flags (
-    lesson_id TEXT NOT NULL REFERENCES lessons (id) ON DELETE CASCADE,
-    block_id TEXT NOT NULL,
-    part_id TEXT NOT NULL,
-    args TEXT NOT NULL,
-    expected TEXT NOT NULL,
-    created TEXT NOT NULL,
-    PRIMARY KEY (lesson_id, block_id, part_id, args, expected)
+    role TEXT NOT NULL CHECK (role IN ('problem_set', 'reference'))
 );
 
 CREATE TABLE IF NOT EXISTS progress (
@@ -95,6 +83,9 @@ def init(data_dir: Path) -> None:
     with connect(data_dir) as conn:
         conn.executescript(SCHEMA)
         _add_missing_columns(conn)
+        _drop_removed_columns(conn)
+        # Left behind by computer science lessons, which are no longer opened.
+        conn.execute("DROP TABLE IF EXISTS test_flags")
 
 
 # Columns added after a table was first created. CREATE TABLE IF NOT EXISTS skips existing tables.
@@ -107,10 +98,15 @@ ADDED_COLUMNS = {
         "day_starts": "TEXT",
         "active": "INTEGER NOT NULL DEFAULT 0",
         "domain": "TEXT",
-        "chapter": "INTEGER",
         # Who built the lesson: "agent" for Claude Code, or "pipeline" for the API pipeline Kedami no longer has.
         "builder": "TEXT NOT NULL DEFAULT 'pipeline' CHECK (builder IN ('pipeline', 'agent'))",
     },
+}
+
+# Columns the API pipeline left behind. Dropped so a database from then still opens.
+REMOVED_COLUMNS = {
+    "lessons": ("revision", "chapter"),
+    "materials": ("force_transcription",),
 }
 
 
@@ -120,6 +116,14 @@ def _add_missing_columns(conn: sqlite3.Connection) -> None:
         for name, definition in columns.items():
             if name not in existing:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
+
+
+def _drop_removed_columns(conn: sqlite3.Connection) -> None:
+    for table, columns in REMOVED_COLUMNS.items():
+        existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+        for name in columns:
+            if name in existing:
+                conn.execute(f"ALTER TABLE {table} DROP COLUMN {name}")
 
 
 @contextmanager
