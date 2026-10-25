@@ -10,6 +10,7 @@ from . import db, library, run_log
 from .app import create_app
 from .config import from_env
 from .generation.pipeline import lesson_path
+from .agent import plugin
 from .storage import seed_sample
 
 
@@ -34,6 +35,7 @@ def main() -> None:
     with db.connect(settings.data_dir) as conn:
         library.fail_interrupted(conn, lambda lesson_id: lesson_path(settings.data_dir, lesson_id).exists())
     seed_sample(settings.data_dir)
+    plugin.write(settings.data_dir)
     exit_with_parent()
     uvicorn.run(create_app(settings), host="127.0.0.1", port=settings.port, log_level="warning")
 

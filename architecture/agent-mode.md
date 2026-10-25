@@ -65,21 +65,23 @@ The server writes the plugin to `agent-plugin/` in the data folder on every star
 |---|---|
 | `.claude-plugin/plugin.json` | Name `kedami`, version, description |
 | `skills/lesson/SKILL.md` | `/kedami:lesson`: the build steps above, with the rules from `prompts.py` |
-| `skills/solution/SKILL.md` | `/kedami:solution`: write one problem part's solution |
-| `skills/simulation/SKILL.md` | `/kedami:simulation`: write one simulation's code |
+| `skills/solution/SKILL.md` | `/kedami:solution <lesson-id> <block-id> <part-id>`: write one problem part's solution |
+| `skills/simulation/SKILL.md` | `/kedami:simulation <lesson-id> <block-id>`: write one simulation's code |
 | `agents/verifier.md` | The second solve. Model from `MODEL_ROLES["second_solve"]` |
 | `agents/hint-checker.md` | The hint judge. Model from `MODEL_ROLES["small_check"]` |
 | `.mcp.json` | Starts `kedami_server.mcp` with the server's own Python (`sys.executable`) and the server folder |
 
 - The skill text is built from the same prompts as the pipeline, so the two can't drift.
 - Model names come from config, as everywhere else.
-- No token is written into the plugin. The MCP server reads `KEDAMI_PORT` and `KEDAMI_TOKEN` from its environment, which it inherits from Claude Code, which inherits it from the Terminal screen. Confirm when building that Claude Code passes its environment to stdio MCP servers; if it doesn't, `.mcp.json` passes the two variables by name.
+- No token is written into the plugin. `.mcp.json` passes `KEDAMI_PORT` and `KEDAMI_TOKEN` to the MCP server by name, as `${KEDAMI_PORT}` and `${KEDAMI_TOKEN}`, which Claude Code expands from its own environment, which it inherits from the Terminal screen. Without them, every tool says to start Claude Code from the Terminal screen.
+- The skills run only when the student types them (`disable-model-invocation`), so the plugin adds nothing to Claude Code's context until then.
+- A refused tool call comes back as a tool error carrying the server's reason, so the agent can fix what it sent.
 - The skills tell Claude Code not to run any code it writes. Simulation code runs only in the sandboxed frame, as always.
 
 ## Solutions and simulations
 
 Show solution and Generate simulation work as today when an API key is set. Without one:
-- The button explains that it needs Claude Code and gives the command to run, such as `/kedami:solution ps3-4 a`, with a Copy button.
+- The button explains that it needs Claude Code and gives the command to run, such as `/kedami:solution {lesson-id} ps3-4 a`, with a Copy button.
 - `get_solution_request` returns the material paths, the whole problem, the part, and the form of its answer, never the stored answer. `save_solution` stores it and compares the final answer with the stored one as today. On a disagreement the route returns the stored answer, the agent writes it once more, and a second disagreement saves it with `matches` false.
 - `get_simulation_request` returns the brief and any flagged error. `save_simulation` stores the code under the same rules as a regenerated simulation.
 - The window sees the new solution or simulation the next time it asks the server.
@@ -112,7 +114,7 @@ All require the session token, like every route. They refuse lessons whose build
 | POST | `/agent/lessons/{id}/plan` | `save_plan` | Stage 3; returns each section with its problems placed |
 | POST | `/agent/lessons/{id}/sections/{n}` | `save_section` | One section; returns its hint targets, or every reason it was rejected |
 | POST | `/agent/lessons/{id}/sections/{n}/hints` | `save_hints` | Hints for some targets, replacing theirs; returns any dropped by the leak check |
-| GET | `/agent/lessons/{id}/sections/{n}/questions` | `get_questions` | Each part and checkpoint with its answer form, without stored answers |
+| GET | `/agent/lessons/{id}/sections/{n}/questions` | `get_questions` | Each part and checkpoint with its answer form, without stored answers, and the course material files |
 | POST | `/agent/lessons/{id}/sections/{n}/verification` | `save_verification` | The second solve's answers; the server sets `verified` |
 | POST | `/agent/lessons/{id}/finish` | `finish_lesson` | Write the lesson JSON and mark it ready |
 | POST | `/agent/lessons/{id}/fail` | `fail_lesson` | End the build with a reason |

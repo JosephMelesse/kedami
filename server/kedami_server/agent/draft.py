@@ -207,11 +207,14 @@ def questions(data_dir: Path, lesson_id: str, number: int) -> dict:
     """What the verifier may see: each question and the form of its answer, never the answer."""
     with _locks[lesson_id]:
         _building(data_dir, lesson_id)
-        section = _section(_work(data_dir, lesson_id), number)
+        work = _work(data_dir, lesson_id)
+        section = _section(work, number)
+        folder = work / pipeline.NORMALIZED
         return {
             "questions": [
                 {"target": t.key, "question": t.question, "answer": answer_format(t.answer)} for t in verifiable(section)
-            ]
+            ],
+            "materials": [str(folder / pipeline.PROBLEM_SET_FILE), str(folder / pipeline.REFERENCE_FILE)],
         }
 
 

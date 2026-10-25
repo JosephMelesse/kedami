@@ -5,6 +5,7 @@ pydantic==2.13.5
 sympy==1.14.0
 pytest==8.4.2
 httpx2==2.13.1
+mcp==2.3.0
 python-dotenv==1.2.4
 pillow==12.3.0
 pypdfium2==5.13.0
