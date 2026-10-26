@@ -113,7 +113,7 @@ Button ──► Server ── job runner ── claude -p "/kedami:solution …
 - **Ending:** a job is done when Claude Code exits and what it was for is saved: the lesson ready, or the solution or simulation stored. Otherwise it fails, with Claude Code's last message as the reason, which covers a missing login and a used-up plan.
 - **Time limits:** a build job may run an hour, and any other job 20 minutes. A job past its limit is stopped and fails, so a hung job can't hold up the queue. Stopping a job stops everything it started, forcibly if it doesn't end within 5 seconds.
 - **Canceling:** Cancel on the Generating screen stops the build job, or takes it out of the queue. Deleting a lesson cancels its jobs.
-- **Missing Claude Code:** if `claude` isn't on the path, Create lesson and the job buttons are disabled with a line saying to install Claude Code from code.claude.com and log in once in the Terminal panel.
+- **Missing Claude Code:** if `claude` isn't on the path, Create lesson is disabled with a line saying to install Claude Code from code.claude.com and log in once in the Terminal panel. Show solution and Generate simulation stay enabled, since a solution or simulation already written still shows; asking for a new one shows the same line instead of starting a job.
 - **Closing the app** kills the running job. On the next start, jobs that were queued or running are marked failed with "Kedami was closed", as their lessons are.
 - The main session runs on the student's default Claude Code model; the subagents' models come from config, as in the Terminal panel.
 

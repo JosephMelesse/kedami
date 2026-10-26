@@ -153,6 +153,22 @@ export function getJobs(): Promise<JobQueue> {
   return request('GET', '/jobs')
 }
 
+/** The lesson's latest job of each kind, block, and part. */
+export async function getLessonJobs(lessonId: string): Promise<Job[]> {
+  const body = await request<{ jobs: Job[] }>('GET', `${lessonPath(lessonId)}/jobs`)
+  return body.jobs
+}
+
+/** Have Claude Code write a part's solution. Returns the job, or the one already writing it. */
+export function startSolutionJob(lessonId: string, blockId: string, partId: string): Promise<Job> {
+  return request('POST', `${blockPath(lessonId, blockId)}/solution-job`, { part_id: partId })
+}
+
+/** Have Claude Code write, or rewrite, a simulation's code. */
+export function startSimulationJob(lessonId: string, blockId: string): Promise<Job> {
+  return request('POST', `${blockPath(lessonId, blockId)}/simulation-job`)
+}
+
 /** Whether a lesson's build is queued behind another job, rather than starting. */
 export function buildIsWaiting(queue: JobQueue | null, lessonId: string): boolean {
   if (!queue?.running) return false

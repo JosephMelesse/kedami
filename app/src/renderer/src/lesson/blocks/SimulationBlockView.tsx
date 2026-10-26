@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getSimulation, reportSimulation } from '../../api'
-import { AgentCommand, useAgentPoll } from '../AgentCommand'
+import { getSimulation, reportSimulation, startSimulationJob } from '../../api'
+import { AgentJobProgress, useAgentJob } from '../AgentJob'
 import { Markdown } from '../Markdown'
 import type { SimulationBlock } from '../types'
 import { simulationTokens } from './simulationTokens'
@@ -8,9 +8,8 @@ import { simulationTokens } from './simulationTokens'
 // A simulation must report ready this soon after its frame loads, with no errors.
 const READY_MS = 4000
 
-// unwritten: the code is written only when the student asks for it.
-// waiting: the student asked, and the command for Claude Code is showing until new code is saved.
-type Status = 'loading' | 'unwritten' | 'running' | 'ready' | 'failed' | 'waiting'
+// unwritten: the code is written only when the student asks for it, by a Claude Code job.
+type Status = 'loading' | 'unwritten' | 'running' | 'ready' | 'failed'
 
 export function SimulationBlockView({ block, lessonId }: { block: SimulationBlock; lessonId: string }) {
   const [code, setCode] = useState<string | null>(null)
@@ -51,7 +50,7 @@ export function SimulationBlockView({ block, lessonId }: { block: SimulationBloc
     [lessonId, block.id, flagged]
   )
 
-  // New code from Claude Code replaces whatever was there, so waiting ends when the stored code changes.
+  // A finished job's code replaces whatever was there.
   const checkForCode = useCallback(async () => {
     const state = await getSimulation(lessonId, block.id)
     if (!state.code || state.code === code) return false
@@ -63,7 +62,8 @@ export function SimulationBlockView({ block, lessonId }: { block: SimulationBloc
     return true
   }, [lessonId, block.id, code])
 
-  useAgentPoll(status === 'waiting', checkForCode)
+  const writing = useAgentJob(lessonId, checkForCode)
+  const write = () => writing.start(() => startSimulationJob(lessonId, block.id))
 
   const showFrame = Boolean(code) && (status === 'running' || status === 'ready')
   const written = Boolean(code)
@@ -82,21 +82,17 @@ export function SimulationBlockView({ block, lessonId }: { block: SimulationBloc
           <Markdown inline>{block.caption}</Markdown>
         </figcaption>
       )}
-      {status === 'waiting' ? (
-        <AgentCommand what="this simulation" command={`/kedami:simulation ${lessonId} ${block.id}`} />
+      {writing.job ? (
+        <AgentJobProgress job={writing.job} what="this simulation" />
       ) : (
         <div>
+          {writing.failure && <p className="answer-error">{writing.failure}</p>}
           {written ? (
-            <button type="button" className="button" disabled={status === 'loading'} onClick={() => setStatus('waiting')}>
+            <button type="button" className="button" disabled={status === 'loading'} onClick={write}>
               Regenerate
             </button>
           ) : (
-            <button
-              type="button"
-              className="button button-primary"
-              disabled={status === 'loading'}
-              onClick={() => setStatus('waiting')}
-            >
+            <button type="button" className="button button-primary" disabled={status === 'loading'} onClick={write}>
               Generate simulation
             </button>
           )}

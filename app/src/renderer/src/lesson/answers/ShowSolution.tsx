@@ -1,8 +1,8 @@
 import katex from 'katex'
 import { type ReactNode, useCallback, useState } from 'react'
-import { ApiError, getSolution, type SolutionResponse, type SolutionSteps } from '../../api'
+import { ApiError, getSolution, type SolutionResponse, type SolutionSteps, startSolutionJob } from '../../api'
 import { ConfirmDialog } from '../../ConfirmDialog'
-import { AgentCommand, useAgentPoll } from '../AgentCommand'
+import { AgentJobProgress, useAgentJob } from '../AgentJob'
 import { Markdown } from '../Markdown'
 
 interface ShowSolutionProps {
@@ -12,10 +12,9 @@ interface ShowSolutionProps {
   name: string
 }
 
-// waiting: no solution is stored yet, so the student is shown the command for Claude Code to write one.
-type Status = 'hidden' | 'confirming' | 'loading' | 'waiting' | 'shown'
+type Status = 'hidden' | 'confirming' | 'loading' | 'shown'
 
-/** A part's step-by-step solution, after a confirmation. Claude Code writes it the first time it is asked for. */
+/** A part's step-by-step solution, after a confirmation. A Claude Code job writes it the first time it is asked for. */
 export function ShowSolution({ lessonId, blockId, partId, name }: ShowSolutionProps) {
   const [status, setStatus] = useState<Status>('hidden')
   const [result, setResult] = useState<SolutionResponse | null>(null)
@@ -29,18 +28,22 @@ export function ShowSolution({ lessonId, blockId, partId, name }: ShowSolutionPr
     return true
   }, [lessonId, blockId, partId])
 
-  useAgentPoll(status === 'waiting', fetchSolution)
+  const writing = useAgentJob(lessonId, fetchSolution)
 
   const load = async () => {
     setStatus('loading')
     setError(null)
     try {
-      if (!(await fetchSolution())) setStatus('waiting')
+      if (await fetchSolution()) return
+      // None is stored yet, so Claude Code writes it; the job shows it once saved.
+      await writing.start(() => startSolutionJob(lessonId, blockId, partId))
+      setStatus('hidden')
     } catch (failure) {
       setError(failure instanceof ApiError ? failure.message : 'Could not reach the server.')
       setStatus('hidden')
     }
   }
+  const problem = error ?? writing.failure
 
   return (
     <div className="solution">
@@ -52,17 +55,15 @@ export function ShowSolution({ lessonId, blockId, partId, name }: ShowSolutionPr
         <button
           type="button"
           className="button"
-          disabled={status === 'loading' || status === 'waiting'}
+          disabled={status === 'loading' || writing.job !== null}
           // Once seen, a solution opens again without asking.
           onClick={() => setStatus(result ? 'shown' : 'confirming')}
         >
           Show solution
         </button>
       )}
-      {status === 'waiting' && (
-        <AgentCommand what="this solution" command={`/kedami:solution ${lessonId} ${blockId} ${partId}`} />
-      )}
-      {error && <p className="answer-error">{error}</p>}
+      {writing.job && <AgentJobProgress job={writing.job} what="this solution" />}
+      {problem && <p className="answer-error">{problem}</p>}
       {status === 'confirming' && (
         <ConfirmDialog
           title={`Show the solution to ${name}?`}

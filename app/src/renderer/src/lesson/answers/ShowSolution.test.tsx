@@ -3,7 +3,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest'
 import type { KedamiApi } from '../../../../preload/api'
 import type { SolutionResponse } from '../../api'
-import { AGENT_POLL_MS } from '../AgentCommand'
+import { AGENT_POLL_MS } from '../AgentJob'
 import { ShowSolution } from './ShowSolution'
 
 const PHYSICS: SolutionResponse = {
@@ -155,24 +155,48 @@ describe('ShowSolution', () => {
     )
   })
 
-  it('shows the command for Claude Code until the solution is written, then shows it', async () => {
+  it('has a Claude Code job write a solution none is stored for, then shows it', async () => {
     vi.useFakeTimers()
     try {
+      const job = { id: 3, kind: 'solution', lesson_id: 'l1', block_id: 'ps1-1', part_id: 'a', error: null }
       reply({ solution: null, matches: null })
+      reply({ ...job, status: 'queued' })
       await mount()
       await click('Show solution')
       await confirm()
-      expect(container.querySelector('.agent-command code')?.textContent).toBe('/kedami:solution l1 ps1-1 a')
+      expect(fetchMock.mock.calls[1][0]).toBe('http://127.0.0.1:1/lessons/l1/blocks/ps1-1/solution-job')
+      expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ part_id: 'a' })
+      expect(container.querySelector('.agent-job')?.textContent).toContain('Waiting for another job')
       expect(button('Show solution')?.disabled).toBe(true)
 
-      reply({ solution: null, matches: null })
+      reply({ jobs: [{ ...job, status: 'running' }] })
       await act(async () => vi.advanceTimersByTimeAsync(AGENT_POLL_MS))
+      expect(container.querySelector('.agent-job')?.textContent).toContain('Claude Code is writing this solution')
       expect(container.querySelector('.solution-steps')).toBeNull()
 
+      reply({ jobs: [{ ...job, status: 'done' }] })
       reply(PHYSICS)
       await act(async () => vi.advanceTimersByTimeAsync(AGENT_POLL_MS))
-      expect(container.querySelector('.agent-command')).toBeNull()
+      expect(container.querySelector('.agent-job')).toBeNull()
       expect(labels()).toEqual(['Given', 'Required', 'Solution'])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("shows why a solution job failed and lets the student ask again", async () => {
+    vi.useFakeTimers()
+    try {
+      const job = { id: 4, kind: 'solution', lesson_id: 'l1', block_id: 'ps1-1', part_id: 'a', error: null }
+      reply({ solution: null, matches: null })
+      reply({ ...job, status: 'running' })
+      await mount()
+      await click('Show solution')
+      await confirm()
+      reply({ jobs: [{ ...job, status: 'failed', error: 'Invalid API key. Please run /login' }] })
+      await act(async () => vi.advanceTimersByTimeAsync(AGENT_POLL_MS))
+      expect(container.querySelector('.answer-error')?.textContent).toBe('Invalid API key. Please run /login')
+      expect(button('Show solution')?.disabled).toBe(false)
     } finally {
       vi.useRealTimers()
     }

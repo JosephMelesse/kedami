@@ -70,6 +70,10 @@ class DaysRequest(Body):
     block_ids: Annotated[list[Annotated[str, StringConstraints(min_length=1, max_length=200)]], Field(max_length=29)]
 
 
+class SolutionJobRequest(Body):
+    part_id: Annotated[str, StringConstraints(min_length=1, max_length=200)]
+
+
 class MarkDoneRequest(Body):
     part_id: str
     done: StrictBool
@@ -325,17 +329,45 @@ def create_app(settings: Settings, runner: jobs.JobRunner | None = None) -> Fast
             simulation_state.set_status(conn, lesson_id, block_id, body.ok, body.error)
         return {"flagged": not body.ok}
 
-    @app.get("/lessons/{lesson_id}/blocks/{block_id}/solution")
-    def solution(lesson_id: str, block_id: str, part_id: Annotated[str, Query(min_length=1, max_length=200)]):
-        """A problem part's solution once Claude Code has written it, or null until then; see agent/requests.py."""
+    def solution_part(lesson_id: str, block_id: str, part_id: str):
+        """A problem part that can have a step-by-step solution, or 404."""
         lesson = get_lesson(lesson_id)
         block = lesson.find_block(block_id)
         part = next((p for p in block.parts if p.id == part_id), None) if isinstance(block, ProblemBlock) else None
         if part is None or not has_solution(lesson.subject, part):
             raise HTTPException(404, "This part has no solution.")
+        return part
+
+    @app.get("/lessons/{lesson_id}/blocks/{block_id}/solution")
+    def solution(lesson_id: str, block_id: str, part_id: Annotated[str, Query(min_length=1, max_length=200)]):
+        """A problem part's solution once Claude Code has written it, or null until then; see agent/requests.py."""
+        part = solution_part(lesson_id, block_id, part_id)
         with db.connect(settings.data_dir) as conn:
             stored = solution_state.load(conn, lesson_id, block_id, part.id)
         return stored or {"solution": None, "matches": None}
+
+    def start_job(kind: str, lesson_id: str, block_id: str, part_id: str | None = None) -> dict:
+        """Queue a Claude Code job, or return the one already queued or running for the same thing."""
+        if runner is None:
+            raise HTTPException(503, "Kedami isn't running Claude Code jobs.")
+        if not runner.claude_installed():
+            raise HTTPException(409, jobs.NOT_INSTALLED)
+        try:
+            return asdict(runner.enqueue(kind, lesson_id, block_id, part_id))
+        except ValueError as error:
+            raise HTTPException(422, str(error)) from error
+
+    @app.post("/lessons/{lesson_id}/blocks/{block_id}/solution-job")
+    def solution_job(lesson_id: str, block_id: str, body: SolutionJobRequest):
+        """Have Claude Code write a part's solution; see architecture/agent-mode.md, Background jobs."""
+        part = solution_part(lesson_id, block_id, body.part_id)
+        return start_job("solution", lesson_id, block_id, part.id)
+
+    @app.post("/lessons/{lesson_id}/blocks/{block_id}/simulation-job")
+    def simulation_job(lesson_id: str, block_id: str):
+        """Have Claude Code write, or rewrite, a simulation's code."""
+        get_simulation(get_lesson(lesson_id), block_id)
+        return start_job("simulation", lesson_id, block_id)
 
     @app.delete("/lessons/{lesson_id}")
     def delete_lesson(lesson_id: str):
