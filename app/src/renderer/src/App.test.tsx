@@ -80,7 +80,7 @@ describe('App header', () => {
 })
 
 describe('Terminal panel', () => {
-  const terminalButton = () => container.querySelector<HTMLButtonElement>('button[aria-label="Claude Code"]')!
+  const terminalButton = () => [...container.querySelectorAll('button')].find((b) => b.textContent === 'Claude Code')!
   const panel = () => container.querySelector<HTMLElement>('.terminal-panel')
   const main = () => container.querySelector('main')!
   const width = () => document.documentElement.style.getPropertyValue('--terminal-width')

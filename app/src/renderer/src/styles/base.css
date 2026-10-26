@@ -415,18 +415,25 @@ input {
 }
 
 /* The Terminal screen: a header button, and the space below the header that main lays the terminal's view over. */
+/* A filled control, so it can't be read as plain header text. */
 .terminal-toggle {
-  display: inline-flex;
-  align-items: center;
-  padding: 0;
-  border: 0;
-  background: none;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-raised);
   color: var(--text-muted);
   font: inherit;
+  font-size: 14px;
   cursor: pointer;
+  transition: color 150ms, background-color 150ms;
+}
+
+.terminal-toggle:hover {
+  color: var(--text);
 }
 
 .terminal-toggle[aria-pressed='true'] {
+  background: var(--border);
   color: var(--text);
 }
 

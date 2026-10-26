@@ -1,4 +1,3 @@
-import { ClaudeIcon } from './ClaudeIcon'
 import { useDayBar } from './lesson/days/DayBar'
 import { Logo } from './Logo'
 import { MusicPlayer } from './music/MusicPlayer'
@@ -21,15 +20,8 @@ export function AppHeader({ onHome, onRest, resting, terminalOpen, onTerminal }:
           <Logo />
           Kedami
         </button>
-        <button
-          type="button"
-          className="terminal-toggle"
-          aria-pressed={terminalOpen}
-          aria-label="Claude Code"
-          title="Claude Code"
-          onClick={onTerminal}
-        >
-          <ClaudeIcon />
+        <button type="button" className="terminal-toggle" aria-pressed={terminalOpen} onClick={onTerminal}>
+          Claude Code
         </button>
       </div>
       <MusicPlayer resting={resting} bar={bar} />
