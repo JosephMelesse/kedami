@@ -71,6 +71,19 @@ CREATE TABLE IF NOT EXISTS progress (
     updated TEXT NOT NULL,
     PRIMARY KEY (lesson_id, block_id, part_id)
 );
+
+CREATE TABLE IF NOT EXISTS jobs (
+    id INTEGER PRIMARY KEY,
+    kind TEXT NOT NULL,
+    lesson_id TEXT NOT NULL REFERENCES lessons (id) ON DELETE CASCADE,
+    block_id TEXT,
+    part_id TEXT,
+    status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'done', 'failed', 'canceled')),
+    error TEXT,
+    created TEXT NOT NULL,
+    started TEXT,
+    ended TEXT
+);
 """
 
 

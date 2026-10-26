@@ -21,13 +21,23 @@ VERSION = "0.1.0"
 SERVER_DIR = Path(__file__).resolve().parents[2]
 
 
+# What Claude Code calls the plugin's MCP server. A background job loads the server under this name from
+# job_mcp_path, so its tools keep the names the subagents list.
+JOB_SERVER = f"plugin_{NAME}_{SERVER}"
+
+
 def plugin_dir(data_dir: Path) -> Path:
     return data_dir / "agent-plugin"
 
 
+def job_mcp_path(data_dir: Path) -> Path:
+    """The only MCP config a background job loads. See architecture/agent-mode.md, Background jobs."""
+    return data_dir / "jobs" / "mcp.json"
+
+
 def tool(name: str) -> str:
     """A tool's full name, as Claude Code gives it to the plugin's MCP server's tools."""
-    return f"mcp__plugin_{NAME}_{SERVER}__{name}"
+    return f"mcp__{JOB_SERVER}__{name}"
 
 
 def write(data_dir: Path) -> Path:
@@ -54,6 +64,10 @@ def write(data_dir: Path) -> Path:
         path = root / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text.rstrip() + "\n")
+    job_config = job_mcp_path(data_dir)
+    job_config.parent.mkdir(parents=True, exist_ok=True)
+    job_servers = {"mcpServers": {JOB_SERVER: _mcp_config()["mcpServers"][SERVER]}}
+    job_config.write_text(json.dumps(job_servers, indent=2) + "\n")
     return root
 
 

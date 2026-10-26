@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StringConstraints
 
-from . import db, library, progress, simulation_state, solution_state
+from . import db, jobs, library, progress, simulation_state, solution_state
 from .agent import draft as agent_draft
 from .agent.routes import agent_router
 from .checking import InvalidResponse, check
@@ -75,7 +75,8 @@ class MarkDoneRequest(Body):
     done: StrictBool
 
 
-def create_app(settings: Settings) -> FastAPI:
+def create_app(settings: Settings, runner: jobs.JobRunner | None = None) -> FastAPI:
+    """The API. Without a runner, as in most tests, nothing starts Claude Code and new lessons wait."""
     app = FastAPI(title="Kedami", docs_url=None, redoc_url=None, openapi_url=None)
     expected = f"Bearer {settings.token}".encode()
 
@@ -166,7 +167,7 @@ def create_app(settings: Settings) -> FastAPI:
         roles: Annotated[list[str], Form()],
         folder: Annotated[int | None, Form()] = None,
     ):
-        """Save a new lesson's files. It waits for Claude Code to build it; see architecture/agent-mode.md."""
+        """Save a new lesson's files and queue its build job; see architecture/agent-mode.md."""
         if subject not in agent_draft.SUBJECTS:
             raise HTTPException(422, "Kedami builds math, physics, and general lessons. Computer science lessons can't be created.")
         if len(files) != len(roles):
@@ -187,6 +188,8 @@ def create_app(settings: Settings) -> FastAPI:
             create_generating(conn, lesson_id, subject, schema_version=1, folder_id=folder, builder="agent")
             for file in saved:
                 add_material(conn, lesson_id, file.filename, file.role)
+        if runner:
+            runner.enqueue("build", lesson_id)
         return {"id": lesson_id}
 
     @app.post("/lessons/{lesson_id}/cancel")
@@ -194,9 +197,32 @@ def create_app(settings: Settings) -> FastAPI:
         if get_row(lesson_id).builder != "agent":
             raise HTTPException(409, "Only a lesson Claude Code is building can be canceled.")
         try:
-            return agent_draft.cancel(settings.data_dir, lesson_id)
+            # Failed first, so the job's tool calls are refused while it stops.
+            canceled = agent_draft.cancel(settings.data_dir, lesson_id)
         except agent_draft.OutOfOrder as error:
             raise HTTPException(409, str(error)) from error
+        if runner:
+            runner.cancel_lesson(lesson_id, "build")
+        return canceled
+
+    @app.get("/jobs")
+    def job_queue():
+        """The running job and the queue, and whether Claude Code is on the path."""
+        with db.connect(settings.data_dir) as conn:
+            queue = jobs.active(conn)
+        running = next((j for j in queue if j.status == "running"), None)
+        return {
+            "claude": runner.claude_installed() if runner else False,
+            "running": asdict(running) if running else None,
+            "queued": [asdict(j) for j in queue if j.status == "queued"],
+        }
+
+    @app.get("/lessons/{lesson_id}/jobs")
+    def lesson_jobs(lesson_id: str):
+        """The lesson's latest job of each kind, block, and part."""
+        get_row(lesson_id)
+        with db.connect(settings.data_dir) as conn:
+            return {"jobs": [asdict(j) for j in jobs.latest_for_lesson(conn, lesson_id)]}
 
     @app.get("/lessons/{lesson_id}")
     def lesson(lesson_id: str):
@@ -316,6 +342,8 @@ def create_app(settings: Settings) -> FastAPI:
         row = get_row(lesson_id)
         if row.status == "generating":
             raise HTTPException(409, "This lesson is still generating; delete it once it finishes.")
+        if runner:
+            runner.cancel_lesson(lesson_id)
         with db.connect(settings.data_dir) as conn:
             library.delete_lesson(conn, lesson_id)
         delete_lesson_files(settings.data_dir, lesson_id)
