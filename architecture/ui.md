@@ -27,7 +27,7 @@ The syntax tokens color code and nothing else. Each reads at 5.9:1 or more on `-
 
 ## Rules
 
-- **Accent:** only for the primary action, links, and progress indicators, including the music player's track name while it plays, and the 2048 tiles. Everything else stays neutral.
+- **Accent:** only for the primary action, links, and progress indicators, including the music player's track name while it plays, and the 2048 tiles, and for the border of the selected block. Everything else stays neutral.
 - **Active lessons:** a done problem's box in the Active card fills with `--correct`. It is the one progress indicator that isn't the accent; see Active lessons.
 - **Depth:** three surface levels and a 1px border do all the layering. No shadows or gradients.
 - **Type:** Inter in regular and medium weights. Body text is 16px with a line height of 1.6.
@@ -48,10 +48,10 @@ The syntax tokens color code and nothing else. Each reads at 5.9:1 or more on `-
 | Screen | Contents |
 |---|---|
 | Library | The start screen. The Active card first, on the home page only (see Active lessons), then folder tiles, then the lessons in no folder, oldest first, with status and problem progress, then a New lesson tile that opens Upload. A New folder button creates a folder. Folders are one level deep; opening one shows its lessons, a Rename button, a Delete folder button (its lessons move back home), and a New lesson tile that creates the lesson in that folder. Each ready lesson tile has an Active checkbox in its top right corner, beside an options menu to rename it, move it to a folder or home, or delete it after a confirmation; a generating lesson can't be deleted until it is canceled |
-| Upload | A subject choice of Math, Physics, or General, a file drop with a role tag per file, and a Create lesson button. A line says Claude Code builds the lesson, and to run `/kedami:lesson` in the Terminal panel after creating it; see `agent-mode.md` |
-| Generating | "Waiting for Claude Code" with the command to run, `/kedami:lesson`, until the first step arrives; then the current stage. A 2048 game sits below the stages and a Cancel button below it while the lesson is generating. A failed lesson shows the reason |
+| Upload | A subject choice of Math, Physics, or General, a file drop with a role tag per file, and a Create lesson button. A line says Claude Code builds the lesson once it is created. Without Claude Code on the path, Create lesson is disabled with a line saying to install it; see Background jobs in `agent-mode.md` |
+| Generating | "Starting Claude Code", or "Waiting for another job" while another job runs, until the first step arrives; then the current stage. A 2048 game sits below the stages and a Cancel button below it while the lesson is generating. A failed lesson shows the reason |
 | Terminal panel | Claude Code or a shell in a pseudo-terminal, in a panel on the right that opens and closes beside any screen; see Terminal panel in `agent-mode.md` |
-| Lesson | Sections and blocks in order, with a progress indicator in the accent color. A Days button splits the lesson into days; see Finish lines. Opening a lesson returns to the block last read; see Reading position |
+| Lesson | Sections and blocks in order, with a progress indicator in the accent color. A Days button splits the lesson into days; see Finish lines. Opening a lesson returns to the block last read; see Reading position. Each block and section heading has a Select control, and simulations the student added show after their block; see Selecting a block in `agent-mode.md` |
 
 The app header is visible on every screen and holds the music player and the Pomodoro timer. Clicking Kedami in it opens the Library home page from any screen, including from inside a folder. A Terminal button after Kedami, in `--text-muted` and `--text` while open, opens and closes the Terminal panel on the right; so does Ctrl+`.
 

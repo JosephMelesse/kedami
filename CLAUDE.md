@@ -1,6 +1,6 @@
 # Kedami
 
-Kedami is a local-first desktop app that turns course material into one interactive lesson, sequenced so that finishing the lesson means the problem set is done. The student's own Claude Code session builds each lesson from Kedami's Terminal panel; Kedami makes no model calls. The MVP covers math, physics, and a general subject for any other course, for a single user. Computer science lessons are not opened, and new ones can't be created.
+Kedami is a local-first desktop app that turns course material into one interactive lesson, sequenced so that finishing the lesson means the problem set is done. The student's own Claude Code builds each lesson as a background job started from a button; Kedami makes no model calls. The MVP covers math, physics, and a general subject for any other course, for a single user. Computer science lessons are not opened, and new ones can't be created.
 
 ## Read first
 
@@ -32,7 +32,8 @@ Before writing code, read `README.md` and every file in `architecture/`. Those d
 - The server binds to `127.0.0.1` and rejects requests without the session token.
 - Kedami itself sends nothing over the network. Fonts and audio are bundled, never fetched. Programs the student runs in the Terminal panel, Claude Code included, are their own.
 - The terminal is a separate view, and main accepts pseudo-terminal input only from it. The lesson window can never type into a shell.
-- Kedami never types into the terminal and never runs a coding agent non-interactively. The student drives Claude Code.
+- Kedami never types into the terminal; the student drives Claude Code there.
+- The server runs Claude Code itself only as the background jobs in `architecture/agent-mode.md`, each started by a button, one at a time, and allowed only to read the data folder and call Kedami's tools. Never widen those limits.
 
 **Models**
 - Kedami makes no model calls and holds no API key. Claude Code builds lessons and writes solutions and simulations, through the plugin and the MCP server.
@@ -45,7 +46,7 @@ Before writing code, read `README.md` and every file in `architecture/`. Those d
 - Math strings are parsed only with the restricted, whitelisted parser. Never pass Claude Code's or the student's input to SymPy's default string parsing or to `eval`.
 
 **Lesson data**
-- Lesson JSON is never edited or replaced once written. Simulation code is stored apart from it.
+- Lesson JSON is never edited or replaced once written. Simulation code, and simulations the student adds, are stored apart from it.
 - Progress is stored apart from the lesson, keyed by block and part ID.
 - The `verified` flag is set only by the server, comparing a stored answer with the verifier subagent's second solve.
 - Problem block IDs derive from the source reference, and part IDs from the part label.
@@ -60,7 +61,7 @@ Before writing code, read `README.md` and every file in `architecture/`. Those d
 
 ## Most likely to be wrong
 
-The lesson schema and ID derivation (`server/kedami_server/lesson.py`, `ids.py`), the restricted math parser (`mathparse.py`), and the draft lesson Claude Code builds, assembled across many tool calls (see `architecture/agent-mode.md`). Every later step depends on them, so they get tests first and changes to them come with tests.
+The lesson schema and ID derivation (`server/kedami_server/lesson.py`, `ids.py`), the restricted math parser (`mathparse.py`), the draft lesson Claude Code builds, assembled across many tool calls, and the job runner (see `architecture/agent-mode.md`). Every later step depends on them, so they get tests first and changes to them come with tests.
 
 ## Commands
 

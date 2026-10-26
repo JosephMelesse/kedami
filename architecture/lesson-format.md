@@ -85,6 +85,7 @@ Computer science lessons are not opened. Ones the old API pipeline made stay on 
 - The frame receives the design token values when it loads and uses them for all colors.
 - The frame must report ready within a few seconds with no errors. Otherwise the block is hidden and flagged, and Regenerate asks Claude Code for a new one.
 - Simulations are illustrative: they never count toward completion and never supply numbers the student is checked against.
+- The student can also add simulations to a ready lesson below a selected block (see Selecting a block in `agent-mode.md`). They are stored apart from the lesson JSON and follow the same rules, except that each is removed rather than regenerated.
 - Each simulation has a regenerate button.
 - The plan gives a section a one-line simulation brief only where one would teach what a static plot or diagram can't. The section places one `simulation` block (a caption) exactly when there is a brief. The block keeps the brief, and its code stays empty: Claude Code writes the code only when the student asks, so building the lesson never waits on it.
 - The code is the body of `function simulation(root, canvas, tokens, ready)`: `root` is a div to build controls in, `canvas` is a 320 px tall canvas already in it, `tokens` holds the color token values and the font, and `ready()` must be called once it works. Code that never calls `ready(` is refused.

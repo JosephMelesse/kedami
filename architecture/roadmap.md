@@ -31,8 +31,13 @@
 27. Terminal panel: its own view, node-pty in main, Start Claude Code and Open a shell
 28. Remove the API: Claude Code builds every lesson and writes every solution and simulation, through `/kedami:solution` and `/kedami:simulation`. Reruns, the usage log, the run log, and creating computer science lessons go
 29. Computer science lessons made earlier are no longer opened. The code editor, runner, SQL checker, and their imports go
+30. Job runner: the `jobs` table, the queue, the locked-down `claude -p` command, ending, canceling, and restarts, tested with a stand-in `claude`; then one live build against a server started by hand
+31. Create lesson starts the build job; the Generating screen follows it
+32. Show solution and Generate simulation start jobs
+33. Selecting a block: the Select control, `/selection`, and `get_selection`; ask about a selected block in the Terminal panel
+34. Add simulation here: the added simulation job, `add_simulation`, and showing and removing added simulations
 
-Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the sequencing. Each later step is independent of the ones after it. Steps 24 to 28 move lesson building to Claude Code (see `agent-mode.md`); step 25 proves it before any UI exists. Step 29 stops opening computer science lessons.
+Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the sequencing. Each later step is independent of the ones after it. Steps 24 to 28 move lesson building to Claude Code (see `agent-mode.md`); step 25 proves it before any UI exists. Step 29 stops opening computer science lessons. Steps 30 to 32 start Claude Code from buttons; step 30 proves it before any UI changes. Steps 33 and 34 let the student point Claude Code at part of a lesson.
 
 ## Backlog
 
@@ -43,4 +48,6 @@ Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the s
 - **Packaging and distribution:** bundling the Python server.
 - **Computer science lessons through Claude Code:** DSA with the LeetCode lookup, and SQL with recommendations and course databases, as tools.
 - **Changing a ready lesson from the Terminal panel:** asking Claude Code for a change to a section, in place of reruns, with progress carried over.
-- **Codex**, and **Claude Code sessions started outside the Terminal panel**.
+- **Codex**, and **Claude Code sessions started outside the Terminal panel and the background jobs**.
+- **Resuming a failed build, running several jobs at once, and choosing a job's model.**
+- **Selecting text inside a block, or several blocks at once.**
