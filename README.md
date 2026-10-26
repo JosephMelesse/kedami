@@ -34,4 +34,6 @@ See `roadmap.md` for the backlog.
 
 ## License
 
-Copyright (c) 2026 Joseph Melesse. All rights reserved.
+MIT; see `LICENSE`. Copyright (c) 2026 Joseph Melesse.
+
+Bundled fonts keep their own license, the SIL Open Font License: Inter and JetBrains Mono (through Fontsource), the two-glyph Noto Sans Symbols 2 subset (`app/src/renderer/src/assets/media-symbols-OFL.txt`), and the ፩ outline taken from Noto Sans Ethiopic for the app's mark.
