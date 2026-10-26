@@ -113,7 +113,7 @@ export async function listLessons(): Promise<LessonSummary[]> {
   return body.lessons
 }
 
-/** Save a new lesson's files. It waits for Claude Code to build it. */
+/** Save a new lesson's files. The server queues Claude Code's build of it at once. */
 export async function createLesson(subject: Lesson['subject'], files: NewFile[], folderId: number | null): Promise<string> {
   const form = new FormData()
   form.append('subject', subject)
@@ -126,9 +126,37 @@ export async function createLesson(subject: Lesson['subject'], files: NewFile[],
   return body.id
 }
 
-/** End the build of a lesson Claude Code is building. */
+/** End the build of a lesson Claude Code is building, stopping its job. */
 export async function cancelLesson(lessonId: string): Promise<void> {
   await request('POST', `${lessonPath(lessonId)}/cancel`)
+}
+
+/** Work the server runs Claude Code for, one at a time. See architecture/agent-mode.md, Background jobs. */
+export interface Job {
+  id: number
+  kind: 'build' | 'solution' | 'simulation'
+  lesson_id: string
+  block_id: string | null
+  part_id: string | null
+  status: 'queued' | 'running' | 'done' | 'failed' | 'canceled'
+  error: string | null
+}
+
+export interface JobQueue {
+  /** Whether Claude Code is on the path, so jobs can run at all. */
+  claude: boolean
+  running: Job | null
+  queued: Job[]
+}
+
+export function getJobs(): Promise<JobQueue> {
+  return request('GET', '/jobs')
+}
+
+/** Whether a lesson's build is queued behind another job, rather than starting. */
+export function buildIsWaiting(queue: JobQueue | null, lessonId: string): boolean {
+  if (!queue?.running) return false
+  return queue.queued.some((job) => job.kind === 'build' && job.lesson_id === lessonId)
 }
 
 export function getLesson(lessonId: string): Promise<LessonResponse> {

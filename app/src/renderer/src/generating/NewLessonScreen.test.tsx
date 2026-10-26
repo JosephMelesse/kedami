@@ -8,16 +8,19 @@ let container: HTMLDivElement
 let root: Root
 let fetchMock: Mock
 let created: string[]
+let claudeInstalled: boolean
 
 beforeEach(async () => {
   container = document.createElement('div')
   document.body.append(container)
   root = createRoot(container)
   created = []
+  claudeInstalled = true
   window.kedami = { serverConnection: async () => ({ baseUrl: 'http://127.0.0.1:1', token: 't' }) } as KedamiApi
   fetchMock = vi.fn(async (url: string) => {
     const path = new URL(url).pathname
     if (path === '/lessons') return new Response(JSON.stringify({ id: 'new-lesson' }), { status: 201 })
+    if (path === '/jobs') return new Response(JSON.stringify({ claude: claudeInstalled, running: null, queued: [] }))
     throw new Error(`unexpected ${path}`)
   })
   vi.stubGlobal('fetch', fetchMock)
@@ -51,8 +54,22 @@ describe('a new lesson', () => {
     expect(radio('Computer Science')).toBeUndefined()
   })
 
-  it('says to build it with Claude Code', () => {
-    expect(container.querySelector('header code')?.textContent).toBe('/kedami:lesson')
+  it('says Claude Code builds it once created, with nothing to type', () => {
+    expect(container.querySelector('header')?.textContent).toContain('as soon as you create it')
+    expect(container.querySelector('header code')).toBeNull()
+  })
+
+  it('without Claude Code installed, says to install it and keeps Create lesson disabled', async () => {
+    claudeInstalled = false
+    await act(async () => root.unmount())
+    root = createRoot(container)
+    await act(async () =>
+      root.render(<NewLessonScreen folderId={7} onCreated={(id) => created.push(id)} onBack={() => {}} />)
+    )
+    await act(async () => radio('Math')!.click())
+    await addFiles(text('pset.md'))
+    expect(create().disabled).toBe(true)
+    expect(container.textContent).toContain("Claude Code isn't installed")
   })
 
   it('needs a subject and a problem set', async () => {

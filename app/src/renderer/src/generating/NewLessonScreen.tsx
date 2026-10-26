@@ -1,5 +1,5 @@
-import { type DragEvent, type FormEvent, useRef, useState } from 'react'
-import { ApiError, createLesson, type MaterialRole, type NewFile } from '../api'
+import { type DragEvent, type FormEvent, useEffect, useRef, useState } from 'react'
+import { ApiError, createLesson, getJobs, type MaterialRole, type NewFile } from '../api'
 import type { Lesson } from '../lesson/types'
 import { SUBJECT_LABELS } from '../subjects'
 import { ACCEPT, kindOf } from './files'
@@ -20,8 +20,21 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
   const [rejected, setRejected] = useState<string[]>([])
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Null until the server says; a lesson can't be built without Claude Code.
+  const [claude, setClaude] = useState<boolean | null>(null)
   const hasProblemSet = files.some((f) => f.role === 'problem_set')
-  const ready = subject !== null && hasProblemSet && !pending
+  const ready = subject !== null && hasProblemSet && !pending && claude !== false
+
+  useEffect(() => {
+    let current = true
+    getJobs().then(
+      (queue) => current && setClaude(queue.claude),
+      () => {}
+    )
+    return () => {
+      current = false
+    }
+  }, [])
 
   const add = (list: FileList | null) => {
     if (!list) return
@@ -68,8 +81,8 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
         <header className="lesson-header">
           <h1>New lesson</h1>
           <p className="muted">
-            Add the problem set and any reference material. Claude Code turns them into one lesson: after you create
-            it, open the Terminal panel (Ctrl+`), start Claude Code, and run <code>/kedami:lesson</code>.
+            Add the problem set and any reference material. Claude Code turns them into one lesson as soon as you
+            create it, on your own Claude plan.
           </p>
         </header>
         <fieldset className="field">
@@ -90,6 +103,12 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
         )}
         {files.length > 0 && !hasProblemSet && <p className="answer-error">Tag at least one file as a problem set.</p>}
         {error && <p className="answer-error">{error}</p>}
+        {claude === false && (
+          <p className="answer-error">
+            Claude Code isn't installed. Install it from code.claude.com and log in once in the Terminal panel, then
+            open this screen again.
+          </p>
+        )}
         <div className="answer-actions">
           <button type="submit" className="button button-primary" disabled={!ready}>
             Create lesson
