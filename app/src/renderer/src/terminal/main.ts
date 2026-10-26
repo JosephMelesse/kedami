@@ -1,5 +1,6 @@
-// The Terminal screen's page: buttons to start a session, then the session drawn with xterm.js. It talks
-// only to its own preload, and links in the output don't open. See architecture/agent-mode.md, Terminal screen.
+// The Terminal panel's page: the session drawn with xterm.js. Shown with no session running, it starts Claude Code,
+// or the student's shell if Claude Code isn't installed. It talks only to its own preload, and links in the output
+// don't open. See architecture/agent-mode.md, Terminal panel.
 import '@fontsource/inter/400.css'
 import '@fontsource/inter/500.css'
 import '@fontsource/jetbrains-mono/400.css'
@@ -41,10 +42,48 @@ term.open(fitHost)
 term.onData((data) => window.terminal.input(data))
 term.onResize(({ cols, rows }) => window.terminal.resize(cols, rows))
 window.terminal.onData((data) => term.write(data))
-window.terminal.onExit((code) => showStart(code))
+// Shown in the terminal itself before a plain shell starts. Plain text: the app opens no links.
+const NOT_INSTALLED =
+  "Claude Code isn't installed, so this is a plain shell. Install it from code.claude.com, then exit this shell " +
+  'and open the panel again.'
+
+let running = false
+let starting = false
+// Which session the last start ran, for the button that starts it again.
+let lastKind: SessionKind = 'claude'
+
+window.terminal.onExit((code) => showEnded(code))
+window.terminal.onShown(() => {
+  if (!running) startSession()
+})
 new ResizeObserver(() => {
   if (!screen.hidden) fit.fit()
 }).observe(root)
+
+/** Start Claude Code, or the shell if Claude Code isn't installed, unless a session is already running. */
+async function startSession(): Promise<void> {
+  if (starting) return
+  starting = true
+  try {
+    const state = await window.terminal.state()
+    if (state.running) {
+      running = true
+      return showSession()
+    }
+    lastKind = state.claude ? 'claude' : 'shell'
+    term.reset()
+    if (!state.claude) term.write(`\x1b[2m${NOT_INSTALLED}\x1b[0m\r\n\r\n`)
+    start.hidden = true
+    screen.hidden = false
+    fit.fit()
+    const started = await window.terminal.start(lastKind, term.cols, term.rows)
+    running = started.running !== null
+    if (running) showSession()
+    else showEnded(null)
+  } finally {
+    starting = false
+  }
+}
 
 function showSession(): void {
   start.hidden = true
@@ -53,45 +92,20 @@ function showSession(): void {
   term.focus()
 }
 
-async function showStart(exitCode: number | null = null): Promise<void> {
-  const { running, claude } = await window.terminal.state()
-  if (running) return showSession()
+/** After a session exits: its exit code, and a button to start one again. */
+function showEnded(exitCode: number | null): void {
+  running = false
   screen.hidden = true
   start.hidden = false
-  start.replaceChildren()
-
-  const heading = document.createElement('h1')
-  heading.textContent = 'Terminal'
-  const about = paragraph(
-    "Claude Code runs here on your own Claude login, with Kedami's plugin. Run /kedami:lesson to build a lesson " +
-      'waiting for Claude Code.'
+  const ended = paragraph(
+    exitCode === null ? "The session couldn't start." : `The session ended with exit code ${exitCode}.`
   )
-  const buttons = document.createElement('div')
-  buttons.className = 'terminal-buttons'
-  buttons.append(button('Start Claude Code', 'claude', !claude, true), button('Open a shell', 'shell', false, false))
-  start.append(heading, about, buttons)
-  if (!claude) {
-    // Plain text: the app opens no links.
-    start.append(paragraph("Claude Code isn't installed. Install it from code.claude.com, then open the Terminal again."))
-  }
-  if (exitCode !== null) start.append(paragraph(`The last session ended with exit code ${exitCode}.`))
-}
-
-function button(label: string, kind: SessionKind, disabled: boolean, primary: boolean): HTMLButtonElement {
-  const element = document.createElement('button')
-  element.type = 'button'
-  element.className = primary ? 'button button-primary' : 'button'
-  element.textContent = label
-  element.disabled = disabled
-  element.addEventListener('click', async () => {
-    term.reset()
-    screen.hidden = false
-    fit.fit()
-    const { running } = await window.terminal.start(kind, term.cols, term.rows)
-    if (running) showSession()
-    else showStart()
-  })
-  return element
+  const again = document.createElement('button')
+  again.type = 'button'
+  again.className = 'button button-primary'
+  again.textContent = lastKind === 'claude' ? 'Start Claude Code' : 'Open a shell'
+  again.addEventListener('click', () => startSession())
+  start.replaceChildren(ended, again)
 }
 
 function paragraph(text: string): HTMLParagraphElement {
@@ -101,4 +115,6 @@ function paragraph(text: string): HTMLParagraphElement {
   return element
 }
 
-showStart()
+// Nothing shows until the panel is first opened.
+start.hidden = true
+screen.hidden = true

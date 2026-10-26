@@ -128,20 +128,21 @@ The student can select a block or section of a ready lesson, then ask about it i
 
 ## Terminal panel
 
-- **Opening:** a panel on the right, below the header, at full height. The Terminal button in the app header, after "Kedami", opens and closes it, and so does Ctrl+` (Cmd+` on macOS) from anywhere in the app, the terminal included. Main handles the shortcut, so it works while the terminal has the keyboard. Closing the panel leaves the session running.
+- **Opening:** a panel on the right, below the header, at full height. The Claude Code button in the app header, after "Kedami", opens and closes it, and so does Ctrl+` (Cmd+` on macOS) from anywhere in the app, the terminal included. Main handles the shortcut, so it works while the terminal has the keyboard. Closing the panel leaves the session running.
 - **Beside the content:** the screen on the left, the code workspace included, narrows to make room instead of being covered, so the student can read the lesson or watch the Generating screen while Claude Code works. Clicking Kedami goes home and leaves the panel open. Dialogs center in the area left of the panel, since the terminal's view draws over the window's own content.
 - **Width:** the panel's left edge is a handle the student drags. The width is kept between 320px and the window's width less 360px, and remembered locally between launches; the first width is 40% of the window. While dragging, the terminal's view hides and the panel shows empty, then the view returns at the new width.
 - **Narrow windows:** at 720px wide or less, the open panel covers everything below the header, and the screen underneath keeps its state and takes no input.
 - **Rest:** the rest screen covers the panel too. The view hides during rest and returns after it, and the session keeps running.
-- **Starting:** with no session, the panel shows two buttons: **Start Claude Code**, which runs `claude --plugin-dir {data}/agent-plugin`, and **Open a shell**, which runs the student's default shell. One session at a time. When it exits, the buttons return.
-- **Missing Claude Code:** if `claude` isn't on the path, the panel says so and shows the install page's address as plain text.
+- **Starting:** opening the panel with no session running starts Claude Code with Kedami's plugin, `claude --plugin-dir {data}/agent-plugin`. Nothing starts before the panel is first opened.
+- **Missing Claude Code:** if `claude` isn't on the path, opening the panel starts the student's default shell instead, after a line in the terminal saying Claude Code isn't installed and giving the install page's address as plain text.
+- **Ending:** one session at a time. When it exits, the panel says so with its exit code and a button to start it again; opening the panel later starts one again.
 - **Environment:** the session starts in the data folder, with the parent environment plus `KEDAMI_PORT` and `KEDAMI_TOKEN`.
 - **Closing the app** kills the session.
 
 **Isolation.** A terminal is the most powerful thing in the app, so the lesson window never gets it.
 - The terminal is a separate `WebContentsView` with its own renderer process, loading the local page `terminal.html` (xterm.js) with its own preload. That preload is the only one that can send keystrokes, resize, or start a session.
 - Main accepts pseudo-terminal messages only from that view's `webContents` and drops them from anywhere else.
-- The lesson window can only ask main to show or hide the view and set its bounds. The shortcut goes from main to the lesson window, which decides whether the panel opens.
+- The lesson window can only ask main to show or hide the view and set its bounds. Main tells the terminal view when it is shown, and the view starts a session if none is running; the lesson window can't choose what runs or send it anything. The shortcut goes from main to the lesson window, which decides whether the panel opens.
 - `terminal.html` has a CSP that allows only its own scripts and styles, and never shows lesson content. Terminal output is drawn as text, and links in it don't open.
 - node-pty runs in main. The window and the terminal view never get Node access.
 

@@ -12,6 +12,8 @@ export interface TerminalApi {
   onData(listener: (data: string) => void): void
   /** The session ended, with its exit code. */
   onExit(listener: (code: number) => void): void
+  /** The panel was shown; a session starts then if none is running. */
+  onShown(listener: () => void): void
 }
 
 declare global {

@@ -416,6 +416,8 @@ input {
 
 /* The Terminal screen: a header button, and the space below the header that main lays the terminal's view over. */
 .terminal-toggle {
+  display: inline-flex;
+  align-items: center;
   padding: 0;
   border: 0;
   background: none;

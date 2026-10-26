@@ -12,6 +12,9 @@ const api: TerminalApi = {
   },
   onExit: (listener) => {
     ipcRenderer.on('terminal:exit', (_event, code: number) => listener(code))
+  },
+  onShown: (listener) => {
+    ipcRenderer.on('terminal:shown', () => listener())
   }
 }
 

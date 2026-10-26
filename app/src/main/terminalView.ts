@@ -90,6 +90,8 @@ export function setUpTerminal(window: BrowserWindow, options: TerminalOptions): 
     if (!fromWindow(event.sender) || !isBounds(bounds)) return
     window.contentView.addChildView(view)
     view.setBounds(bounds)
+    // The view starts a session the first time it is shown, rather than when the app opens.
+    view.webContents.send('terminal:shown')
   })
   ipcMain.on('kedami:terminal-hide', (event) => {
     if (!fromWindow(event.sender)) return

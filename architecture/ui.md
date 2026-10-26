@@ -53,7 +53,7 @@ The syntax tokens color code and nothing else. Each reads at 5.9:1 or more on `-
 | Terminal panel | Claude Code or a shell in a pseudo-terminal, in a panel on the right that opens and closes beside any screen; see Terminal panel in `agent-mode.md` |
 | Lesson | Sections and blocks in order, with a progress indicator in the accent color. A Days button splits the lesson into days; see Finish lines. Opening a lesson returns to the block last read; see Reading position. Each block and section heading has a Select control, and simulations the student added show after their block; see Selecting a block in `agent-mode.md` |
 
-The app header is visible on every screen and holds the music player and the Pomodoro timer. Clicking Kedami in it opens the Library home page from any screen, including from inside a folder. A Terminal button after Kedami, in `--text-muted` and `--text` while open, opens and closes the Terminal panel on the right; so does Ctrl+`.
+The app header is visible on every screen and holds the music player and the Pomodoro timer. Clicking Kedami in it opens the Library home page from any screen, including from inside a folder. A Claude Code button after Kedami opens and closes the Terminal panel on the right; so does Ctrl+`. It shows Claude Code's little pixel robot, drawn from the block characters of its startup banner as a single-color inline SVG, in `--text-muted`, and `--text` while open. Its accessible name and tooltip are "Claude Code".
 
 ## Active lessons
 
