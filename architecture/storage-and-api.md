@@ -25,7 +25,6 @@ Everything lives in one app data folder, which main passes to the server at laun
 | `simulations` | lesson id, block id, code Claude Code wrote, flagged, error, updated |
 | `solutions` | lesson id, block id, part id, solution JSON, matches stored answer, updated |
 | `jobs` | id, kind, lesson id, block id, part id, status, error, created, started, ended |
-| `added_simulations` | id, lesson id, after block id, caption, brief, code, flagged, error, created |
 
 - Lesson status is one of: generating, ready, failed. Only a ready lesson has lesson JSON to serve.
 - Builder is `agent` for every lesson Claude Code builds (see `agent-mode.md`), and `pipeline` for one the old API pipeline made. A lesson whose build job hasn't reached its first step is generating with no current stage.
@@ -36,9 +35,8 @@ Everything lives in one app data folder, which main passes to the server at laun
 - The reading block is the ID of the block the student was last reading (see Reading position in `ui.md`). Deleting the lesson removes it.
 - Day starts are the IDs of the blocks that begin day 2 onward, in lesson order (see Finish lines in `ui.md`). Splitting again replaces them, and deleting the lesson removes them.
 - Active marks a lesson the student is working through (see Active lessons in `ui.md`). New lessons start inactive, and deleting the lesson removes it.
-- A job's kind is build, solution, simulation, or added simulation, and its status is queued, running, done, failed, or canceled (see Background jobs in `agent-mode.md`). Each job's output is kept in `jobs/{job-id}.jsonl` in the data folder.
+- A job's kind is build, solution, or simulation, and its status is queued, running, done, failed, or canceled (see Background jobs in `agent-mode.md`). Each job's output is kept in `jobs/{job-id}.jsonl` in the data folder.
 - The selection is one `settings` entry: a lesson ID with a section ID or a block ID (see Selecting a block in `agent-mode.md`). Selecting replaces it, and deleting its lesson removes it.
-- An added simulation's after block is the block it follows; one added to a section follows the section's last block. Added simulations show in the order created.
 - The database is `kedami.db` in the app data folder.
 
 ## API
@@ -48,7 +46,7 @@ All routes require the session token.
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/lessons` | Multipart upload: `subject` (math, physics, or general), optional `folder`, and per file `files` and `roles`; saves the files and queues the lesson's build job |
-| DELETE | `/lessons/{id}` | Delete a lesson that isn't generating: its JSON, files, stage outputs, progress, simulations, added simulations, solutions, and jobs, and the selection if it is in this lesson |
+| DELETE | `/lessons/{id}` | Delete a lesson that isn't generating: its JSON, files, stage outputs, progress, simulations, solutions, and jobs, and the selection if it is in this lesson |
 | POST | `/lessons/{id}/rename` | Rename a lesson |
 | POST | `/lessons/{id}/active` | Mark a ready lesson active or not |
 | POST | `/lessons/{id}/move` | Move a lesson to a folder, or home with `null` |
@@ -73,12 +71,8 @@ All routes require the session token.
 | GET | `/lessons/{id}/jobs` | The lesson's latest job of each kind, block, and part, with its status and any error |
 | POST | `/lessons/{id}/blocks/{block_id}/solution-job` | Queue a job writing a part's solution; returns the job |
 | POST | `/lessons/{id}/blocks/{block_id}/simulation-job` | Queue a job writing or rewriting a simulation's code; returns the job |
-| POST | `/selection/simulation-job` | Queue a job adding a simulation below the selection; returns the job |
 | GET | `/selection` | The selection: a lesson ID with a section ID or a block ID, or null |
 | POST | `/selection` | Select a section or block of a ready lesson, replacing any selection; `null` clears it |
-| GET | `/lessons/{id}/added-simulations` | The lesson's added simulations in order, each with its after block, caption, code, and whether it is flagged |
-| POST | `/lessons/{id}/added-simulations/{n}/status` | Record whether an added simulation loaded; a failure flags it |
-| DELETE | `/lessons/{id}/added-simulations/{n}` | Remove an added simulation |
 | GET | `/health` | Used by main to detect server readiness |
 
 Routes under `/agent/` are called only by the MCP server; they are listed in `agent-mode.md`.

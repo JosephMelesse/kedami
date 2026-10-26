@@ -46,7 +46,7 @@ Before writing code, read `README.md` and every file in `architecture/`. Those d
 - Math strings are parsed only with the restricted, whitelisted parser. Never pass Claude Code's or the student's input to SymPy's default string parsing or to `eval`.
 
 **Lesson data**
-- Lesson JSON is never edited or replaced once written. Simulation code, and simulations the student adds, are stored apart from it.
+- Lesson JSON is never edited or replaced once written. Simulation code is stored apart from it.
 - Progress is stored apart from the lesson, keyed by block and part ID.
 - The `verified` flag is set only by the server, comparing a stored answer with the verifier subagent's second solve.
 - Problem block IDs derive from the source reference, and part IDs from the part label.

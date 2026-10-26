@@ -35,10 +35,9 @@
 31. Create lesson starts the build job; the Generating screen follows it
 32. Show solution and Generate simulation start jobs
 33. Selecting a block: the Select control, `/selection`, and `get_selection`; ask about a selected block in the Terminal panel
-34. Add simulation here: the added simulation job, `add_simulation`, and showing and removing added simulations
-35. The Claude Code button in the header, and the Terminal panel starting Claude Code when opened, or the shell when Claude Code is missing
+34. The Claude Code button in the header, and the Terminal panel starting Claude Code when opened, or the shell when Claude Code is missing
 
-Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the sequencing. Each later step is independent of the ones after it. Steps 24 to 28 move lesson building to Claude Code (see `agent-mode.md`); step 25 proves it before any UI exists. Step 29 stops opening computer science lessons. Steps 30 to 32 start Claude Code from buttons; step 30 proves it before any UI changes. Steps 33 and 34 let the student point Claude Code at part of a lesson.
+Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the sequencing. Each later step is independent of the ones after it. Steps 24 to 28 move lesson building to Claude Code (see `agent-mode.md`); step 25 proves it before any UI exists. Step 29 stops opening computer science lessons. Steps 30 to 32 start Claude Code from buttons; step 30 proves it before any UI changes. Step 33 lets the student point Claude Code at part of a lesson.
 
 ## Backlog
 

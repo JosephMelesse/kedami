@@ -78,7 +78,7 @@ The server writes the plugin to `agent-plugin/` in the data folder on every star
 | `.claude-plugin/plugin.json` | Name `kedami`, version, description |
 | `skills/lesson/SKILL.md` | `/kedami:lesson`: the build steps above, with the rules from `generation/prompts.py` |
 | `skills/solution/SKILL.md` | `/kedami:solution <lesson-id> <block-id> <part-id>`: write one problem part's solution |
-| `skills/simulation/SKILL.md` | `/kedami:simulation <lesson-id> <block-id>`: write one simulation's code. With no arguments, add one below the selection (see Selecting a block) |
+| `skills/simulation/SKILL.md` | `/kedami:simulation <lesson-id> <block-id>`: write one simulation's code. |
 | `agents/verifier.md` | The second solve. Model from `SUBAGENT_MODELS["verifier"]` |
 | `agents/hint-checker.md` | The hint judge. Model from `SUBAGENT_MODELS["hint_checker"]` |
 | `.mcp.json` | Starts `kedami_server.mcp` with the server's own Python (`sys.executable`) and the server folder |
@@ -105,7 +105,7 @@ Button ──► Server ── job runner ── claude -p "/kedami:solution …
                                      (Read in the data folder and Kedami's tools only)
 ```
 
-- **Jobs:** building a lesson, writing a solution, writing a simulation, and adding a simulation below a selected block. A button starts each one; nothing starts on its own. Asking the same thing again while its job is queued or running returns that job.
+- **Jobs:** building a lesson, writing a solution, and writing a simulation. A button starts each one; nothing starts on its own. Asking the same thing again while its job is queued or running returns that job.
 - **One at a time:** jobs run in the order they were started. The others wait, shown as "Waiting for another job".
 - **The command:** the server runs `claude -p` with the job's skill command as the prompt, such as `/kedami:solution {lesson-id} ps3-4 a`, in the data folder, with the parent environment plus `KEDAMI_PORT` and `KEDAMI_TOKEN`. The IDs in it are checked against the lesson first, and the arguments are passed as a list, never through a shell.
 - **The limits:** the job loads Kedami's plugin and runs in Claude Code's restricted mode: no tool that runs commands or code, no web access, the student's settings files ignored, and file tools confined to the data folder. Of the built-in tools it gets only Read and the subagent tool. The only MCP server loaded is Kedami's, from `jobs/mcp.json`, which the server writes beside the plugin, so MCP servers and connectors the student has set up aren't there at all. Kedami's tools are allowed without asking, and nothing may ask, so any other tool is refused. No session is saved.
@@ -119,12 +119,10 @@ Button ──► Server ── job runner ── claude -p "/kedami:solution …
 
 ## Selecting a block
 
-The student can select a block or section of a ready lesson, then ask about it in the Terminal panel or add a simulation below it.
+The student can select a block or section of a ready lesson, then ask about it in the Terminal panel.
 
 - **Selecting:** every block and section heading in a ready lesson has a Select control, shown on hover and keyboard focus. The selected one gets an `--accent` border and the label "Selected"; clicking its control again clears it. There is one selection in the app: selecting anything, in any lesson, replaces it. The server keeps it, so it survives closing the lesson and restarting the app; deleting the lesson clears it.
 - **Asking in the Terminal:** `get_selection` returns the selected lesson's ID and subject, the section's title, goal, and blocks, which block is selected, and the course material paths. Like `get_questions`, it never includes stored answers, hints, or solutions. With nothing selected, it says to select a block in Kedami. Kedami's MCP server instructions, which Claude Code shows in every session even while it holds back tool descriptions, tell it to call `get_selection` whenever the student says "this" or "here" or asks about what they are reading, and, on a problem part or checkpoint, to help the student toward the answer rather than give it. The reply appears in the terminal; Kedami stores nothing. Kedami never tells Claude Code about a selection: Claude Code asks when the student refers to it.
-- **Add simulation here:** the selected block or section shows an **Add simulation here** button, which queues a job running `/kedami:simulation` with no arguments. The skill calls `get_selection`, writes a brief, a caption, and the code by the simulation rules, and submits them through `add_simulation`, which places the simulation after the selected block, or at the end of the selected section. The server checks the code as it does any simulation's and stores it apart from the lesson JSON.
-- **Added simulations** show after their block, in the order they were added, marked "Added", in the same sandboxed frame with the same ready check; a failed one shows the one-line notice. Each has a Remove button, with a confirmation, in place of Regenerate: to change one, the student removes it and adds another. They are kept until removed or the lesson is deleted, and never count toward completion.
 
 ## Terminal panel
 
@@ -168,7 +166,6 @@ All require the session token, like every route. The build routes refuse a lesso
 | GET | `/agent/lessons/{id}/blocks/{block_id}/simulation-request` | `get_simulation_request` | A simulation's brief and any flagged error |
 | POST | `/agent/lessons/{id}/blocks/{block_id}/simulation` | `save_simulation` | Store a simulation's code |
 | GET | `/agent/selection` | `get_selection` | What the student selected, with its section and the material paths; never stored answers, hints, or solutions |
-| POST | `/agent/lessons/{id}/added-simulations` | `add_simulation` | Add a simulation after the selected block, or at the end of the selected section |
 
 ## What the server can't check
 
@@ -187,7 +184,7 @@ All require the session token, like every route. The build routes refuse a lesso
 
 **Cut to ship faster (backlog)**
 - Creating computer science lessons through Claude Code
-- Changing a ready lesson from the Terminal panel, in place of reruns, beyond adding simulations
+- Changing a ready lesson from the Terminal panel, in place of reruns
 - Resuming a failed build, or running several jobs at once
 - Choosing the model for a job
 - Selecting text inside a block, or several blocks at once
