@@ -5,6 +5,7 @@ import uuid
 from dataclasses import asdict
 from typing import Annotated, Any
 
+from fastapi import Body as RequestBody
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -12,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, String
 
 from . import db, jobs, library, progress, simulation_state, solution_state
 from .agent import draft as agent_draft
+from .agent import selection
 from .agent.routes import agent_router
 from .checking import InvalidResponse, check
 from .config import Settings
@@ -68,6 +70,12 @@ class ReadingPositionRequest(Body):
 class DaysRequest(Body):
     # Day 1 starts at the first block, so 30 days have 29 starts.
     block_ids: Annotated[list[Annotated[str, StringConstraints(min_length=1, max_length=200)]], Field(max_length=29)]
+
+
+class SelectionRequest(Body):
+    lesson_id: Annotated[str, StringConstraints(min_length=1, max_length=200)]
+    section_id: Annotated[str, StringConstraints(min_length=1, max_length=200)] | None = None
+    block_id: Annotated[str, StringConstraints(min_length=1, max_length=200)] | None = None
 
 
 class SolutionJobRequest(Body):
@@ -208,6 +216,26 @@ def create_app(settings: Settings, runner: jobs.JobRunner | None = None) -> Fast
         if runner:
             runner.cancel_lesson(lesson_id, "build")
         return canceled
+
+    @app.get("/selection")
+    def get_selection():
+        """The block or section selected for Claude Code, or null; see architecture/agent-mode.md, Selecting a block."""
+        with db.connect(settings.data_dir) as conn:
+            current = selection.load(conn)
+        return {"selection": asdict(current) if current else None}
+
+    @app.post("/selection")
+    def select(body: Annotated[SelectionRequest | None, RequestBody()] = None):
+        """Select a section or block of a ready lesson, replacing any selection. A null body clears it."""
+        chosen = None
+        if body is not None:
+            try:
+                chosen = selection.check(get_lesson(body.lesson_id), selection.Selection(**body.model_dump()))
+            except selection.Invalid as error:
+                raise HTTPException(422, str(error)) from error
+        with db.connect(settings.data_dir) as conn:
+            selection.save(conn, chosen)
+        return {"selection": asdict(chosen) if chosen else None}
 
     @app.get("/jobs")
     def job_queue():
@@ -377,6 +405,7 @@ def create_app(settings: Settings, runner: jobs.JobRunner | None = None) -> Fast
         if runner:
             runner.cancel_lesson(lesson_id)
         with db.connect(settings.data_dir) as conn:
+            selection.forget_lesson(conn, lesson_id)
             library.delete_lesson(conn, lesson_id)
         delete_lesson_files(settings.data_dir, lesson_id)
         return {"deleted": lesson_id}

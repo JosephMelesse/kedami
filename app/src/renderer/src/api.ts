@@ -169,6 +169,24 @@ export function startSimulationJob(lessonId: string, blockId: string): Promise<J
   return request('POST', `${blockPath(lessonId, blockId)}/simulation-job`)
 }
 
+/** The block or section selected for Claude Code. See architecture/agent-mode.md, Selecting a block. */
+export interface Selection {
+  lesson_id: string
+  section_id: string | null
+  block_id: string | null
+}
+
+export async function getSelection(): Promise<Selection | null> {
+  const body = await request<{ selection: Selection | null }>('GET', '/selection')
+  return body.selection
+}
+
+/** Select a section or block, replacing any selection in any lesson, or clear it with null. */
+export async function saveSelection(selection: Selection | null): Promise<Selection | null> {
+  const body = await request<{ selection: Selection | null }>('POST', '/selection', selection)
+  return body.selection
+}
+
 /** Whether a lesson's build is queued behind another job, rather than starting. */
 export function buildIsWaiting(queue: JobQueue | null, lessonId: string): boolean {
   if (!queue?.running) return false

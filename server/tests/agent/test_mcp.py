@@ -16,7 +16,7 @@ from .conftest import AUTH, PAGES, extraction_body, number, plan_body
 TOOLS = {
     "list_waiting_lessons", "start_lesson", "save_pages", "save_extraction", "save_plan", "save_section",
     "save_hints", "get_questions", "save_verification", "finish_lesson", "fail_lesson",
-    "get_solution_request", "save_solution", "get_simulation_request", "save_simulation",
+    "get_solution_request", "save_solution", "get_simulation_request", "save_simulation", "get_selection",
 }
 
 
@@ -35,6 +35,12 @@ def test_every_tool_is_offered():
     tools = asyncio.run(mcp.server.list_tools())
     assert {t.name for t in tools} == TOOLS
     assert all(t.description for t in tools)
+
+
+def test_the_server_instructions_say_when_to_call_get_selection():
+    # Claude Code may hold back tool descriptions, but always shows these.
+    assert "get_selection" in mcp.INSTRUCTIONS and '"this"' in mcp.INSTRUCTIONS
+    assert "don't give the final answer" in mcp.INSTRUCTIONS
 
 
 def test_tool_inputs_carry_the_lesson_schemas():

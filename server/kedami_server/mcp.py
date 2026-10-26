@@ -23,11 +23,19 @@ NOT_CONNECTED = (
     "screen, or set both to match a Kedami server started by hand."
 )
 
-server = MCPServer(
-    "kedami",
-    instructions="Tools for building Kedami lessons. Use them as the /kedami:lesson, /kedami:solution, and "
-    "/kedami:simulation skills describe.",
+# Claude Code shows a server's instructions in every session, even while it holds back the tools' own descriptions,
+# so what get_selection is for is said here too. See architecture/agent-mode.md, Selecting a block.
+INSTRUCTIONS = (
+    "Kedami is a study app, and this session runs in its Terminal panel beside a lesson the student is reading. "
+    'When the student says "this" or "here", or asks about something they are reading or working on in Kedami, '
+    "call get_selection first: it returns the block or section they selected in the lesson, with its section and "
+    "the course files. If nothing is selected, ask them to select it with its Select control. On a problem part or "
+    "a checkpoint, help them work toward the answer with questions and hints of your own; don't give the final "
+    "answer. The other tools build lessons, solutions, and simulations as the /kedami:lesson, /kedami:solution, and "
+    "/kedami:simulation skills describe."
 )
+
+server = MCPServer("kedami", instructions=INSTRUCTIONS)
 
 
 def client() -> httpx2.Client:
@@ -67,6 +75,15 @@ def lesson(lesson_id: str) -> str:
 def list_waiting_lessons() -> dict:
     """Lessons the student uploaded with Claude Code as the builder, still waiting for a session to build them."""
     return call("GET", "/lessons")
+
+
+@server.tool()
+def get_selection() -> dict:
+    """What the student selected in Kedami: the block or section, with its whole section as they read it and the
+    course material files. Call this whenever the student says "this" or "here", or asks about what they are reading.
+    It never shows stored answers, hints, or solutions. On a problem part or a checkpoint, help the student work
+    toward the answer with questions and hints of your own; don't give the final answer."""
+    return call("GET", "/selection")
 
 
 @server.tool()

@@ -11,7 +11,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StringConstraints
 
 from ..generation.schemas import Plan, ProblemsAndConcepts, SectionDraft, Solutions
-from . import draft, requests
+from .. import db
+from . import draft, requests, selection
 
 T = TypeVar("T")
 
@@ -75,6 +76,12 @@ def agent_router(data_dir: Path) -> APIRouter:
     @router.get("/lessons")
     def waiting():
         return {"lessons": draft.waiting(data_dir)}
+
+    @router.get("/selection")
+    def selected():
+        with db.connect(data_dir) as conn:
+            current = selection.load(conn)
+        return selection.view(data_dir, current)
 
     @router.post(base + "/start")
     def start(lesson_id: str):

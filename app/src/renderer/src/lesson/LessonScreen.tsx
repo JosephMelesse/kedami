@@ -4,6 +4,7 @@ import { boundaries, lessonEnd, MAX_DAYS, splitDays } from './days/days'
 import { DaysDialog } from './days/DaysDialog'
 import { LessonView } from './LessonView'
 import { ProgressProvider } from './progress/ProgressContext'
+import { SelectionProvider } from './selection/Selection'
 import type { Lesson } from './types'
 
 type State =
@@ -74,11 +75,13 @@ export function LessonScreen({ lessonId, onBack }: LessonScreenProps) {
       {state.status === 'ready' && (
         <ProgressProvider key={lessonId} lessonId={lessonId} initial={state.progress}>
           {state.response.error && <p className="notice">{state.response.error}</p>}
-          <LessonView
-            lesson={state.lesson}
-            readingBlock={state.response.reading_block}
-            dayStarts={state.response.day_starts}
-          />
+          <SelectionProvider lessonId={lessonId}>
+            <LessonView
+              lesson={state.lesson}
+              readingBlock={state.response.reading_block}
+              dayStarts={state.response.day_starts}
+            />
+          </SelectionProvider>
           {splitting && (
             <DaysDialog
               current={state.response.day_starts.length + 1}
