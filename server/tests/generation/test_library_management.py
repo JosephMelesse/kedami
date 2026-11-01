@@ -131,7 +131,9 @@ def test_renaming_keeps_the_folder_lessons(two_lessons):
     folder = client.post("/folders", json={"name": "Week 3"}, headers=AUTH).json()["id"]
     client.post(f"/lessons/{first}/move", json={"folder_id": folder}, headers=AUTH)
     client.post(f"/folders/{folder}/rename", json={"name": "Kinematics"}, headers=AUTH)
-    assert folders(client) == [{"id": folder, "name": "Kinematics", "lessons": 1}]
+    assert folders(client) == [
+        {"id": folder, "name": "Kinematics", "parent_id": None, "lessons": 1, "own_lessons": 1, "subfolders": 0}
+    ]
 
 
 def test_move_lessons_between_folders_and_home(two_lessons):
@@ -162,7 +164,7 @@ def test_deleting_a_folder_moves_its_lessons_home(two_lessons, data_dir):
     folder = client.post("/folders", json={"name": "Week 3"}, headers=AUTH).json()["id"]
     for lesson_id in (first, second):
         client.post(f"/lessons/{lesson_id}/move", json={"folder_id": folder}, headers=AUTH)
-    assert client.delete(f"/folders/{folder}", headers=AUTH).json() == {"deleted": folder}
+    assert client.delete(f"/folders/{folder}", headers=AUTH).json() == {"deleted": folder, "parent_id": None, "renamed": []}
     assert folders(client) == []
     lessons = client.get("/lessons", headers=AUTH).json()["lessons"]
     assert [(lesson["id"], lesson["folder_id"]) for lesson in lessons] == [(first, None), (second, None)]

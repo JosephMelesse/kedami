@@ -82,8 +82,21 @@ class RecommendRequest(Body):
     round: Annotated[StrictInt, Field(ge=0, le=100_000)] = 0
 
 
+FolderName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=library.MAX_FOLDER_NAME)]
+
+
 class FolderRequest(Body):
-    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+    name: FolderName
+
+
+class NewFolderRequest(FolderRequest):
+    # None creates it at the top level.
+    parent_id: StrictInt | None = None
+
+
+class FolderMoveRequest(Body):
+    # None moves the folder to the top level.
+    parent_id: StrictInt | None
 
 
 class RenameRequest(Body):
@@ -641,10 +654,12 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
             return {"folders": [asdict(f) for f in library.list_folders(conn)]}
 
     @app.post("/folders", status_code=201)
-    def create_folder(body: FolderRequest):
+    def create_folder(body: NewFolderRequest):
         with db.connect(settings.data_dir) as conn:
+            if body.parent_id is not None and not library.folder_exists(conn, body.parent_id):
+                raise HTTPException(404, "folder not found")
             try:
-                return asdict(library.create_folder(conn, body.name))
+                return asdict(library.create_folder(conn, body.name, body.parent_id))
             except library.FolderExists as error:
                 raise HTTPException(409, str(error)) from error
 
@@ -659,12 +674,29 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
                 raise HTTPException(409, str(error)) from error
         return {"id": folder_id, "name": body.name}
 
+    @app.post("/folders/{folder_id}/move")
+    def move_folder(folder_id: int, body: FolderMoveRequest):
+        with db.connect(settings.data_dir) as conn:
+            conn.execute("BEGIN IMMEDIATE")  # Take the write lock before checking, so moves can't interleave into a cycle.
+            if not library.folder_exists(conn, folder_id):
+                raise HTTPException(404, "folder not found")
+            if body.parent_id is not None and not library.folder_exists(conn, body.parent_id):
+                raise HTTPException(404, "folder not found")
+            try:
+                library.move_folder(conn, folder_id, body.parent_id)
+            except library.FolderCycle as error:
+                raise HTTPException(422, str(error)) from error
+            except library.FolderExists as error:
+                raise HTTPException(409, str(error)) from error
+        return {"id": folder_id, "parent_id": body.parent_id}
+
     @app.delete("/folders/{folder_id}")
     def delete_folder(folder_id: int):
         with db.connect(settings.data_dir) as conn:
+            conn.execute("BEGIN IMMEDIATE")
             if not library.folder_exists(conn, folder_id):
                 raise HTTPException(404, "folder not found")
-            library.delete_folder(conn, folder_id)
-        return {"deleted": folder_id}
+            deleted = library.delete_folder(conn, folder_id)
+        return {"deleted": folder_id, **asdict(deleted)}
 
     return app
