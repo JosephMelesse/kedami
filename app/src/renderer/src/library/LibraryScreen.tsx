@@ -53,7 +53,8 @@ export function LibraryScreen({ onOpen, onNew, folderId, onFolder }: LibraryProp
   const [state, setState] = useState<State>({ status: 'loading' })
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+  // Shown only on the page it is about, so it doesn't follow the student around.
+  const [notice, setNotice] = useState<{ folderId: number | null; text: string } | null>(null)
   const generating = state.status === 'ready' && state.lessons.some((lesson) => lesson.status === 'generating')
 
   const load = useCallback(async () => {
@@ -107,7 +108,7 @@ export function LibraryScreen({ onOpen, onNew, folderId, onFolder }: LibraryProp
         folders={state.folders}
         folder={folder}
         problem={problem}
-        notice={notice}
+        notice={notice?.folderId === folderId ? notice.text : null}
         onOpen={onOpen}
         onNew={() => onNew(folder?.id ?? null)}
         onOpenFolder={(f) => onFolder(f.id)}
@@ -191,7 +192,7 @@ export function LibraryScreen({ onOpen, onNew, folderId, onFolder }: LibraryProp
               onFolder(deleted.parent_id)
               if (deleted.renamed.length > 0) {
                 const names = deleted.renamed.map((f) => `${f.old} is now ${f.new}`).join(', ')
-                setNotice(`${names}, since that name was taken.`)
+                setNotice({ folderId: deleted.parent_id, text: `${names}, since that name was taken.` })
               }
             })
           }}
@@ -270,7 +271,7 @@ export function LibraryView(props: LibraryViewProps) {
         )}
       </header>
       {problem && <p className="answer-error">{problem}</p>}
-      {notice && <p className="muted">{notice}</p>}
+      {notice && <p className="muted library-notice">{notice}</p>}
       {!folder && <ActiveLessons lessons={lessons} onOpen={props.onOpen} />}
       <ul className="tile-grid">
         {subfolders.map((f) => (

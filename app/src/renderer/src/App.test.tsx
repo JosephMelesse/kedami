@@ -24,7 +24,8 @@ const folder: Folder = { id: 3, name: 'Week 3', parent_id: null, lessons: 1, own
 vi.mock('./api', async (original) => ({
   ...(await original<typeof import('./api')>()),
   listLessons: async () => [lesson],
-  listFolders: async () => [folder]
+  listFolders: async () => [folder],
+  deleteFolder: async () => ({ parent_id: null, renamed: [{ id: 9, old: 'Week 1', new: 'Week 1 (2)' }] })
 }))
 
 let container: HTMLDivElement
@@ -53,5 +54,23 @@ describe('App header', () => {
     expect(heading()).toBe('Week 3')
     await click('.app-name')
     expect(heading()).toBe('Lessons')
+  })
+})
+
+describe('Deleting a folder', () => {
+  it('lands on its parent with a notice of what was renamed, which stays on that page', async () => {
+    HTMLDialogElement.prototype.showModal = function () {
+      this.open = true
+    }
+    const button = (label: string) => [...container.querySelectorAll('button')].filter((b) => b.textContent === label).at(-1)!
+    await act(async () => root.render(<App />))
+    await click('.tile')
+    await act(async () => button('Delete folder').click())
+    await act(async () => button('Delete folder').click())
+    expect(heading()).toBe('Lessons')
+    expect(container.querySelector('.library-notice')?.textContent).toBe('Week 1 is now Week 1 (2), since that name was taken.')
+    await click('.tile')
+    expect(heading()).toBe('Week 3')
+    expect(container.querySelector('.library-notice')).toBeNull()
   })
 })

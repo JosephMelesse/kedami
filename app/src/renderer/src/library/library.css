@@ -20,6 +20,10 @@
   margin-bottom: 32px;
 }
 
+.library-notice {
+  margin-bottom: 16px;
+}
+
 .library-actions {
   display: flex;
   flex-wrap: wrap;
