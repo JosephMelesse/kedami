@@ -23,7 +23,7 @@ function summary(overrides: Partial<LessonSummary>): LessonSummary {
 }
 
 function folderOf(overrides: Partial<Folder> & { id: number; name: string }): Folder {
-  return { parent_id: null, lessons: 0, own_lessons: 0, subfolders: 0, ...overrides }
+  return { parent_id: null, lessons: 0, own_lessons: 0, subfolders: 0, note: '', ...overrides }
 }
 
 const WEEK3 = folderOf({ id: 3, name: 'Week 3', lessons: 1, own_lessons: 1 })
@@ -50,6 +50,7 @@ function render(lessons: LessonSummary[], folders: Folder[] = [], folder: Folder
       onMove={noop}
       onSetActive={noop}
       onDelete={noop}
+      onNoteChange={noop}
     />
   )
   return root
@@ -102,6 +103,14 @@ describe('LibraryView', () => {
     expect(root.textContent).toContain('2 lessons')
   })
 
+  it('shows the note at the top of a folder, and none on the home page', () => {
+    const noted = folderOf({ id: 3, name: 'Week 3', note: 'Exam on Friday' })
+    const inside = render([], [noted], noted)
+    expect(inside.querySelector<HTMLTextAreaElement>('.folder-note textarea')?.textContent).toBe('Exam on Friday')
+    expect(inside.querySelector('.library > :nth-child(3)')?.className).toBe('folder-note')
+    expect(render([], [noted]).querySelector('.folder-note')).toBeNull()
+  })
+
   it('shows a notice, such as a folder renamed by a delete', () => {
     const root = document.createElement('div')
     root.innerHTML = renderToString(
@@ -123,6 +132,7 @@ describe('LibraryView', () => {
         onMove={noop}
         onSetActive={noop}
         onDelete={noop}
+        onNoteChange={noop}
       />
     )
     expect(root.textContent).toContain('Week 1 is now Week 1 (2)')
@@ -246,6 +256,7 @@ describe('Active lessons', () => {
         onMove={noop}
         onSetActive={(l, value) => calls.push(`active ${l.id} ${value}`)}
         onDelete={noop}
+        onNoteChange={noop}
       />
     )
     await act(async () => root.render(view(summary({}))))

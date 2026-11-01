@@ -388,6 +388,8 @@ export interface Folder {
   own_lessons: number
   /** How many folders sit directly in it. */
   subfolders: number
+  /** The student's own text, never sent to the model. */
+  note: string
 }
 
 export interface DeletedFolder {
@@ -408,6 +410,10 @@ export function createFolder(name: string, parentId: number | null): Promise<Fol
 
 export async function renameFolder(folderId: number, name: string): Promise<void> {
   await request('POST', `/folders/${folderId}/rename`, { name })
+}
+
+export async function saveFolderNote(folderId: number, note: string): Promise<void> {
+  await request('POST', `/folders/${folderId}/note`, { note })
 }
 
 export async function moveFolder(folderId: number, parentId: number | null): Promise<void> {

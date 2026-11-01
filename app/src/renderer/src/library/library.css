@@ -31,6 +31,17 @@
   gap: 8px;
 }
 
+.folder-note {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.folder-note textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .move-list {
   display: grid;
   min-width: 320px;

@@ -19,7 +19,7 @@ const lesson: LessonSummary = {
   problems_done: 0,
   active: false
 }
-const folder: Folder = { id: 3, name: 'Week 3', parent_id: null, lessons: 1, own_lessons: 1, subfolders: 0 }
+const folder: Folder = { id: 3, name: 'Week 3', parent_id: null, lessons: 1, own_lessons: 1, subfolders: 0, note: '' }
 
 vi.mock('./api', async (original) => ({
   ...(await original<typeof import('./api')>()),

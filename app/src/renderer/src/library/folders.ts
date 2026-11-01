@@ -53,11 +53,12 @@ const counted = (count: number, one: string, many: string) => (count === 1 ? `1 
 
 /** What a folder's delete confirmation says about its contents. */
 export function deleteSummary(folder: Folder, destination: string): string {
+  const note = folder.note.trim() === '' ? '' : ' Its note is deleted.'
   const parts = [
     ...(folder.own_lessons > 0 ? [counted(folder.own_lessons, 'lesson', 'lessons')] : []),
     ...(folder.subfolders > 0 ? [counted(folder.subfolders, 'subfolder', 'subfolders')] : [])
   ]
-  if (parts.length === 0) return 'The folder is empty.'
+  if (parts.length === 0) return `The folder is empty.${note}`
   const verb = folder.own_lessons + folder.subfolders === 1 ? 'moves' : 'move'
-  return `Its ${parts.join(' and ')} ${verb} up to ${destination}.`
+  return `Its ${parts.join(' and ')} ${verb} up to ${destination}.${note}`
 }
