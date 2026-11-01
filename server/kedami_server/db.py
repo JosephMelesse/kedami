@@ -40,7 +40,8 @@ CREATE TABLE IF NOT EXISTS lessons (
     folder_id INTEGER REFERENCES folders (id) ON DELETE SET NULL,
     reading_block TEXT,
     day_starts TEXT,
-    active INTEGER NOT NULL DEFAULT 0
+    active INTEGER NOT NULL DEFAULT 0,
+    due_date TEXT
 );
 
 CREATE TABLE IF NOT EXISTS simulations (
@@ -133,6 +134,7 @@ ADDED_COLUMNS = {
         "active": "INTEGER NOT NULL DEFAULT 0",
         "domain": "TEXT",
         "chapter": "INTEGER",
+        "due_date": "TEXT",
     },
     "folders": {
         "note": "TEXT NOT NULL DEFAULT ''",

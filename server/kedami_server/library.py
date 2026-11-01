@@ -36,6 +36,8 @@ class LessonRow:
     domain: str | None = None
     # The SQL chapter a lesson was made for, whose recommended problems are its problem set; null otherwise.
     chapter: int | None = None
+    # As YYYY-MM-DD; see deadlines.py. A rerun or a move keeps it.
+    due_date: str | None = None
 
     @property
     def shown_title(self) -> str:
@@ -339,6 +341,10 @@ def day_starts(row: LessonRow, lesson: Lesson) -> list[str]:
 
 def set_active(conn: sqlite3.Connection, lesson_id: str, active: bool) -> None:
     conn.execute("UPDATE lessons SET active = ? WHERE id = ?", (int(active), lesson_id))
+
+
+def set_due_date(conn: sqlite3.Connection, lesson_id: str, due_date: str | None) -> None:
+    conn.execute("UPDATE lessons SET due_date = ? WHERE id = ?", (due_date, lesson_id))
 
 
 def move_lesson(conn: sqlite3.Connection, lesson_id: str, folder_id: int | None) -> None:
