@@ -25,7 +25,7 @@ export function LessonTile({ lesson, onOpen }: { lesson: LessonSummary; onOpen: 
           </span>
         </span>
       ) : (
-        <span className="muted">{STATUS_LABELS[lesson.status]}</span>
+        <span className="muted tile-footer">{STATUS_LABELS[lesson.status]}</span>
       )}
     </button>
   )
