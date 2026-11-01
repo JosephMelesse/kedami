@@ -9,14 +9,15 @@ from datetime import UTC, datetime
 
 from .lesson import Lesson, ProblemBlock
 
-STATUSES = ("generating", "ready", "failed")
+STATUSES = ("placeholder", "generating", "ready", "failed")
 
 
 @dataclass(frozen=True)
 class LessonRow:
     id: str
     title: str
-    subject: str
+    # Empty only on a placeholder.
+    subject: str | None
     status: str
     current_stage: int | None
     schema_version: int
@@ -73,6 +74,35 @@ def create_generating(
         " VALUES (?, 'New lesson', ?, ?, ?, 'generating', NULL, ?, ?, ?)",
         (lesson_id, subject, domain, chapter, schema_version, _now(), folder_id),
     )
+
+
+def create_placeholder(
+    conn: sqlite3.Connection,
+    lesson_id: str,
+    name: str,
+    schema_version: int,
+    folder_id: int | None = None,
+    due_date: str | None = None,
+) -> None:
+    """Index a lesson planned but not generated. The name is the custom title, so generation never overwrites it."""
+    conn.execute(
+        "INSERT INTO lessons"
+        " (id, title, custom_title, subject, status, current_stage, schema_version, created, folder_id, due_date)"
+        " VALUES (?, 'New lesson', ?, NULL, 'placeholder', NULL, ?, ?, ?, ?)",
+        (lesson_id, name, schema_version, _now(), folder_id, due_date),
+    )
+
+
+def fill_placeholder(
+    conn: sqlite3.Connection, lesson_id: str, subject: str, domain: str | None = None, chapter: int | None = None
+) -> bool:
+    """Start generating a placeholder under its own ID. False if it isn't a placeholder any more."""
+    cursor = conn.execute(
+        "UPDATE lessons SET subject = ?, domain = ?, chapter = ?, status = 'generating', current_stage = NULL, error = NULL"
+        " WHERE id = ? AND status = 'placeholder'",
+        (subject, domain, chapter, lesson_id),
+    )
+    return cursor.rowcount == 1
 
 
 def set_stage(conn: sqlite3.Connection, lesson_id: str, stage: int) -> None:

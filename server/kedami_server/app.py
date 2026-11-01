@@ -1,6 +1,7 @@
 """HTTP API. Every route requires the session token."""
 
 import hmac
+import shutil
 import uuid
 from dataclasses import asdict
 from typing import Annotated, Any, Literal
@@ -10,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StringConstraints
 
-from . import databases, db, deadlines, progress, queries, simulation_state, solution_state, test_flags, usage
+from . import databases, db, deadlines, placeholders, progress, queries, simulation_state, solution_state, test_flags, usage
 from .checking import InvalidResponse, check
 from .config import Settings
 from .current_tests import with_current_tests
@@ -116,6 +117,21 @@ class MoveRequest(Body):
 class DueDateRequest(Body):
     # None clears it.
     due_date: deadlines.DueDate | None
+
+
+class PlaceholderListRequest(Body):
+    text: Annotated[str, StringConstraints(max_length=placeholders.MAX_LIST_TEXT)]
+
+
+class PlannedLessonRequest(Body):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=placeholders.MAX_NAME)]
+    due_date: deadlines.DueDate | None = None
+
+
+class NewPlaceholdersRequest(Body):
+    # None creates them on the home page.
+    folder_id: StrictInt | None = None
+    placeholders: Annotated[list[PlannedLessonRequest], Field(min_length=1, max_length=placeholders.MAX_LINES)]
 
 
 class ActiveRequest(Body):
@@ -284,16 +300,10 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         on = today()
         return {"lessons": [summary(row, on) for row in rows]}
 
-    @app.post("/lessons", status_code=201)
-    def new_lesson(
-        subject: Annotated[Subject, Form()],
-        files: Annotated[list[UploadFile], File()],
-        roles: Annotated[list[str], Form()],
-        force: Annotated[list[bool], Form()],
-        folder: Annotated[int | None, Form()] = None,
-        domain: Annotated[Domain | None, Form()] = None,
-        chapter: Annotated[int | None, Form()] = None,
-    ):
+    def checked_uploads(
+        subject: str, files: list[UploadFile], roles: list[str], force: list[bool], domain: str | None, chapter: int | None
+    ) -> tuple[list[Upload], list[tuple[str, bytes]]]:
+        """Read and check a lesson's upload, saving nothing. Returns the material and any course databases."""
         if (subject == "computer_science") != (domain is not None):
             raise HTTPException(422, "A computer science lesson needs a domain, and only it has one.")
         if chapter is not None:
@@ -310,10 +320,6 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         if len(database_uploads) > 1:
             raise HTTPException(422, "A SQL lesson takes one database.")
         uploads = [u for u in uploads if u.role != "database"]
-        if folder is not None:
-            with db.connect(settings.data_dir) as conn:
-                if not library.folder_exists(conn, folder):
-                    raise HTTPException(422, "That folder no longer exists.")
         try:
             if chapter is not None:
                 if database_uploads:
@@ -329,6 +335,23 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
             reference, people = chapter_material(chapter)
             uploads.append(reference)
             course.append(people)
+        return uploads, course
+
+    @app.post("/lessons", status_code=201)
+    def new_lesson(
+        subject: Annotated[Subject, Form()],
+        files: Annotated[list[UploadFile], File()],
+        roles: Annotated[list[str], Form()],
+        force: Annotated[list[bool], Form()],
+        folder: Annotated[int | None, Form()] = None,
+        domain: Annotated[Domain | None, Form()] = None,
+        chapter: Annotated[int | None, Form()] = None,
+    ):
+        if folder is not None:
+            with db.connect(settings.data_dir) as conn:
+                if not library.folder_exists(conn, folder):
+                    raise HTTPException(422, "That folder no longer exists.")
+        uploads, course = checked_uploads(subject, files, roles, force, domain, chapter)
 
         lesson_id = str(uuid.uuid4())
         saved = save_uploads(pipeline.materials_dir(settings.data_dir, lesson_id), uploads)
@@ -343,11 +366,63 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         start_generation(settings.data_dir, lesson_id, subject, 1)
         return {"id": lesson_id}
 
+    @app.post("/lessons/{lesson_id}/fill")
+    def fill_placeholder(
+        lesson_id: str,
+        subject: Annotated[Subject, Form()],
+        files: Annotated[list[UploadFile], File()],
+        roles: Annotated[list[str], Form()],
+        force: Annotated[list[bool], Form()],
+        domain: Annotated[Domain | None, Form()] = None,
+        chapter: Annotated[int | None, Form()] = None,
+    ):
+        """Upload a placeholder's material. See Filling in a placeholder in architecture/pipeline.md."""
+        not_a_placeholder = HTTPException(409, "This lesson isn't a placeholder any more.")
+        if get_row(lesson_id).status != "placeholder":
+            raise not_a_placeholder
+        uploads, course = checked_uploads(subject, files, roles, force, domain, chapter)
+
+        # A staging folder, so a second upload or a delete can't mix with this one or leave part of it behind.
+        materials = pipeline.materials_dir(settings.data_dir, lesson_id)
+        staging = materials.with_name(f".fill-{uuid.uuid4()}")
+        try:
+            saved = save_uploads(staging, uploads)
+            for name, image in course:
+                databases.save_course(staging, name, image)
+            with db.connect(settings.data_dir) as conn:
+                conn.execute("BEGIN IMMEDIATE")
+                if not library.fill_placeholder(conn, lesson_id, subject, domain, chapter):
+                    raise not_a_placeholder
+                for file in saved:
+                    add_material(conn, lesson_id, file.filename, file.role, file.force_transcription)
+                staging.rename(materials)
+        finally:
+            shutil.rmtree(staging, ignore_errors=True)
+        start_generation(settings.data_dir, lesson_id, subject, 1)
+        return {"id": lesson_id}
+
+    @app.post("/placeholders/parse")
+    def parse_placeholder_list(body: PlaceholderListRequest):
+        planned, problems = placeholders.parse_list(body.text)
+        return {"placeholders": [asdict(p) for p in planned], "problems": [asdict(p) for p in problems]}
+
+    @app.post("/placeholders", status_code=201)
+    def create_placeholders(body: NewPlaceholdersRequest):
+        ids = [str(uuid.uuid4()) for _ in body.placeholders]
+        with db.connect(settings.data_dir) as conn:
+            if body.folder_id is not None and not library.folder_exists(conn, body.folder_id):
+                raise HTTPException(404, "folder not found")
+            for lesson_id, planned in zip(ids, body.placeholders):
+                library.create_placeholder(conn, lesson_id, planned.name, 1, body.folder_id, planned.due_date)
+        return {"ids": ids}
+
     @app.post("/lessons/{lesson_id}/rerun")
     def rerun(lesson_id: str, body: RerunRequest):
         row = get_row(lesson_id)
         if row.status == "generating":
             raise HTTPException(409, "This lesson is already generating.")
+        if row.status == "placeholder":
+            raise HTTPException(409, "This lesson hasn't been generated yet. Upload its material to start it.")
         with db.connect(settings.data_dir) as conn:
             materials = {str(m.id): m for m in list_materials(conn, lesson_id)}
         unknown = sorted(body.force.keys() - materials.keys())

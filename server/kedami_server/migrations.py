@@ -37,10 +37,71 @@ def _nest_folders(conn: sqlite3.Connection) -> None:
     conn.execute("ALTER TABLE folders_new RENAME TO folders")
 
 
+# The columns the rebuilt `lessons` table has. Older databases may lack some, and differ in order, so copy by name.
+_LESSON_COLUMNS = (
+    "id",
+    "title",
+    "custom_title",
+    "subject",
+    "status",
+    "current_stage",
+    "schema_version",
+    "revision",
+    "created",
+    "error",
+    "folder_id",
+    "reading_block",
+    "day_starts",
+    "active",
+    "domain",
+    "chapter",
+    "due_date",
+)
+
+
+def _lessons_lack_placeholders(conn: sqlite3.Connection) -> bool:
+    row = conn.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'lessons'").fetchone()
+    return row is not None and "'placeholder'" not in row[0]
+
+
+def _allow_placeholders(conn: sqlite3.Connection) -> None:
+    """Add the status to its check and let a placeholder have no subject. Neither can be changed with ALTER TABLE."""
+    conn.execute(
+        """
+        CREATE TABLE lessons_new (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            custom_title TEXT,
+            subject TEXT,
+            status TEXT NOT NULL CHECK (status IN ('placeholder', 'generating', 'ready', 'failed')),
+            current_stage INTEGER,
+            schema_version INTEGER NOT NULL,
+            revision INTEGER NOT NULL DEFAULT 1,
+            created TEXT NOT NULL,
+            error TEXT,
+            folder_id INTEGER REFERENCES folders (id) ON DELETE SET NULL,
+            reading_block TEXT,
+            day_starts TEXT,
+            active INTEGER NOT NULL DEFAULT 0,
+            domain TEXT,
+            chapter INTEGER,
+            due_date TEXT,
+            CHECK (subject IS NOT NULL OR status = 'placeholder')
+        )
+        """
+    )
+    existing = set(_columns(conn, "lessons"))
+    columns = ", ".join(column for column in _LESSON_COLUMNS if column in existing)
+    conn.execute(f"INSERT INTO lessons_new ({columns}) SELECT {columns} FROM lessons")
+    conn.execute("DROP TABLE lessons")
+    conn.execute("ALTER TABLE lessons_new RENAME TO lessons")
+
+
 # In order: a name for the saved copy, whether this database needs it, and the change.
 Migration = tuple[str, Callable[[sqlite3.Connection], bool], Callable[[sqlite3.Connection], None]]
 MIGRATIONS: list[Migration] = [
     ("subfolders", _folders_are_flat, _nest_folders),
+    ("placeholders", _lessons_lack_placeholders, _allow_placeholders),
 ]
 
 

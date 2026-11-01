@@ -30,8 +30,8 @@ CREATE TABLE IF NOT EXISTS lessons (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
     custom_title TEXT,
-    subject TEXT NOT NULL,
-    status TEXT NOT NULL CHECK (status IN ('generating', 'ready', 'failed')),
+    subject TEXT,
+    status TEXT NOT NULL CHECK (status IN ('placeholder', 'generating', 'ready', 'failed')),
     current_stage INTEGER,
     schema_version INTEGER NOT NULL,
     revision INTEGER NOT NULL DEFAULT 1,
@@ -41,7 +41,9 @@ CREATE TABLE IF NOT EXISTS lessons (
     reading_block TEXT,
     day_starts TEXT,
     active INTEGER NOT NULL DEFAULT 0,
-    due_date TEXT
+    due_date TEXT,
+    -- Only a placeholder, which hasn't been uploaded to yet, has no subject.
+    CHECK (subject IS NOT NULL OR status = 'placeholder')
 );
 
 CREATE TABLE IF NOT EXISTS simulations (
