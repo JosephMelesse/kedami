@@ -47,13 +47,23 @@ The syntax tokens color code and nothing else. Each reads at 5.9:1 or more on `-
 
 | Screen | Contents |
 |---|---|
-| Library | The start screen. The Active card first, on the home page only (see Active lessons), then folder tiles, then the lessons in no folder, oldest first, with status and problem progress, then a New lesson tile that opens Upload. A New folder button creates a folder. Folders are one level deep; opening one shows its lessons, a Rename button, a Delete folder button (its lessons move back home), and a New lesson tile that creates the lesson in that folder. Each ready lesson tile has an Active checkbox in its top right corner, beside an options menu to rename it, move it to a folder or home, or delete it after a confirmation; a generating lesson can't be deleted, and a renamed lesson keeps its name through reruns |
+| Library | The start screen. The Active card first, on the home page only (see Active lessons), then folder tiles, then the lessons in no folder, oldest first, with status and problem progress, then a New lesson tile that opens Upload. A New folder button creates a folder. Opening a folder shows its subfolders, then its lessons, then a New lesson tile that creates the lesson in that folder; see Folders. Each ready lesson tile has an Active checkbox in its top right corner, beside an options menu to rename it, move it to a folder or home, or delete it after a confirmation; a generating lesson can't be deleted, and a renamed lesson keeps its name through reruns |
 | Upload | A subject choice. Computer science then asks for its domain: Data structures and algorithms, or SQL. A DSA lesson picks its problems in the problem picker (see Picking problems in `code-problems.md`) and can add reference files. A SQL lesson either recommends problems for one chapter or takes an uploaded problem set with an optional course database; see SQL lessons below. Every other lesson has a file drop, with a role tag and force-transcription toggle per file |
 | Generating | Current pipeline stage, with a 2048 game below it while the lesson generates; a failed lesson shows the reason and a Rerun button |
 | Lesson | Sections and blocks in order, with a progress indicator in the accent color. A Rerun button opens a dialog with the start stage and force-transcription toggles; a failed rerun shows its reason above the lesson. A Days button splits the lesson into days; see Finish lines. Opening a lesson returns to the block last read; see Reading position |
 | Workspace | One code problem, opened by its Solve button: description, editor, and console; see Workspace |
 
-The app header is visible on every screen and holds the music player and the Pomodoro timer. Clicking Kedami in it opens the Library home page from any screen, including from inside a folder.
+The app header is visible on every screen and holds the music player and the Pomodoro timer. Clicking Kedami in it opens the Library home page from any screen, including from inside a folder. Back on the Upload screen returns to the folder it was opened from.
+
+## Folders
+
+Folders organize lessons in the Library, and nest to any depth.
+
+- **Names:** unique within the same parent, ignoring case, so two courses can each have a "Week 1". The check folds only ASCII letters, as it always has. A name is at most 80 characters.
+- **Folder page:** a breadcrumb of the folders above it, starting from Lessons, which is the home page; the folder's name; and New folder, Rename, Move, and Delete folder buttons. Then its subfolders, by name, its lessons, oldest first, and the New lesson tile.
+- **Folder tile:** the folder's name and how many lessons it holds, counting those in its subfolders at any depth.
+- **Moving:** Move on a folder page, or on a lesson's options menu, opens a dialog listing Lessons and every folder by its full path, such as "Physics / Week 1". The current location can't be picked, and for a folder neither can the folder itself or anything inside it. The server refuses a move into itself or a descendant. A move into a parent that already has a folder of that name is refused with a message, as a rename is, since the student can rename and try again.
+- **Deleting:** a confirmation names what moves and where. The folder's lessons and subfolders move up to its parent, and the student lands on the parent's page. A subfolder whose name is taken there gets the lowest free number, as in `Week 1 (2)`, as a music file does, and a notice afterward says what was renamed. The deleted folder's own name doesn't count as taken, so a "Week 1" inside a "Week 1" keeps its name. Folders are never merged.
 
 ## Workspace
 

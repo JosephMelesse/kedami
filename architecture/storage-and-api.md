@@ -20,7 +20,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 | Table | Key fields |
 |---|---|
 | `lessons` | id, title, custom title, subject, domain, chapter (a SQL chapter lesson's), status, current stage, schema version, revision, created, error, folder id, reading block, day starts, active |
-| `folders` | id, name (unique, ignoring case), created |
+| `folders` | id, parent id (empty at the top level), name (unique within a parent, ignoring case), created |
 | `settings` | key, value (for example, that the sample lesson was added on the first start) |
 | `materials` | id, lesson id, filename, role, force transcription |
 | `progress` | lesson id, block id, part id, status, last response, attempts, hints used, updated |
@@ -39,6 +39,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 - Active marks a lesson the student is working through (see Active lessons in `ui.md`). New lessons start inactive, a rerun keeps it, and deleting the lesson removes it.
 - `model_calls` is the usage log: one row per model call that got a reply (see Usage log in `system.md`). Cost is empty when a model has no listed price. Rows are only added, never changed, and a rerun keeps them.
 - The database is `kedami.db` in the app data folder.
+- A change a plain `ALTER TABLE` can't make, such as replacing a column's `UNIQUE`, rebuilds the table when the server starts (`server/kedami_server/migrations.py`). It runs on its own connection with foreign keys off, because dropping a table with them on applies the references to it: every lesson would leave its folder, and all progress would go with `lessons`. It runs in one transaction and copies by column name, since column order differs between older databases. Its first run saves the database as `kedami.db.before-{name}` beside it. A migrated database can't be read by older code.
 
 ## API
 
@@ -55,10 +56,11 @@ All routes require the session token.
 | POST | `/lessons/{id}/rename` | Rename a lesson |
 | POST | `/lessons/{id}/active` | Mark a ready lesson active or not |
 | POST | `/lessons/{id}/move` | Move a lesson to a folder, or home with `null` |
-| GET | `/folders` | Folders with their lesson counts |
-| POST | `/folders` | Create a folder |
+| GET | `/folders` | Folders with their parent, their lessons counting subfolders at any depth, their own lessons, and their subfolder count |
+| POST | `/folders` | Create a folder, with an optional parent |
 | POST | `/folders/{id}/rename` | Rename a folder |
-| DELETE | `/folders/{id}` | Delete a folder; its lessons move home |
+| POST | `/folders/{id}/move` | Move a folder to another folder, or to the top level with `null`; refuses itself and its descendants |
+| DELETE | `/folders/{id}` | Delete a folder; its lessons and subfolders move up to its parent. Returns the parent and any subfolders renamed to avoid a clash |
 | GET | `/lessons` | List lessons with status, progress, and whether each is active |
 | GET | `/lessons/{id}` | Lesson JSON plus generation status, current stage, error, materials, the stages a rerun can start from, the reading block, and the day starts |
 | POST | `/lessons/{id}/reading-position` | Record the block being read; it must be a block in the lesson |
