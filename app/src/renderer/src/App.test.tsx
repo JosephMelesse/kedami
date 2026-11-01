@@ -17,9 +17,12 @@ const lesson: LessonSummary = {
   created: '2026-10-03T00:00:00+00:00',
   problems_total: 2,
   problems_done: 0,
-  active: false
+  active: false,
+  due_date: null,
+  done: false,
+  overdue: false
 }
-const folder: Folder = { id: 3, name: 'Week 3', parent_id: null, lessons: 1, own_lessons: 1, subfolders: 0, note: '' }
+const folder: Folder = { id: 3, name: 'Week 3', parent_id: null, lessons: 1, own_lessons: 1, subfolders: 0, note: '', next_due: null, next_due_overdue: false }
 
 vi.mock('./api', async (original) => ({
   ...(await original<typeof import('./api')>()),

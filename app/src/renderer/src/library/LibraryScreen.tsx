@@ -12,10 +12,12 @@ import {
   moveLesson,
   renameFolder,
   renameLesson,
-  setLessonActive
+  setLessonActive,
+  setLessonDueDate
 } from '../api'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { ActiveLessons } from './ActiveLessons'
+import { DueDateDialog } from './DueDateDialog'
 import { deleteSummary, foldersAbove, moveTargets } from './folders'
 import { FolderNote } from './FolderNote'
 import { FolderTile } from './FolderTile'
@@ -24,6 +26,7 @@ import { LessonTile } from './LessonTile'
 import { MoveDialog } from './MoveDialog'
 import { NameDialog } from './NameDialog'
 import { NewLessonTile } from './NewLessonTile'
+import { UpcomingLessons } from './UpcomingLessons'
 
 type State =
   | { status: 'loading' }
@@ -34,6 +37,7 @@ type Dialog =
   | { kind: 'new-folder' }
   | { kind: 'rename-lesson'; lesson: LessonSummary }
   | { kind: 'move-lesson'; lesson: LessonSummary }
+  | { kind: 'due-date'; lesson: LessonSummary }
   | { kind: 'delete-lesson'; lesson: LessonSummary }
   | { kind: 'rename-folder'; folder: Folder }
   | { kind: 'move-folder'; folder: Folder }
@@ -123,6 +127,7 @@ export function LibraryScreen({ onOpen, onNew, folderId, onFolder }: LibraryProp
         onDeleteFolder={(f) => setDialog({ kind: 'delete-folder', folder: f })}
         onRename={(lesson) => setDialog({ kind: 'rename-lesson', lesson })}
         onMove={(lesson) => setDialog({ kind: 'move-lesson', lesson })}
+        onDueDate={(lesson) => setDialog({ kind: 'due-date', lesson })}
         onSetActive={(lesson, active) => act(() => setLessonActive(lesson.id, active))}
         onDelete={(lesson) => setDialog({ kind: 'delete-lesson', lesson })}
         onNoteChange={(f, note) => setTypedNotes((typed) => ({ ...typed, [f.id]: note }))}
@@ -158,6 +163,14 @@ export function LibraryScreen({ onOpen, onNew, folderId, onFolder }: LibraryProp
           targets={moveTargets(folders, dialog.lesson.folder_id)}
           onCancel={() => setDialog(null)}
           onPick={(target) => named(() => moveLesson(dialog.lesson.id, target))}
+        />
+      )}
+      {dialog?.kind === 'due-date' && (
+        <DueDateDialog
+          title={`Due date for ${dialog.lesson.title}`}
+          initial={dialog.lesson.due_date}
+          onCancel={() => setDialog(null)}
+          onSubmit={(date) => named(() => setLessonDueDate(dialog.lesson.id, date))}
         />
       )}
       {dialog?.kind === 'rename-lesson' && (
@@ -224,6 +237,7 @@ interface LibraryViewProps {
   onDeleteFolder: (folder: Folder) => void
   onRename: (lesson: LessonSummary) => void
   onMove: (lesson: LessonSummary) => void
+  onDueDate: (lesson: LessonSummary) => void
   onSetActive: (lesson: LessonSummary, active: boolean) => void
   onDelete: (lesson: LessonSummary) => void
   onNoteChange: (folder: Folder, note: string) => void
@@ -279,6 +293,7 @@ export function LibraryView(props: LibraryViewProps) {
       {problem && <p className="answer-error">{problem}</p>}
       {notice && <p className="muted library-notice">{notice}</p>}
       {!folder && <ActiveLessons lessons={lessons} onOpen={props.onOpen} />}
+      {!folder && <UpcomingLessons lessons={lessons} folders={folders} onOpen={props.onOpen} />}
       {folder && (
         <FolderNote
           key={folder.id}
@@ -313,6 +328,7 @@ export function LibraryView(props: LibraryViewProps) {
                 folders={folders}
                 onRename={() => props.onRename(lesson)}
                 onMove={() => props.onMove(lesson)}
+                onDueDate={() => props.onDueDate(lesson)}
                 onDelete={() => props.onDelete(lesson)}
               />
             </div>

@@ -6,11 +6,12 @@ interface LessonMenuProps {
   folders: Folder[]
   onRename: () => void
   onMove: () => void
+  onDueDate: () => void
   onDelete: () => void
 }
 
-/** The options button on a lesson tile: rename it, move it, or delete it. */
-export function LessonMenu({ lesson, folders, onRename, onMove, onDelete }: LessonMenuProps) {
+/** The options button on a lesson tile: rename it, move it, set its due date, or delete it. */
+export function LessonMenu({ lesson, folders, onRename, onMove, onDueDate, onDelete }: LessonMenuProps) {
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
 
@@ -57,6 +58,9 @@ export function LessonMenu({ lesson, folders, onRename, onMove, onDelete }: Less
               Move
             </button>
           )}
+          <button type="button" role="menuitem" onClick={choose(onDueDate)}>
+            {lesson.due_date === null ? 'Set due date' : 'Change due date'}
+          </button>
           <button
             type="button"
             role="menuitem"

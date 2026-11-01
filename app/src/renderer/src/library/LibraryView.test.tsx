@@ -1,6 +1,7 @@
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { Folder, LessonSummary } from '../api'
+import { formatDue } from './DueLabel'
 import { LessonMenu } from './LessonMenu'
 import { LibraryView } from './LibraryScreen'
 
@@ -18,12 +19,15 @@ function summary(overrides: Partial<LessonSummary>): LessonSummary {
     problems_total: 2,
     problems_done: 1,
     active: false,
+    due_date: null,
+    done: false,
+    overdue: false,
     ...overrides
   }
 }
 
 function folderOf(overrides: Partial<Folder> & { id: number; name: string }): Folder {
-  return { parent_id: null, lessons: 0, own_lessons: 0, subfolders: 0, note: '', ...overrides }
+  return { parent_id: null, lessons: 0, own_lessons: 0, subfolders: 0, note: '', next_due: null, next_due_overdue: false, ...overrides }
 }
 
 const WEEK3 = folderOf({ id: 3, name: 'Week 3', lessons: 1, own_lessons: 1 })
@@ -48,6 +52,7 @@ function render(lessons: LessonSummary[], folders: Folder[] = [], folder: Folder
       onDeleteFolder={noop}
       onRename={noop}
       onMove={noop}
+      onDueDate={noop}
       onSetActive={noop}
       onDelete={noop}
       onNoteChange={noop}
@@ -130,6 +135,7 @@ describe('LibraryView', () => {
         onDeleteFolder={noop}
         onRename={noop}
         onMove={noop}
+        onDueDate={noop}
         onSetActive={noop}
         onDelete={noop}
         onNoteChange={noop}
@@ -254,6 +260,7 @@ describe('Active lessons', () => {
         onDeleteFolder={noop}
         onRename={noop}
         onMove={noop}
+        onDueDate={noop}
         onSetActive={(l, value) => calls.push(`active ${l.id} ${value}`)}
         onDelete={noop}
         onNoteChange={noop}
@@ -271,6 +278,99 @@ describe('Active lessons', () => {
   })
 })
 
+describe('Deadlines', () => {
+  const NOW = new Date(2026, 10, 1)
+  const tile = (root: HTMLElement, index = 0) => root.querySelectorAll<HTMLElement>('.tile')[index]
+
+  it('shows a due date on a lesson tile, and a label and border when overdue', () => {
+    const root = render([
+      summary({ id: 'a', due_date: '2026-11-03' }),
+      summary({ id: 'b', due_date: '2026-10-30', overdue: true }),
+      summary({ id: 'c' })
+    ])
+    expect(tile(root, 0).querySelector('.due-label')?.textContent).toContain('Due Nov 3')
+    expect(tile(root, 0).textContent).not.toContain('Overdue')
+    expect(tile(root, 0).className).not.toContain('tile-overdue')
+    expect(tile(root, 1).querySelector('.due-overdue')?.textContent).toBe('Overdue')
+    expect(tile(root, 1).className).toContain('tile-overdue')
+    expect(tile(root, 2).querySelector('.due-label')).toBeNull()
+  })
+
+  it('never shows a done lesson as overdue', () => {
+    const root = render([summary({ due_date: '2020-01-01', done: true, problems_done: 2, overdue: false })])
+    expect(root.textContent).not.toContain('Overdue')
+  })
+
+  it('shows the due date on an Active row, with the Overdue label', () => {
+    const root = render([summary({ active: true, due_date: '2026-10-30', overdue: true })])
+    const row = root.querySelector<HTMLElement>('.active-row')!
+    expect(row.querySelector('.due-label')?.textContent).toContain('Oct 30')
+    expect(row.querySelector('.due-overdue')?.textContent).toBe('Overdue')
+  })
+
+  it('shows the soonest date on a folder tile', () => {
+    const root = render([], [folderOf({ id: 1, name: 'A', next_due: '2026-11-03' }), folderOf({ id: 2, name: 'B', next_due: '2026-10-01', next_due_overdue: true }), folderOf({ id: 3, name: 'C' })])
+    expect(tile(root, 0).textContent).toContain('Next due Nov 3')
+    expect(tile(root, 0).className).not.toContain('tile-overdue')
+    expect(tile(root, 1).querySelector('.due-overdue')?.textContent).toBe('Overdue')
+    expect(tile(root, 1).className).toContain('tile-overdue')
+    expect(tile(root, 2).querySelector('.due-label')).toBeNull()
+  })
+
+  describe('Upcoming card', () => {
+    const card = (root: HTMLElement) => root.querySelector<HTMLElement>('.upcoming-lessons')
+    const rowTitles = (root: HTMLElement) => [...root.querySelectorAll('.upcoming-row .active-title')].map((e) => e.textContent)
+
+    it('does not appear with nothing due', () => {
+      expect(card(render([summary({}), summary({ id: 'b', due_date: '2026-11-03', done: true })]))).toBeNull()
+    })
+
+    it('lists unfinished lessons from any folder, soonest first, so overdue ones come first', () => {
+      const physics = folderOf({ id: 1, name: 'Physics' })
+      const week = folderOf({ id: 2, name: 'Week 1', parent_id: 1 })
+      const root = render(
+        [
+          summary({ id: 'later', title: 'Later', due_date: '2026-12-01' }),
+          summary({ id: 'none', title: 'None' }),
+          summary({ id: 'finished', title: 'Finished', due_date: '2026-11-02', done: true }),
+          summary({ id: 'late', title: 'Late', due_date: '2026-10-01', overdue: true, folder_id: 2 }),
+          summary({ id: 'soon', title: 'Soon', due_date: '2026-11-03', status: 'generating' })
+        ],
+        [physics, week]
+      )
+      expect(card(root)?.querySelector('h2')?.textContent).toBe('Upcoming')
+      expect(rowTitles(root)).toEqual(['Late', 'Soon', 'Later'])
+      const first = root.querySelector<HTMLElement>('.upcoming-row')!
+      expect(first.querySelector('.upcoming-path')?.textContent).toBe('Physics / Week 1')
+      expect(first.querySelector('.due-overdue')?.textContent).toBe('Overdue')
+    })
+
+    it('comes after the Active card, on the home page only', () => {
+      const lessons = [summary({ id: 'a', active: true, due_date: '2026-11-03' })]
+      const root = render(lessons)
+      expect(root.querySelector('.library > :nth-child(2)')?.className).toBe('active-lessons')
+      expect(root.querySelector('.library > :nth-child(3)')?.className).toBe('upcoming-lessons')
+      const folder = folderOf({ id: 3, name: 'Week 3' })
+      expect(card(render([summary({ folder_id: 3, due_date: '2026-11-03' })], [folder], folder))).toBeNull()
+    })
+
+    it('orders lessons due the same day by when they were made', () => {
+      const root = render([
+        summary({ id: 'b', title: 'Newer', due_date: '2026-11-03', created: '2026-02-01' }),
+        summary({ id: 'a', title: 'Older', due_date: '2026-11-03', created: '2026-01-01' })
+      ])
+      expect(rowTitles(root)).toEqual(['Older', 'Newer'])
+    })
+  })
+
+  it('reads a date as written, whatever the time zone, with the year when it is not this one', () => {
+    expect(formatDue('2026-11-01', NOW)).toBe('Nov 1')
+    expect(formatDue('2026-12-31', NOW)).toBe('Dec 31')
+    expect(formatDue('2027-01-01', NOW)).toBe('Jan 1, 2027')
+    expect(formatDue('2025-03-09', NOW)).toBe('Mar 9, 2025')
+  })
+})
+
 describe('LessonMenu', () => {
   // The menu opens on click; render it open by clicking in a live DOM.
   async function openMenu(lesson: LessonSummary, folders: Folder[]): Promise<string[]> {
@@ -279,7 +379,7 @@ describe('LessonMenu', () => {
     const container = document.createElement('div')
     document.body.append(container)
     const root = createRoot(container)
-    await act(async () => root.render(<LessonMenu lesson={lesson} folders={folders} onRename={noop} onMove={noop} onDelete={noop} />))
+    await act(async () => root.render(<LessonMenu lesson={lesson} folders={folders} onRename={noop} onMove={noop} onDueDate={noop} onDelete={noop} />))
     await act(async () => container.querySelector<HTMLButtonElement>('.tile-menu-button')!.click())
     const items = [...container.querySelectorAll<HTMLButtonElement>('[role=menuitem]')].map(
       (item) => `${item.textContent}${item.disabled ? ' (disabled)' : ''}`
@@ -290,12 +390,16 @@ describe('LessonMenu', () => {
   }
 
   it('offers rename, move, and delete when there is somewhere to move to', async () => {
-    expect(await openMenu(summary({}), [WEEK3])).toEqual(['Rename', 'Move', 'Delete lesson'])
-    expect(await openMenu(summary({ folder_id: 3 }), [WEEK3])).toEqual(['Rename', 'Move', 'Delete lesson'])
+    expect(await openMenu(summary({}), [WEEK3])).toEqual(['Rename', 'Move', 'Set due date', 'Delete lesson'])
+    expect(await openMenu(summary({ folder_id: 3 }), [WEEK3])).toEqual(['Rename', 'Move', 'Set due date', 'Delete lesson'])
+  })
+
+  it('says Change due date once it has one', async () => {
+    expect(await openMenu(summary({ due_date: '2026-11-03' }), [])).toContain('Change due date')
   })
 
   it('offers rename but not delete while the lesson is generating', async () => {
-    expect(await openMenu(summary({ status: 'generating' }), [])).toEqual(['Rename', 'Delete lesson (disabled)'])
+    expect(await openMenu(summary({ status: 'generating' }), [])).toEqual(['Rename', 'Set due date', 'Delete lesson (disabled)'])
   })
 
   it('closes the menu and asks for a new name on Rename', async () => {
@@ -307,7 +411,7 @@ describe('LessonMenu', () => {
     let renamed = 0
     const onRename = () => renamed++
     await act(async () =>
-      root.render(<LessonMenu lesson={summary({})} folders={[]} onRename={onRename} onMove={noop} onDelete={noop} />)
+      root.render(<LessonMenu lesson={summary({})} folders={[]} onRename={onRename} onMove={noop} onDueDate={noop} onDelete={noop} />)
     )
     await act(async () => container.querySelector<HTMLButtonElement>('.tile-menu-button')!.click())
     await act(async () => container.querySelector<HTMLButtonElement>('[role=menuitem]')!.click())

@@ -48,6 +48,11 @@ export interface LessonSummary {
   problems_done: number
   /** Shown in the home page's Active card. */
   active: boolean
+  /** As YYYY-MM-DD, or null with none. */
+  due_date: string | null
+  /** Every problem is done, also while a rerun is under way. */
+  done: boolean
+  overdue: boolean
 }
 
 export type TreeNode =
@@ -390,6 +395,9 @@ export interface Folder {
   subfolders: number
   /** The student's own text, never sent to the model. */
   note: string
+  /** The soonest due date among unfinished lessons inside it, including subfolders, as YYYY-MM-DD. */
+  next_due: string | null
+  next_due_overdue: boolean
 }
 
 export interface DeletedFolder {
@@ -430,6 +438,10 @@ export async function renameLesson(lessonId: string, title: string): Promise<voi
 
 export async function moveLesson(lessonId: string, folderId: number | null): Promise<void> {
   await request('POST', `${lessonPath(lessonId)}/move`, { folder_id: folderId })
+}
+
+export async function setLessonDueDate(lessonId: string, dueDate: string | null): Promise<void> {
+  await request('POST', `${lessonPath(lessonId)}/due-date`, { due_date: dueDate })
 }
 
 export async function setLessonActive(lessonId: string, active: boolean): Promise<void> {

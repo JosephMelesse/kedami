@@ -3,7 +3,7 @@ import type { Folder } from '../api'
 import { deleteSummary, folderPath, foldersAbove, moveTargets } from './folders'
 
 function folder(id: number, name: string, parent_id: number | null = null): Folder {
-  return { id, name, parent_id, lessons: 0, own_lessons: 0, subfolders: 0, note: '' }
+  return { id, name, parent_id, lessons: 0, own_lessons: 0, subfolders: 0, note: '', next_due: null, next_due_overdue: false }
 }
 
 // As the server lists them: by name.

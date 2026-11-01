@@ -1,4 +1,5 @@
 import type { LessonSummary } from '../api'
+import { DueLabel } from './DueLabel'
 
 /** The home page's card of active lessons, a row each with a box per problem. See Active lessons in architecture/ui.md. */
 export function ActiveLessons({ lessons, onOpen }: { lessons: LessonSummary[]; onOpen: (lesson: LessonSummary) => void }) {
@@ -17,6 +18,7 @@ export function ActiveLessons({ lessons, onOpen }: { lessons: LessonSummary[]; o
               ) : (
                 <span className="muted">Generating</span>
               )}
+              <DueLabel date={lesson.due_date} overdue={lesson.overdue} />
             </button>
           </li>
         ))}

@@ -191,6 +191,23 @@
   background: var(--surface-raised);
 }
 
+.tile-overdue {
+  border-color: var(--retry);
+}
+
+.due-label {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.due-overdue {
+  color: var(--retry);
+  font-weight: 500;
+}
+
 .tile-title {
   font-size: 18px;
   font-weight: 500;
@@ -231,7 +248,8 @@
   transition: width 200ms ease-out;
 }
 
-.active-lessons {
+.active-lessons,
+.upcoming-lessons {
   margin-bottom: 48px;
   /* The rows' own padding makes up the rest at the bottom. */
   padding: 24px 24px 16px;
@@ -240,7 +258,12 @@
   background: var(--bg);
 }
 
-.active-lessons h2 {
+.active-lessons:has(+ .upcoming-lessons) {
+  margin-bottom: 16px;
+}
+
+.active-lessons h2,
+.upcoming-lessons h2 {
   margin-bottom: 8px;
   font-size: 18px;
 }
@@ -254,7 +277,7 @@
 
 .active-row {
   display: grid;
-  grid-template-columns: minmax(0, 240px) 1fr auto;
+  grid-template-columns: minmax(0, 240px) 1fr auto auto;
   align-items: center;
   gap: 8px 16px;
   width: 100%;
@@ -278,6 +301,10 @@
   font-weight: 500;
 }
 
+.upcoming-row {
+  grid-template-columns: minmax(0, 240px) 1fr auto;
+}
+
 @media (max-width: 720px) {
   .active-row {
     grid-template-columns: 1fr auto;
@@ -285,6 +312,10 @@
 
   .active-title {
     grid-column: 1 / -1;
+  }
+
+  .upcoming-row .upcoming-path {
+    grid-column: 1;
   }
 }
 

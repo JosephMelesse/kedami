@@ -97,7 +97,7 @@ describe('FolderNote', () => {
 })
 
 describe('the delete confirmation', () => {
-  const folder = (note: string) => ({ id: 1, name: 'A', parent_id: null, lessons: 0, own_lessons: 0, subfolders: 0, note })
+  const folder = (note: string) => ({ id: 1, name: 'A', parent_id: null, lessons: 0, own_lessons: 0, subfolders: 0, note, next_due: null, next_due_overdue: false })
 
   it('says the note is deleted only when it is not empty', () => {
     expect(deleteSummary(folder(''), 'Lessons')).toBe('The folder is empty.')
