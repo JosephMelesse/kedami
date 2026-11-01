@@ -277,7 +277,7 @@
 
 .active-row {
   display: grid;
-  grid-template-columns: minmax(0, 240px) 1fr auto auto;
+  grid-template-columns: minmax(0, 240px) 1fr auto;
   align-items: center;
   gap: 8px 16px;
   width: 100%;
@@ -301,8 +301,8 @@
   font-weight: 500;
 }
 
-.upcoming-row {
-  grid-template-columns: minmax(0, 240px) 1fr auto;
+.active-row-due {
+  grid-template-columns: minmax(0, 240px) 1fr auto auto;
 }
 
 @media (max-width: 720px) {
