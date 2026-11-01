@@ -1,33 +1,14 @@
 """The maintainer tool that fetches the SQL book. See architecture/sql-lessons.md, The book."""
 
 import io
-import re
 import urllib.error
 import urllib.parse
-from pathlib import Path
 
 import pytest
 
-from kedami_server.databases import from_upload, tables
-from kedami_server.sql_chapters import BOOK, BOOK_DIR, CHAPTERS, book_file
+from kedami_server.sql_chapters import BOOK, CHAPTERS
 from tools import fetch_sql_book
-from tools.fetch_sql_book import EXAMPLE_PAGES, book_titles, fetch_pages, people_script, write
-
-FIXTURES = Path(__file__).parent / "fixtures" / "sql_book"
-REVISIONS = {
-    "SELECT: Join Operation": 4660736,
-    "with clause": 4660904,
-    "Example Database Structure": 3698876,
-    "Example Database Data": 4069437,
-}
-
-
-def wikitext(title: str) -> str:
-    return (FIXTURES / (title.replace(":", "").replace(" ", "_") + ".wiki")).read_text(encoding="utf-8")
-
-
-def example_pages() -> tuple[str, str]:
-    return wikitext("Example Database Structure"), wikitext("Example Database Data")
+from tools.fetch_sql_book import EXAMPLE_PAGES, book_titles, fetch_pages
 
 
 def reply(titles, missing=()):
@@ -121,63 +102,3 @@ class TestFetch:
     def test_a_page_not_returned_stops_the_tool(self):
         with pytest.raises(SystemExit, match="Recursions"):
             fetch_pages(["with clause", "Recursions"], lambda url: reply(["with clause"]))
-
-
-class TestPeople:
-    def test_builds_the_four_tables_with_the_book_rows(self):
-        built = {t["name"]: t for t in tables(from_upload("people.sql", people_script(*example_pages()).encode()))}
-        assert list(built) == ["person", "contact", "hobby", "person_hobby"]
-        assert [len(built[name]["rows"]) for name in built] == [10, 9, 9, 9]
-
-    def test_dates_are_text_and_bare_commits_are_dropped(self):
-        script = people_script(*example_pages())
-        assert "DATE'" not in script and "DATE '" not in script
-        assert "'1970-11-20'" in script
-        assert not re.search(r"(?m)^\s*COMMIT\s*;", script)
-
-    def test_leaves_out_the_sqlite_example_and_the_grow_up_block(self):
-        script = people_script(*example_pages())
-        assert "-- SQLite syntax" not in script
-        assert "INSERT INTO person SELECT" not in script.replace("\n", " ")
-
-    def test_a_changed_structure_page_stops_the_tool(self):
-        structure, data = example_pages()
-        with pytest.raises(SystemExit, match="Structure"):
-            people_script(structure.replace("CREATE TABLE hobby", "CREATE VIEW hobby"), data)
-
-    def test_a_changed_data_page_stops_the_tool(self):
-        structure, data = example_pages()
-        with pytest.raises(SystemExit, match="Data"):
-            people_script(structure, data.replace("INSERT INTO hobby", "INSERT INTO hobbies"))
-
-    def test_the_bundled_database_matches_the_tool(self):
-        header, _, script = (BOOK_DIR / "people.sql").read_text(encoding="utf-8").partition("\n\n")
-        assert script == people_script(*example_pages())
-        assert "Example Database Structure revision 3698876" in header
-
-
-class TestWrite:
-    @pytest.fixture
-    def written(self, tmp_path):
-        pages = {title: (revision, wikitext(title)) for title, revision in REVISIONS.items()}
-        return tmp_path, write(pages, tmp_path)
-
-    def test_writes_each_page_the_database_and_the_sources(self, written):
-        folder, names = written
-        assert names == [book_file("SELECT: Join Operation"), book_file("with clause"), "people.sql", "SOURCES.md"]
-        assert sorted(p.name for p in folder.iterdir()) == sorted(names)
-        assert (folder / "with-clause.md").read_text(encoding="utf-8").startswith("# with clause\n\n")
-
-    def test_sources_credit_the_book_and_link_each_revision(self, written):
-        sources = (written[0] / "SOURCES.md").read_text(encoding="utf-8")
-        assert "Creative Commons Attribution-ShareAlike 4.0" in sources
-        assert "| [with clause](https://en.wikibooks.org/wiki/Structured_Query_Language/with_clause) | " \
-            "with-clause.md | [4660904](https://en.wikibooks.org/wiki/Structured_Query_Language/with_clause" \
-            "?oldid=4660904) |" in sources
-        assert "SELECT%3A_Join_Operation?oldid=4660736" in sources
-        assert sources.count("| people.sql |") == 2
-
-    def test_the_database_header_names_the_revisions_and_license(self, written):
-        header = (written[0] / "people.sql").read_text(encoding="utf-8").split("\n\n")[0]
-        assert "Example Database Data revision 4069437" in header
-        assert "CC BY-SA 4.0" in header

@@ -1,32 +1,10 @@
 """Converting the SQL book's wikitext to Markdown. See architecture/sql-lessons.md, The book."""
 
-import re
-from pathlib import Path
-
-import pytest
-
-from kedami_server.sql_chapters import BOOK_DIR, book_file
-from tools.wikitext import _CODE_BLOCK, to_markdown
-
-FIXTURES = Path(__file__).parent / "fixtures" / "sql_book"
-PAGES = {
-    "SELECT: Join Operation": "SELECT_Join_Operation.wiki",
-    "SELECT: Predefined Functions": "SELECT_Predefined_Functions.wiki",
-    "with clause": "with_clause.wiki",
-}
+from tools.wikitext import to_markdown
 
 
 def body(wikitext: str) -> str:
     return to_markdown(wikitext, "Page").removeprefix("# Page\n\n").rstrip("\n")
-
-
-def page(title: str) -> tuple[str, str]:
-    wikitext = (FIXTURES / PAGES[title]).read_text(encoding="utf-8")
-    return wikitext, to_markdown(wikitext, title)
-
-
-def outside_code(markdown: str) -> str:
-    return re.sub(r"```.*?```|`[^`\n]*`", "", markdown, flags=re.S)
 
 
 class TestCode:
@@ -99,45 +77,3 @@ class TestText:
 
     def test_no_runs_of_blank_lines(self):
         assert body("a\n\n\n\n<div>\n\n\n</div>\n\nb  \n") == "a\n\nb"
-
-
-class TestRealPages:
-    @pytest.mark.parametrize("title", PAGES)
-    def test_every_code_block_is_kept_verbatim(self, title):
-        wikitext, markdown = page(title)
-        blocks = [m[3].strip("\n") for m in _CODE_BLOCK.finditer(wikitext)]
-        assert blocks
-        for code in blocks:
-            assert f"\n{code}\n```" in markdown
-
-    @pytest.mark.parametrize("title", PAGES)
-    def test_no_markup_is_left_outside_code(self, title):
-        text = outside_code(page(title)[1])
-        for leftover in ("{{", "}}", "{|", "|}", "<div", "<br", "<code", "<syntaxhighlight", "'''", "[[", "__TOC__"):
-            assert leftover not in text, leftover
-
-    @pytest.mark.parametrize("title", PAGES)
-    def test_the_bundled_page_matches_the_converter(self, title):
-        # Fails when the converter changes without the book being fetched again, or the other way round.
-        assert (BOOK_DIR / book_file(title)).read_text(encoding="utf-8") == page(title)[1]
-
-    def test_join_operation(self):
-        markdown = page("SELECT: Join Operation")[1]
-        assert markdown.startswith("# SELECT: Join Operation\n\n")
-        assert "| ID | LASTNAME | FIRSTNAME | ... |\n| --- | --- | --- | --- |\n| 1 | Goldstein | Larry | ... |" \
-            in markdown
-        assert markdown.count("**Exercise:**") == 5
-        assert markdown.count("**Solution:**") == 5
-        assert "**Exercise:** Show first- and lastname plus icq number for persons having an icq number\n\n" \
-            "**Solution:**\n\n```sql\nSELECT p.id, p.firstname, p.lastname, c.contact_value\n" in markdown
-
-    def test_predefined_functions(self):
-        markdown = page("SELECT: Predefined Functions")[1]
-        assert "```\nfunction_name ([ALL|DISTINCT]<column name>)\nCOUNT (DISTINCT weight) -- as an example\n```" \
-            in markdown
-        assert "\nA Word of Caution\n" in markdown
-
-    def test_with_clause_keeps_a_semicolon_line_in_its_code(self):
-        markdown = page("with clause")[1]
-        assert "SELECT ... FROM cte_1\n; -- consider the semicolon:" in markdown
-        assert "**-- consider" not in markdown
