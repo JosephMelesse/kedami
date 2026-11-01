@@ -132,7 +132,7 @@ def test_renaming_keeps_the_folder_lessons(two_lessons):
     client.post(f"/lessons/{first}/move", json={"folder_id": folder}, headers=AUTH)
     client.post(f"/folders/{folder}/rename", json={"name": "Kinematics"}, headers=AUTH)
     assert folders(client) == [
-        {"id": folder, "name": "Kinematics", "parent_id": None, "lessons": 1, "own_lessons": 1, "subfolders": 0}
+        {"id": folder, "name": "Kinematics", "parent_id": None, "lessons": 1, "own_lessons": 1, "subfolders": 0, "note": ""}
     ]
 
 

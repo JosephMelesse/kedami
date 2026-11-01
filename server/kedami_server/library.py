@@ -164,6 +164,7 @@ def delete_lesson(conn: sqlite3.Connection, lesson_id: str) -> None:
 # Folders nest to any depth. A lesson or folder with no parent is on the home page.
 
 MAX_FOLDER_NAME = 80
+MAX_FOLDER_NOTE = 20_000
 
 
 class FolderExists(ValueError):
@@ -183,6 +184,8 @@ class FolderRow:
     lessons: int = 0
     own_lessons: int = 0
     subfolders: int = 0
+    # The student's own text, which never goes to the model or into any lesson material.
+    note: str = ""
 
 
 @dataclass(frozen=True)
@@ -210,7 +213,7 @@ def create_folder(conn: sqlite3.Connection, name: str, parent_id: int | None = N
 
 def list_folders(conn: sqlite3.Connection) -> list[FolderRow]:
     rows = conn.execute(
-        "SELECT f.id, f.name, f.parent_id, COUNT(l.id) AS own_lessons"
+        "SELECT f.id, f.name, f.parent_id, f.note, COUNT(l.id) AS own_lessons"
         " FROM folders f LEFT JOIN lessons l ON l.folder_id = f.id"
         " GROUP BY f.id ORDER BY f.name COLLATE NOCASE, f.id"
     ).fetchall()
@@ -235,6 +238,10 @@ def rename_folder(conn: sqlite3.Connection, folder_id: int, name: str) -> None:
         conn.execute("UPDATE folders SET name = ? WHERE id = ?", (name, folder_id))
     except sqlite3.IntegrityError as error:
         raise FolderExists(f"A folder named {name!r} already exists here.") from error
+
+
+def set_folder_note(conn: sqlite3.Connection, folder_id: int, note: str) -> None:
+    conn.execute("UPDATE folders SET note = ? WHERE id = ?", (note, folder_id))
 
 
 def folder_exists(conn: sqlite3.Connection, folder_id: int) -> bool:

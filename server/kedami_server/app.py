@@ -94,6 +94,11 @@ class NewFolderRequest(FolderRequest):
     parent_id: StrictInt | None = None
 
 
+class FolderNoteRequest(Body):
+    # Kept as typed, so saving never moves the text under the cursor.
+    note: Annotated[str, StringConstraints(max_length=library.MAX_FOLDER_NOTE)]
+
+
 class FolderMoveRequest(Body):
     # None moves the folder to the top level.
     parent_id: StrictInt | None
@@ -673,6 +678,14 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
             except library.FolderExists as error:
                 raise HTTPException(409, str(error)) from error
         return {"id": folder_id, "name": body.name}
+
+    @app.post("/folders/{folder_id}/note")
+    def save_folder_note(folder_id: int, body: FolderNoteRequest):
+        with db.connect(settings.data_dir) as conn:
+            if not library.folder_exists(conn, folder_id):
+                raise HTTPException(404, "folder not found")
+            library.set_folder_note(conn, folder_id, body.note)
+        return {"id": folder_id, "note": body.note}
 
     @app.post("/folders/{folder_id}/move")
     def move_folder(folder_id: int, body: FolderMoveRequest):

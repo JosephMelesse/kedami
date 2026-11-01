@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS folders (
     parent_id INTEGER REFERENCES folders (id) DEFERRABLE INITIALLY DEFERRED,
     name TEXT NOT NULL COLLATE NOCASE,
     created TEXT NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
     CHECK (parent_id IS NULL OR parent_id <> id)
 );
 
@@ -132,6 +133,9 @@ ADDED_COLUMNS = {
         "active": "INTEGER NOT NULL DEFAULT 0",
         "domain": "TEXT",
         "chapter": "INTEGER",
+    },
+    "folders": {
+        "note": "TEXT NOT NULL DEFAULT ''",
     },
 }
 
