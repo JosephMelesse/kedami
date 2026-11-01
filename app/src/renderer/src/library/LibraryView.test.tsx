@@ -47,6 +47,7 @@ function render(lessons: LessonSummary[], folders: Folder[] = [], folder: Folder
       onOpenFolder={noop}
       onHome={noop}
       onNewFolder={noop}
+      onNewPlaceholder={noop}
       onRenameFolder={noop}
       onMoveFolder={noop}
       onDeleteFolder={noop}
@@ -130,6 +131,7 @@ describe('LibraryView', () => {
         onOpenFolder={noop}
         onHome={noop}
         onNewFolder={noop}
+        onNewPlaceholder={noop}
         onRenameFolder={noop}
         onMoveFolder={noop}
         onDeleteFolder={noop}
@@ -255,6 +257,7 @@ describe('Active lessons', () => {
         onOpenFolder={noop}
         onHome={noop}
         onNewFolder={noop}
+        onNewPlaceholder={noop}
         onRenameFolder={noop}
         onMoveFolder={noop}
         onDeleteFolder={noop}
@@ -275,6 +278,35 @@ describe('Active lessons', () => {
     expect(calls).toEqual(['active sample true', 'open sample', 'active sample false'])
     await act(async () => root.unmount())
     container.remove()
+  })
+})
+
+describe('Placeholders', () => {
+  const planned = (overrides: Partial<LessonSummary> = {}) =>
+    summary({ id: 'p', title: 'Week 1', subject: null, status: 'placeholder', problems_total: 0, problems_done: 0, ...overrides })
+
+  it('shows a clear label and no progress or Active checkbox', () => {
+    const root = render([planned()])
+    const [tile] = root.querySelectorAll<HTMLElement>('.tile')
+    expect(tile.textContent).toContain('Not generated')
+    expect(tile.textContent).toContain('Week 1')
+    expect(tile.querySelector('.eyebrow')?.textContent).toBe('Placeholder')
+    expect(tile.querySelector('.progress-bar')).toBeNull()
+    expect(root.querySelector('.tile-active')).toBeNull()
+    expect(root.querySelector('.tile-menu-button')?.getAttribute('aria-label')).toBe('Options for Week 1')
+  })
+
+  it('offers New placeholder on the home page and inside a folder', () => {
+    expect(render([]).textContent).toContain('New placeholder')
+    expect(render([], [WEEK3], WEEK3).textContent).toContain('New placeholder')
+  })
+
+  it('shows in the Upcoming card, and as overdue once its date passes', () => {
+    const root = render([planned({ due_date: '2026-10-01', overdue: true })])
+    const row = root.querySelector<HTMLElement>('.upcoming-row')!
+    expect(row.textContent).toContain('Week 1')
+    expect(row.querySelector('.due-overdue')?.textContent).toBe('Overdue')
+    expect(root.querySelector('.tile')?.className).toContain('tile-overdue')
   })
 })
 
@@ -392,6 +424,11 @@ describe('LessonMenu', () => {
   it('offers rename, move, and delete when there is somewhere to move to', async () => {
     expect(await openMenu(summary({}), [WEEK3])).toEqual(['Rename', 'Move', 'Set due date', 'Delete lesson'])
     expect(await openMenu(summary({ folder_id: 3 }), [WEEK3])).toEqual(['Rename', 'Move', 'Set due date', 'Delete lesson'])
+  })
+
+  it('can rename, move, date, and delete a placeholder', async () => {
+    const placeholder = summary({ subject: null, status: 'placeholder' })
+    expect(await openMenu(placeholder, [WEEK3])).toEqual(['Rename', 'Move', 'Set due date', 'Delete lesson'])
   })
 
   it('says Change due date once it has one', async () => {

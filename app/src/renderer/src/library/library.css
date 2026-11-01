@@ -42,6 +42,28 @@
   box-sizing: border-box;
 }
 
+.dialog-action-start {
+  margin-right: auto;
+}
+
+.placeholder-preview,
+.placeholder-problems {
+  display: grid;
+  gap: 8px;
+  max-height: 240px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  font-size: 14px;
+  list-style: none;
+}
+
+.placeholder-preview li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
 .move-list {
   display: grid;
   min-width: 320px;

@@ -289,3 +289,60 @@ describe('a new SQL lesson', () => {
     expect(container.textContent).toContain('Not supported, so not added: school.sql')
   })
 })
+
+describe('filling in a placeholder', () => {
+  const routes = (status = 200) =>
+    vi.fn(async (url: string, init: RequestInit) => {
+      const path = new URL(url).pathname
+      expect(init.method).toBe('POST')
+      if (path === '/lessons/planned/fill') {
+        return status === 200
+          ? new Response(JSON.stringify({ id: 'planned' }))
+          : new Response(JSON.stringify({ detail: 'This lesson isn’t a placeholder any more.' }), { status })
+      }
+      throw new Error(`unexpected ${path}`)
+    })
+
+  const open = async () => {
+    await act(async () =>
+      root.render(
+        <NewLessonScreen
+          folderId={3}
+          placeholder={{ id: 'planned', title: 'Exam review' }}
+          onCreated={(id) => created.push(id)}
+          onBack={() => {}}
+        />
+      )
+    )
+    await act(async () => radio('Computer Science').click())
+    await pick('two')
+  }
+
+  it('shows its name and uploads to it, keeping its ID, without naming a folder', async () => {
+    const fetched = routes()
+    vi.stubGlobal('fetch', async (url: string, init: RequestInit) =>
+      new URL(url).pathname === '/leetcode/search' ? fetchMock(url) : fetched(url, init)
+    )
+    await open()
+    expect(container.querySelector('h1')?.textContent).toBe('Exam review')
+    await act(async () => generate().click())
+    await settle()
+    expect(created).toEqual(['planned'])
+    const form = fetched.mock.calls[0][1].body as FormData
+    expect(form.get('subject')).toBe('computer_science')
+    expect(form.get('folder')).toBeNull()
+  })
+
+  it('shows why an upload was refused and stays on the screen', async () => {
+    const fetched = routes(409)
+    vi.stubGlobal('fetch', async (url: string, init: RequestInit) =>
+      new URL(url).pathname === '/leetcode/search' ? fetchMock(url) : fetched(url, init)
+    )
+    await open()
+    await act(async () => generate().click())
+    await settle()
+    expect(created).toEqual([])
+    expect(container.textContent).toContain('isn’t a placeholder any more')
+    expect(generate().disabled).toBe(false)
+  })
+})

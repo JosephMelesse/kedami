@@ -1,5 +1,5 @@
 import { type DragEvent, type FormEvent, useRef, useState } from 'react'
-import { ApiError, createLesson, type MaterialRole, type NewFile, type Recommendation } from '../api'
+import { ApiError, createLesson, fillPlaceholder, type MaterialRole, type NewFile, type Recommendation } from '../api'
 import type { Lesson } from '../lesson/types'
 import { SUBJECT_LABELS } from '../subjects'
 import { ChapterPicker } from './ChapterPicker'
@@ -20,11 +20,13 @@ const DOMAINS: { value: NonNullable<Lesson['domain']>; label: string }[] = [
 interface NewLessonProps {
   /** The folder the lesson starts in, or null for the home page. */
   folderId: number | null
+  /** The placeholder this fills in, rather than making a new lesson. */
+  placeholder?: { id: string; title: string } | null
   onCreated: (lessonId: string) => void
   onBack: () => void
 }
 
-export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps) {
+export function NewLessonScreen({ folderId, placeholder = null, onCreated, onBack }: NewLessonProps) {
   const [subject, setSubject] = useState<Lesson['subject'] | null>(null)
   const [domain, setDomain] = useState<Lesson['domain']>(null)
   const [picks, setPicks] = useState<Pick[]>([])
@@ -110,7 +112,12 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
       sent = [...files, { file: database.file, role: 'database', force: false }]
     }
     try {
-      onCreated(await createLesson(subject, sent, folderId, domain, learnChapter ? chapter : null))
+      const lessonChapter = learnChapter ? chapter : null
+      onCreated(
+        placeholder
+          ? await fillPlaceholder(placeholder.id, subject, sent, domain, lessonChapter)
+          : await createLesson(subject, sent, folderId, domain, lessonChapter)
+      )
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not reach the server.')
       setPending(false)
@@ -126,7 +133,7 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
       </nav>
       <form className="form-screen" onSubmit={submit}>
         <header className="lesson-header">
-          <h1>New lesson</h1>
+          <h1>{placeholder ? placeholder.title : 'New lesson'}</h1>
           <p className="muted">
             {dsa
               ? 'Pick the LeetCode problems and add any reference material. Kedami turns them into one lesson.'

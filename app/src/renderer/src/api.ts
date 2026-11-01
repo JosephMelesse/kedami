@@ -1,7 +1,7 @@
 // Calls to the local server. The base URL and session token come from the preload.
 import type { Lesson } from './lesson/types'
 
-export type LessonStatus = 'generating' | 'ready' | 'failed'
+export type LessonStatus = 'placeholder' | 'generating' | 'ready' | 'failed'
 
 // A SQL lesson's course database is uploaded with the role 'database' and kept apart from the material that is read.
 export type MaterialRole = 'problem_set' | 'reference' | 'database'
@@ -36,7 +36,8 @@ export interface NewFile {
 export interface LessonSummary {
   id: string
   title: string
-  subject: Lesson['subject']
+  /** Null only on a placeholder. */
+  subject: Lesson['subject'] | null
   domain: Lesson['domain']
   status: LessonStatus
   current_stage: number | null
@@ -118,6 +119,24 @@ export async function listLessons(): Promise<LessonSummary[]> {
   return body.lessons
 }
 
+function lessonForm(
+  subject: Lesson['subject'],
+  files: NewFile[],
+  domain: Lesson['domain'],
+  chapter: number | null
+): FormData {
+  const form = new FormData()
+  form.append('subject', subject)
+  if (domain !== null) form.append('domain', domain)
+  if (chapter !== null) form.append('chapter', String(chapter))
+  for (const { file, role, force } of files) {
+    form.append('files', file, file.name)
+    form.append('roles', role)
+    form.append('force', String(force))
+  }
+  return form
+}
+
 export async function createLesson(
   subject: Lesson['subject'],
   files: NewFile[],
@@ -125,18 +144,44 @@ export async function createLesson(
   domain: Lesson['domain'] = null,
   chapter: number | null = null
 ): Promise<string> {
-  const form = new FormData()
-  form.append('subject', subject)
-  if (domain !== null) form.append('domain', domain)
-  if (chapter !== null) form.append('chapter', String(chapter))
+  const form = lessonForm(subject, files, domain, chapter)
   if (folderId !== null) form.append('folder', String(folderId))
-  for (const { file, role, force } of files) {
-    form.append('files', file, file.name)
-    form.append('roles', role)
-    form.append('force', String(force))
-  }
   const body = await request<{ id: string }>('POST', '/lessons', form)
   return body.id
+}
+
+/** Upload a placeholder's material. It keeps its ID, name, folder, and due date, and starts generating. */
+export async function fillPlaceholder(
+  lessonId: string,
+  subject: Lesson['subject'],
+  files: NewFile[],
+  domain: Lesson['domain'] = null,
+  chapter: number | null = null
+): Promise<string> {
+  const body = await request<{ id: string }>('POST', `${lessonPath(lessonId)}/fill`, lessonForm(subject, files, domain, chapter))
+  return body.id
+}
+
+export interface PlannedLesson {
+  name: string
+  /** As YYYY-MM-DD. */
+  due_date: string | null
+}
+
+export interface ListProblem {
+  /** 1 for the first line, or 0 for the list as a whole. */
+  line: number
+  text: string
+  reason: string
+}
+
+/** Read a pasted list on the server, saving nothing. One bad line rejects the whole list. */
+export function parsePlaceholderList(text: string): Promise<{ placeholders: PlannedLesson[]; problems: ListProblem[] }> {
+  return request('POST', '/placeholders/parse', { text })
+}
+
+export async function createPlaceholders(folderId: number | null, placeholders: PlannedLesson[]): Promise<void> {
+  await request('POST', '/placeholders', { folder_id: folderId, placeholders })
 }
 
 /** An imported LeetCode problem, as the problem picker's search finds it. */

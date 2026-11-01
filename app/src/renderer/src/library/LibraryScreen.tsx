@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useState } from 'react'
 import {
   ApiError,
   createFolder,
+  createPlaceholders,
   deleteFolder,
   deleteLesson,
   type Folder,
@@ -26,6 +27,7 @@ import { LessonTile } from './LessonTile'
 import { MoveDialog } from './MoveDialog'
 import { NameDialog } from './NameDialog'
 import { NewLessonTile } from './NewLessonTile'
+import { PlaceholderDialog } from './PlaceholderDialog'
 import { UpcomingLessons } from './UpcomingLessons'
 
 type State =
@@ -35,6 +37,7 @@ type State =
 
 type Dialog =
   | { kind: 'new-folder' }
+  | { kind: 'new-placeholder' }
   | { kind: 'rename-lesson'; lesson: LessonSummary }
   | { kind: 'move-lesson'; lesson: LessonSummary }
   | { kind: 'due-date'; lesson: LessonSummary }
@@ -122,6 +125,7 @@ export function LibraryScreen({ onOpen, onNew, folderId, onFolder }: LibraryProp
         onOpenFolder={(f) => onFolder(f.id)}
         onHome={() => onFolder(null)}
         onNewFolder={() => setDialog({ kind: 'new-folder' })}
+        onNewPlaceholder={() => setDialog({ kind: 'new-placeholder' })}
         onRenameFolder={(f) => setDialog({ kind: 'rename-folder', folder: f })}
         onMoveFolder={(f) => setDialog({ kind: 'move-folder', folder: f })}
         onDeleteFolder={(f) => setDialog({ kind: 'delete-folder', folder: f })}
@@ -138,6 +142,12 @@ export function LibraryScreen({ onOpen, onNew, folderId, onFolder }: LibraryProp
           confirmLabel="Create"
           onCancel={() => setDialog(null)}
           onSubmit={(name) => named(() => createFolder(name, folder?.id ?? null))}
+        />
+      )}
+      {dialog?.kind === 'new-placeholder' && (
+        <PlaceholderDialog
+          onCancel={() => setDialog(null)}
+          onCreate={(planned) => named(() => createPlaceholders(folder?.id ?? null, planned))}
         />
       )}
       {dialog?.kind === 'rename-folder' && (
@@ -186,7 +196,11 @@ export function LibraryScreen({ onOpen, onNew, folderId, onFolder }: LibraryProp
       {dialog?.kind === 'delete-lesson' && (
         <ConfirmDialog
           title={`Delete ${dialog.lesson.title}?`}
-          body="Its files, progress, and simulations are removed for good."
+          body={
+            dialog.lesson.status === 'placeholder'
+              ? 'Nothing has been generated for it, so only the placeholder is removed.'
+              : 'Its files, progress, and simulations are removed for good.'
+          }
           confirmLabel="Delete"
           destructive
           onCancel={() => setDialog(null)}
@@ -232,6 +246,7 @@ interface LibraryViewProps {
   onOpenFolder: (folder: Folder) => void
   onHome: () => void
   onNewFolder: () => void
+  onNewPlaceholder: () => void
   onRenameFolder: (folder: Folder) => void
   onMoveFolder: (folder: Folder) => void
   onDeleteFolder: (folder: Folder) => void
@@ -271,6 +286,9 @@ export function LibraryView(props: LibraryViewProps) {
         <h1>{folder ? folder.name : 'Lessons'}</h1>
         {folder ? (
           <div className="library-actions">
+            <button type="button" className="button" onClick={props.onNewPlaceholder}>
+              New placeholder
+            </button>
             <button type="button" className="button" onClick={props.onNewFolder}>
               New folder
             </button>
@@ -285,9 +303,14 @@ export function LibraryView(props: LibraryViewProps) {
             </button>
           </div>
         ) : (
-          <button type="button" className="button" onClick={props.onNewFolder}>
-            New folder
-          </button>
+          <div className="library-actions">
+            <button type="button" className="button" onClick={props.onNewPlaceholder}>
+              New placeholder
+            </button>
+            <button type="button" className="button" onClick={props.onNewFolder}>
+              New folder
+            </button>
+          </div>
         )}
       </header>
       {problem && <p className="answer-error">{problem}</p>}
