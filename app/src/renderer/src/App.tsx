@@ -34,7 +34,11 @@ export function App() {
           />
         )}
         {screen.name === 'new' && (
-          <NewLessonScreen folderId={screen.folderId} onCreated={openGenerating} onBack={openLibrary} />
+          <NewLessonScreen
+            folderId={screen.folderId}
+            onCreated={openGenerating}
+            onBack={() => setScreen({ name: 'library', folderId: screen.folderId })}
+          />
         )}
         {screen.name === 'generating' && (
           <GeneratingScreen key={screen.lessonId} lessonId={screen.lessonId} onReady={openLesson} onBack={openLibrary} />

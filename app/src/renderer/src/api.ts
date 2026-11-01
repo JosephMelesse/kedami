@@ -380,8 +380,21 @@ export function getSolution(lessonId: string, blockId: string, partId: string): 
 export interface Folder {
   id: number
   name: string
-  /** How many lessons it holds. */
+  /** Null at the top level. */
+  parent_id: number | null
+  /** How many lessons it holds, counting those in its subfolders at any depth. */
   lessons: number
+  /** How many lessons sit directly in it. */
+  own_lessons: number
+  /** How many folders sit directly in it. */
+  subfolders: number
+}
+
+export interface DeletedFolder {
+  /** Where its contents went, or null for the home page. */
+  parent_id: number | null
+  /** Subfolders given a number because their name was taken there. */
+  renamed: { id: number; old: string; new: string }[]
 }
 
 export async function listFolders(): Promise<Folder[]> {
@@ -389,16 +402,20 @@ export async function listFolders(): Promise<Folder[]> {
   return body.folders
 }
 
-export function createFolder(name: string): Promise<Folder> {
-  return request('POST', '/folders', { name })
+export function createFolder(name: string, parentId: number | null): Promise<Folder> {
+  return request('POST', '/folders', { name, parent_id: parentId })
 }
 
 export async function renameFolder(folderId: number, name: string): Promise<void> {
   await request('POST', `/folders/${folderId}/rename`, { name })
 }
 
-export async function deleteFolder(folderId: number): Promise<void> {
-  await request('DELETE', `/folders/${folderId}`)
+export async function moveFolder(folderId: number, parentId: number | null): Promise<void> {
+  await request('POST', `/folders/${folderId}/move`, { parent_id: parentId })
+}
+
+export function deleteFolder(folderId: number): Promise<DeletedFolder> {
+  return request('DELETE', `/folders/${folderId}`)
 }
 
 export async function renameLesson(lessonId: string, title: string): Promise<void> {

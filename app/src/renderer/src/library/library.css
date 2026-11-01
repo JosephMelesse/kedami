@@ -22,7 +22,38 @@
 
 .library-actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
+}
+
+.move-list {
+  display: grid;
+  max-height: 320px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.move-list button {
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.move-list button:hover:not(:disabled) {
+  background: var(--surface-raised);
+}
+
+.move-list button:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
 }
 
 .tile-wrap {

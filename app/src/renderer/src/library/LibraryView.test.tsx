@@ -22,7 +22,11 @@ function summary(overrides: Partial<LessonSummary>): LessonSummary {
   }
 }
 
-const WEEK3: Folder = { id: 3, name: 'Week 3', lessons: 1 }
+function folderOf(overrides: Partial<Folder> & { id: number; name: string }): Folder {
+  return { parent_id: null, lessons: 0, own_lessons: 0, subfolders: 0, ...overrides }
+}
+
+const WEEK3 = folderOf({ id: 3, name: 'Week 3', lessons: 1, own_lessons: 1 })
 const noop = () => {}
 
 function render(lessons: LessonSummary[], folders: Folder[] = [], folder: Folder | null = null): HTMLElement {
@@ -33,12 +37,14 @@ function render(lessons: LessonSummary[], folders: Folder[] = [], folder: Folder
       folders={folders}
       folder={folder}
       problem={null}
+      notice={null}
       onOpen={noop}
       onNew={noop}
       onOpenFolder={noop}
       onHome={noop}
       onNewFolder={noop}
       onRenameFolder={noop}
+      onMoveFolder={noop}
       onDeleteFolder={noop}
       onRename={noop}
       onMove={noop}
@@ -73,7 +79,53 @@ describe('LibraryView', () => {
     expect(root.querySelector('.library-nav')?.textContent).toBe('Lessons')
     expect(root.textContent).toContain('Delete folder')
     expect(root.textContent).toContain('Rename')
-    expect(root.textContent).not.toContain('New folder')
+    expect(root.textContent).toContain('New folder')
+    expect(root.textContent).toContain('Move')
+  })
+
+  it('shows a folder’s subfolders, then its lessons, then the new lesson tile, with a breadcrumb back up', () => {
+    const physics = folderOf({ id: 1, name: 'Physics', lessons: 2, subfolders: 1 })
+    const week = folderOf({ id: 2, name: 'Week 1', parent_id: 1, lessons: 2, own_lessons: 1, subfolders: 1 })
+    const part = folderOf({ id: 4, name: 'Part A', parent_id: 2, lessons: 1, own_lessons: 1 })
+    const lessons = [summary({ id: 'a', title: 'Filed', folder_id: 2 }), summary({ id: 'b', title: 'Deep', folder_id: 4 })]
+    const root = render(lessons, [physics, week, part], week)
+    expect(titles(root)).toEqual(['Part A', 'Filed', 'New lesson'])
+    expect(root.querySelector('h1')?.textContent).toBe('Week 1')
+    expect(root.querySelector('.library-nav')?.textContent).toBe('Lessons / Physics')
+  })
+
+  it('shows only top-level folders on the home page, counting the lessons in their subfolders', () => {
+    const physics = folderOf({ id: 1, name: 'Physics', lessons: 2, subfolders: 1 })
+    const week = folderOf({ id: 2, name: 'Week 1', parent_id: 1, lessons: 2, own_lessons: 2 })
+    const root = render([], [physics, week])
+    expect(titles(root)).toEqual(['Physics', 'New lesson'])
+    expect(root.textContent).toContain('2 lessons')
+  })
+
+  it('shows a notice, such as a folder renamed by a delete', () => {
+    const root = document.createElement('div')
+    root.innerHTML = renderToString(
+      <LibraryView
+        lessons={[]}
+        folders={[]}
+        folder={null}
+        problem={null}
+        notice="Week 1 is now Week 1 (2), since that name was taken."
+        onOpen={noop}
+        onNew={noop}
+        onOpenFolder={noop}
+        onHome={noop}
+        onNewFolder={noop}
+        onRenameFolder={noop}
+        onMoveFolder={noop}
+        onDeleteFolder={noop}
+        onRename={noop}
+        onMove={noop}
+        onSetActive={noop}
+        onDelete={noop}
+      />
+    )
+    expect(root.textContent).toContain('Week 1 is now Week 1 (2)')
   })
 
   it('shows only the new lesson tile when there is nothing else', () => {
@@ -181,12 +233,14 @@ describe('Active lessons', () => {
         folders={[]}
         folder={null}
         problem={null}
+        notice={null}
         onOpen={(l) => calls.push(`open ${l.id}`)}
         onNew={noop}
         onOpenFolder={noop}
         onHome={noop}
         onNewFolder={noop}
         onRenameFolder={noop}
+        onMoveFolder={noop}
         onDeleteFolder={noop}
         onRename={noop}
         onMove={noop}
@@ -224,19 +278,9 @@ describe('LessonMenu', () => {
     return items
   }
 
-  const folders = [WEEK3, { id: 4, name: 'Week 4', lessons: 0 }]
-
-  it('offers rename, the other folders, and delete for a lesson on the home page', async () => {
-    expect(await openMenu(summary({}), folders)).toEqual(['Rename', 'Move to Week 3', 'Move to Week 4', 'Delete lesson'])
-  })
-
-  it('offers rename, home, and the other folders for a lesson in a folder', async () => {
-    expect(await openMenu(summary({ folder_id: 3 }), folders)).toEqual([
-      'Rename',
-      'Move to Lessons',
-      'Move to Week 4',
-      'Delete lesson'
-    ])
+  it('offers rename, move, and delete when there is somewhere to move to', async () => {
+    expect(await openMenu(summary({}), [WEEK3])).toEqual(['Rename', 'Move', 'Delete lesson'])
+    expect(await openMenu(summary({ folder_id: 3 }), [WEEK3])).toEqual(['Rename', 'Move', 'Delete lesson'])
   })
 
   it('offers rename but not delete while the lesson is generating', async () => {
