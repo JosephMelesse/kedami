@@ -47,8 +47,8 @@ The syntax tokens color code and nothing else. Each reads at 5.9:1 or more on `-
 
 | Screen | Contents |
 |---|---|
-| Library | The start screen. The Active card first, on the home page only (see Active lessons), then folder tiles, then the lessons in no folder, oldest first, with status and problem progress, then a New lesson tile that opens Upload. A New folder button creates a folder. Opening a folder shows its subfolders, then its lessons, then a New lesson tile that creates the lesson in that folder; see Folders. Each ready lesson tile has an Active checkbox in its top right corner, beside an options menu to rename it, move it to a folder or home, or delete it after a confirmation; a generating lesson can't be deleted, and a renamed lesson keeps its name through reruns |
-| Upload | A subject choice. Computer science then asks for its domain: Data structures and algorithms, or SQL. A DSA lesson picks its problems in the problem picker (see Picking problems in `code-problems.md`) and can add reference files. A SQL lesson either recommends problems for one chapter or takes an uploaded problem set with an optional course database; see SQL lessons below. Every other lesson has a file drop, with a role tag and force-transcription toggle per file |
+| Library | The start screen. The Active card first, on the home page only (see Active lessons), then folder tiles, then the lessons in no folder, oldest first, with status and problem progress, then a New lesson tile that opens Upload. A New folder button creates a folder, and a New placeholder button plans a lesson; see Placeholder lessons. Opening a folder shows its subfolders, then its lessons, then a New lesson tile that creates the lesson in that folder; see Folders. Each ready lesson tile has an Active checkbox in its top right corner, beside an options menu to rename it, move it to a folder or home, or delete it after a confirmation; a generating lesson can't be deleted, and a renamed lesson keeps its name through reruns |
+| Upload | Opened from the New lesson tile, or from a placeholder, which it fills in and whose name it shows as its heading. A subject choice. Computer science then asks for its domain: Data structures and algorithms, or SQL. A DSA lesson picks its problems in the problem picker (see Picking problems in `code-problems.md`) and can add reference files. A SQL lesson either recommends problems for one chapter or takes an uploaded problem set with an optional course database; see SQL lessons below. Every other lesson has a file drop, with a role tag and force-transcription toggle per file |
 | Generating | Current pipeline stage, with a 2048 game below it while the lesson generates; a failed lesson shows the reason and a Rerun button |
 | Lesson | Sections and blocks in order, with a progress indicator in the accent color. A Rerun button opens a dialog with the start stage and force-transcription toggles; a failed rerun shows its reason above the lesson. A Days button splits the lesson into days; see Finish lines. Opening a lesson returns to the block last read; see Reading position |
 | Workspace | One code problem, opened by its Solve button: description, editor, and console; see Workspace |
@@ -117,6 +117,17 @@ A lesson can have one optional due date: a date with no time, in local time.
 - **Folder tile:** shows "Next due Nov 3", the soonest due date among unfinished lessons inside it, including its subfolders, with the Overdue label and border when that date has passed.
 - **Persistence:** saved on the server. A rerun or a move keeps it, and deleting the lesson removes it.
 - **Not included:** system notifications, recurring deadlines, and folder-level deadlines.
+
+## Placeholder lessons
+
+A placeholder is a lesson the student has planned but not generated, so a folder and its deadlines can be set up before the material is in hand.
+
+- **Creating:** New placeholder, on the home page or inside a folder, opens a dialog with a Name, at most 120 characters, and an optional Due date. It makes no model calls and needs no files.
+- **Pasting a list:** a Paste a list button in that dialog takes one placeholder per line, as `Name` or `Name | YYYY-MM-DD`, at most 100. Preview shows what would be created before anything is. One line that can't be read rejects the whole list, and every such line is named with its number and why: a second `|`, a `|` with no date after it, no name, a name that is too long, or a date that isn't real, such as `2026-02-30`. Blank lines are skipped, and two placeholders may share a name, as lessons may. Changing the text means previewing again.
+- **In the library:** a tile marked Placeholder where a lesson shows its subject, with a "Not generated" label. It can be renamed, moved, deleted, and given a due date like any lesson. It has no Active checkbox and no problem progress, and it counts toward its folder's lessons. Opening it goes to Upload.
+- **Filling in:** Upload works as it does for a new lesson, except that it fills in this placeholder rather than making a second lesson. The placeholder keeps its ID, name, folder, and due date, and goes straight to generating. An upload that is refused leaves it as it was.
+- **Deadlines:** a placeholder is never done, so it shows in the Upcoming card, counts toward folder due dates, and shows as overdue once its date passes.
+- **If generation fails:** it behaves like any failed new lesson, and keeps its name, folder, and due date.
 
 ## Reading position
 

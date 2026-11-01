@@ -28,6 +28,7 @@
 24. Subfolders: nested folders, names unique within a parent, moving folders, and a breadcrumb
 25. Folder notes
 26. Deadlines: one due date per lesson, the overdue rule, and the Upcoming card
+27. Placeholder lessons: planned lessons that Upload fills in
 
 Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the sequencing. Each later step is independent of the ones after it.
 

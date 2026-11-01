@@ -4,7 +4,7 @@
 
 - A part is done when it is answered correctly or marked done.
 - A problem is done when every part is done.
-- A lesson is done when every problem is done. A lesson with no problems counts as done, as the Active card's "All problems done" reads. A lesson with no lesson JSON yet isn't done. A rerun doesn't change whether a lesson is done until it replaces the lesson.
+- A lesson is done when every problem is done. A lesson with no problems counts as done, as the Active card's "All problems done" reads. A lesson with no lesson JSON yet, such as a placeholder, isn't done. A rerun doesn't change whether a lesson is done until it replaces the lesson.
 - Checkpoints never count toward completion.
 - Viewing a problem part's solution doesn't complete it.
 

@@ -29,7 +29,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 | `test_flags` | lesson id, block id, part id, test (arguments and expected value), created |
 | `model_calls` | id, lesson id, stage, role, model, started, latency in ms, input tokens, output tokens, cache write tokens, cache read tokens, cost in USD |
 
-- Lesson status is one of: generating, ready, failed. Only a ready lesson has lesson JSON to serve.
+- Lesson status is one of: placeholder, generating, ready, failed. Only a ready lesson has lesson JSON to serve. A placeholder has no lesson JSON, materials, or stage outputs, and no subject until it is filled in; its name is kept as the custom title, so generation never overwrites it.
 - A lesson's title is the plan's until the student renames it. The custom title is kept in the index and served in place of the lesson JSON's title, which is never edited, and a rerun keeps it.
 - Material role is problem set or reference. A SQL lesson's course database is kept beside its materials, not as one (see Course databases in `sql-lessons.md`).
 - Progress status is one of: not started, in progress, correct, marked done.
@@ -49,6 +49,9 @@ All routes require the session token.
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/lessons` | Multipart upload: `subject`, `domain` for computer science, `chapter` for a SQL chapter lesson, optional `folder`, and per file `files`, `roles`, `force`; starts the pipeline |
+| POST | `/lessons/{id}/fill` | Fill in a placeholder: the same upload as `POST /lessons`, without a folder; starts the pipeline. Refused if the lesson isn't a placeholder |
+| POST | `/placeholders/parse` | Read a pasted list of placeholders; returns the placeholders, or every line it couldn't read and why. Saves nothing |
+| POST | `/placeholders` | Create placeholders: an optional folder and a list of names with optional due dates, all or none |
 | GET | `/sql/chapters` | The SQL chapters, each with how many problems it can recommend |
 | POST | `/sql/recommend` | Recommend problems for a SQL chapter: a chapter, a number, and how many times Recommend again was pressed |
 | POST | `/sql/database` | Check an uploaded course database without keeping it; returns its tables with their row counts, or why it was refused |

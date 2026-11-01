@@ -17,6 +17,14 @@ Stages 1 to 4 run as a background job on the server. The renderer polls lesson s
 - A failed lesson records the reason, which the Generating screen shows.
 - Generation runs inside the server process, so a lesson still generating when the app closes is marked failed on the next start.
 
+## Filling in a placeholder
+
+A placeholder (see Placeholder lessons in `ui.md`) becomes a generating lesson under its own ID.
+
+- The upload is checked as for a new lesson, before anything is saved, so a refused upload leaves the placeholder as it was.
+- The files are written to a staging folder, then one transaction takes the placeholder only if it is still one, records the materials, and moves the folder into place. A second upload or a delete that got there first refuses this one, and nothing of either is left behind.
+- From there it is a new lesson's first run. A run that fails or is interrupted leaves a failed lesson with its files, which can be rerun from stage 1.
+
 ## Upload rules
 
 - At least one file must be tagged as a problem set. For a DSA lesson, or a SQL lesson with recommended problems, it is the `problems.md` the renderer writes from the picked problems.
