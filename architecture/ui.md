@@ -65,6 +65,16 @@ Folders organize lessons in the Library, and nest to any depth.
 - **Moving:** Move on a folder page, or on a lesson's options menu, opens a dialog listing Lessons and every folder by its full path, such as "Physics / Week 1". The current location can't be picked, and for a folder neither can the folder itself or anything inside it. The server refuses a move into itself or a descendant. A move into a parent that already has a folder of that name is refused with a message, as a rename is, since the student can rename and try again.
 - **Deleting:** a confirmation names what moves and where. The folder's lessons and subfolders move up to its parent, and the student lands on the parent's page. A subfolder whose name is taken there gets the lowest free number, as in `Week 1 (2)`, as a music file does, and a notice afterward says what was renamed. The deleted folder's own name doesn't count as taken, so a "Week 1" inside a "Week 1" keeps its name. Folders are never merged.
 
+## Folder notes
+
+Each folder has one optional plain-text note, for the student's own reminders. The home page has no note.
+
+- **Placement:** a text box at the top of the folder's page, above its subfolders and lessons, with a muted "Notes for this folder" placeholder. Line breaks are kept; nothing is rendered as Markdown.
+- **Saving:** on the server, one second after typing stops and when the student leaves the page. There is no button. A failed save shows a short message by the box and keeps the text. The library's background refresh never replaces what is in the box.
+- **Limit:** 20,000 characters. A note of only spaces and line breaks counts as empty.
+- **Moving and deleting:** a note moves with its folder. Deleting a folder deletes its note, and the confirmation says so when the note isn't empty. A subfolder that moves up keeps its own note.
+- **Privacy:** notes never go to the model or into any lesson material.
+
 ## Workspace
 
 Where a code problem is solved. Its contents are in `code-problems.md`; this is the layout.

@@ -20,7 +20,7 @@ Everything lives in one app data folder, which main passes to the server at laun
 | Table | Key fields |
 |---|---|
 | `lessons` | id, title, custom title, subject, domain, chapter (a SQL chapter lesson's), status, current stage, schema version, revision, created, error, folder id, reading block, day starts, active |
-| `folders` | id, parent id (empty at the top level), name (unique within a parent, ignoring case), created |
+| `folders` | id, parent id (empty at the top level), name (unique within a parent, ignoring case), note, created |
 | `settings` | key, value (for example, that the sample lesson was added on the first start) |
 | `materials` | id, lesson id, filename, role, force transcription |
 | `progress` | lesson id, block id, part id, status, last response, attempts, hints used, updated |
@@ -56,9 +56,10 @@ All routes require the session token.
 | POST | `/lessons/{id}/rename` | Rename a lesson |
 | POST | `/lessons/{id}/active` | Mark a ready lesson active or not |
 | POST | `/lessons/{id}/move` | Move a lesson to a folder, or home with `null` |
-| GET | `/folders` | Folders with their parent, their lessons counting subfolders at any depth, their own lessons, and their subfolder count |
+| GET | `/folders` | Folders with their parent, their lessons counting subfolders at any depth, their own lessons, their subfolder count, and their note |
 | POST | `/folders` | Create a folder, with an optional parent |
 | POST | `/folders/{id}/rename` | Rename a folder |
+| POST | `/folders/{id}/note` | Save a folder's note, at most 20,000 characters |
 | POST | `/folders/{id}/move` | Move a folder to another folder, or to the top level with `null`; refuses itself and its descendants |
 | DELETE | `/folders/{id}` | Delete a folder; its lessons and subfolders move up to its parent. Returns the parent and any subfolders renamed to avoid a clash |
 | GET | `/lessons` | List lessons with status, progress, and whether each is active |
