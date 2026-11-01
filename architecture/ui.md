@@ -101,9 +101,22 @@ The student marks the lessons they are working through as active, and the home p
 
 - **Marking:** a ready lesson's tile has an Active checkbox in its top right corner, left of the options button. Checking or unchecking it doesn't open the lesson. A generating lesson, or a new lesson that failed, has none.
 - **Card:** at the top of the home page, one card spanning the width of the library, on `--bg` with a 1px `--border` and the usual card radius. It holds an "Active" heading over a row per active lesson from any folder, oldest first. With no active lesson there is no card. Folders don't show it.
-- **Rows:** each row has the lesson title in 14px, then its boxes side by side, wrapping as needed, then "3 problems left" in `--text-muted`, or "All problems done" once none are. While the lesson reruns, "Generating" shows in place of the boxes. Clicking a row opens the lesson.
+- **Rows:** each row has the lesson title in 14px, then its boxes side by side, wrapping as needed, then "3 problems left" in `--text-muted`, or "All problems done" once none are, then its due date if it has one (see Deadlines). While the lesson reruns, "Generating" shows in place of the boxes. Clicking a row opens the lesson.
 - **Boxes:** one fills for each done problem, from the left, in `--correct`. The rest are `--surface-raised` with a 1px `--border`. A problem is done as defined in `completion-and-verification.md`, so undoing a mark done empties a box again.
 - **Persistence:** whether a lesson is active is saved on the server. New lessons start inactive, a rerun keeps it, and deleting the lesson removes it.
+
+## Deadlines
+
+A lesson can have one optional due date: a date with no time, in local time.
+
+- **Setting:** Set due date, or Change due date, on a lesson's options menu opens a dialog with a date field, Save, Cancel, and, when it has one, Clear. Any lesson can have one, whatever its status. A date in the past is allowed and shows as overdue at once.
+- **Overdue:** a lesson is overdue when its date has passed and it isn't done (see Completion in `completion-and-verification.md`). On the date itself it isn't overdue yet. A done lesson never shows as overdue, including while it reruns. A page left open past midnight updates the next time the library loads.
+- **Dates:** shown as "Due Nov 3", with the year when it isn't the current year.
+- **Tiles and rows:** lesson tiles and Active card rows show the due date. An overdue lesson adds a short "Overdue" label in `--retry`, and its tile has a `--retry` border. Rows have no border of their own, so only the label is colored.
+- **Upcoming card:** on the home page, below the Active card and styled like it, an "Upcoming" heading over a row per unfinished lesson with a due date, from any folder, soonest first, so overdue lessons come first. Each row has the title, the folder's full path in `--text-muted` if it is in one, and the due date. Clicking a row opens the lesson. With none, there is no card. Folders don't show it.
+- **Folder tile:** shows "Next due Nov 3", the soonest due date among unfinished lessons inside it, including its subfolders, with the Overdue label and border when that date has passed.
+- **Persistence:** saved on the server. A rerun or a move keeps it, and deleting the lesson removes it.
+- **Not included:** system notifications, recurring deadlines, and folder-level deadlines.
 
 ## Reading position
 

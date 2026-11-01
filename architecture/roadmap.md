@@ -27,6 +27,7 @@
 23. Diagram layout check: monospace diagram text, measured by the server, with clipped and overlapping text sent back to the model
 24. Subfolders: nested folders, names unique within a parent, moving folders, and a breadcrumb
 25. Folder notes
+26. Deadlines: one due date per lesson, the overdue rule, and the Upcoming card
 
 Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the sequencing. Each later step is independent of the ones after it.
 
