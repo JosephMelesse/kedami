@@ -5,12 +5,13 @@ interface LessonMenuProps {
   lesson: LessonSummary
   folders: Folder[]
   onRename: () => void
-  onMove: (folderId: number | null) => void
+  onMove: () => void
+  onDueDate: () => void
   onDelete: () => void
 }
 
-/** The options button on a lesson tile: rename it, move it to another folder or home, or delete it. */
-export function LessonMenu({ lesson, folders, onRename, onMove, onDelete }: LessonMenuProps) {
+/** The options button on a lesson tile: rename it, move it, set its due date, or delete it. */
+export function LessonMenu({ lesson, folders, onRename, onMove, onDueDate, onDelete }: LessonMenuProps) {
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
 
@@ -33,7 +34,7 @@ export function LessonMenu({ lesson, folders, onRename, onMove, onDelete }: Less
     setOpen(false)
     action()
   }
-  const destinations = folders.filter((folder) => folder.id !== lesson.folder_id)
+  const canMove = lesson.folder_id !== null || folders.length > 0
 
   return (
     <div className="tile-menu" ref={root}>
@@ -52,16 +53,14 @@ export function LessonMenu({ lesson, folders, onRename, onMove, onDelete }: Less
           <button type="button" role="menuitem" onClick={choose(onRename)}>
             Rename
           </button>
-          {lesson.folder_id !== null && (
-            <button type="button" role="menuitem" onClick={choose(() => onMove(null))}>
-              Move to Lessons
+          {canMove && (
+            <button type="button" role="menuitem" onClick={choose(onMove)}>
+              Move
             </button>
           )}
-          {destinations.map((folder) => (
-            <button key={folder.id} type="button" role="menuitem" onClick={choose(() => onMove(folder.id))}>
-              Move to {folder.name}
-            </button>
-          ))}
+          <button type="button" role="menuitem" onClick={choose(onDueDate)}>
+            {lesson.due_date === null ? 'Set due date' : 'Change due date'}
+          </button>
           <button
             type="button"
             role="menuitem"

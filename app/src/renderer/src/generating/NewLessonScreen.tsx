@@ -1,5 +1,5 @@
 import { type DragEvent, type FormEvent, useRef, useState } from 'react'
-import { ApiError, createLesson, type MaterialRole, type NewFile } from '../api'
+import { ApiError, createLesson, fillPlaceholder, type MaterialRole, type NewFile } from '../api'
 import type { Lesson } from '../lesson/types'
 import { SUBJECT_LABELS } from '../subjects'
 import { ACCEPT, canForce, kindOf } from './files'
@@ -9,11 +9,13 @@ const SUBJECTS = Object.entries(SUBJECT_LABELS).map(([value, label]) => ({ value
 interface NewLessonProps {
   /** The folder the lesson starts in, or null for the home page. */
   folderId: number | null
+  /** The placeholder this fills in, rather than making a new lesson. */
+  placeholder?: { id: string; title: string } | null
   onCreated: (lessonId: string) => void
   onBack: () => void
 }
 
-export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps) {
+export function NewLessonScreen({ folderId, placeholder = null, onCreated, onBack }: NewLessonProps) {
   const [subject, setSubject] = useState<Lesson['subject'] | null>(null)
   const [files, setFiles] = useState<NewFile[]>([])
   const [rejected, setRejected] = useState<string[]>([])
@@ -49,7 +51,7 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
     setPending(true)
     setError(null)
     try {
-      onCreated(await createLesson(subject, files, folderId))
+      onCreated(placeholder ? await fillPlaceholder(placeholder.id, subject, files) : await createLesson(subject, files, folderId))
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not reach the server.')
       setPending(false)
@@ -65,7 +67,7 @@ export function NewLessonScreen({ folderId, onCreated, onBack }: NewLessonProps)
       </nav>
       <form className="form-screen" onSubmit={submit}>
         <header className="lesson-header">
-          <h1>New lesson</h1>
+          <h1>{placeholder ? placeholder.title : 'New lesson'}</h1>
           <p className="muted">Add the problem set and any reference material. Kedami turns them into one lesson.</p>
         </header>
         <fieldset className="field">

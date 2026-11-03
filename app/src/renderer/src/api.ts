@@ -1,7 +1,7 @@
 // Calls to the local server. The base URL and session token come from the preload.
 import type { Lesson } from './lesson/types'
 
-export type LessonStatus = 'generating' | 'ready' | 'failed'
+export type LessonStatus = 'placeholder' | 'generating' | 'ready' | 'failed'
 
 export type MaterialRole = 'problem_set' | 'reference'
 
@@ -35,7 +35,8 @@ export interface NewFile {
 export interface LessonSummary {
   id: string
   title: string
-  subject: Lesson['subject']
+  /** Null only on a placeholder. */
+  subject: Lesson['subject'] | null
   status: LessonStatus
   current_stage: number | null
   error: string | null
@@ -46,6 +47,11 @@ export interface LessonSummary {
   problems_done: number
   /** Shown in the home page's Active card. */
   active: boolean
+  /** As YYYY-MM-DD, or null with none. */
+  due_date: string | null
+  /** Every problem is done, also while a rerun is under way. */
+  done: boolean
+  overdue: boolean
 }
 
 export type TreeNode =
@@ -111,21 +117,58 @@ export async function listLessons(): Promise<LessonSummary[]> {
   return body.lessons
 }
 
-export async function createLesson(
-  subject: Lesson['subject'],
-  files: NewFile[],
-  folderId: number | null
-): Promise<string> {
+function lessonForm(subject: Lesson['subject'], files: NewFile[]): FormData {
   const form = new FormData()
   form.append('subject', subject)
-  if (folderId !== null) form.append('folder', String(folderId))
   for (const { file, role, force } of files) {
     form.append('files', file, file.name)
     form.append('roles', role)
     form.append('force', String(force))
   }
+  return form
+}
+
+export async function createLesson(
+  subject: Lesson['subject'],
+  files: NewFile[],
+  folderId: number | null
+): Promise<string> {
+  const form = lessonForm(subject, files)
+  if (folderId !== null) form.append('folder', String(folderId))
   const body = await request<{ id: string }>('POST', '/lessons', form)
   return body.id
+}
+
+/** Upload a placeholder's material. It keeps its ID, name, folder, and due date, and starts generating. */
+export async function fillPlaceholder(
+  lessonId: string,
+  subject: Lesson['subject'],
+  files: NewFile[]
+): Promise<string> {
+  const body = await request<{ id: string }>('POST', `${lessonPath(lessonId)}/fill`, lessonForm(subject, files))
+  return body.id
+}
+
+export interface PlannedLesson {
+  name: string
+  /** As YYYY-MM-DD. */
+  due_date: string | null
+}
+
+export interface ListProblem {
+  /** 1 for the first line, or 0 for the list as a whole. */
+  line: number
+  text: string
+  reason: string
+}
+
+/** Read a pasted list on the server, saving nothing. One bad line rejects the whole list. */
+export function parsePlaceholderList(text: string): Promise<{ placeholders: PlannedLesson[]; problems: ListProblem[] }> {
+  return request('POST', '/placeholders/parse', { text })
+}
+
+export async function createPlaceholders(folderId: number | null, placeholders: PlannedLesson[]): Promise<void> {
+  await request('POST', '/placeholders', { folder_id: folderId, placeholders })
 }
 
 export async function rerunLesson(lessonId: string, stage: number, force: Record<number, boolean>): Promise<void> {
@@ -221,8 +264,26 @@ export function getSolution(lessonId: string, blockId: string, partId: string): 
 export interface Folder {
   id: number
   name: string
-  /** How many lessons it holds. */
+  /** Null at the top level. */
+  parent_id: number | null
+  /** How many lessons it holds, counting those in its subfolders at any depth. */
   lessons: number
+  /** How many lessons sit directly in it. */
+  own_lessons: number
+  /** How many folders sit directly in it. */
+  subfolders: number
+  /** The student's own text, never sent to the model. */
+  note: string
+  /** The soonest due date among unfinished lessons inside it, including subfolders, as YYYY-MM-DD. */
+  next_due: string | null
+  next_due_overdue: boolean
+}
+
+export interface DeletedFolder {
+  /** Where its contents went, or null for the home page. */
+  parent_id: number | null
+  /** Subfolders given a number because their name was taken there. */
+  renamed: { id: number; old: string; new: string }[]
 }
 
 export async function listFolders(): Promise<Folder[]> {
@@ -230,16 +291,24 @@ export async function listFolders(): Promise<Folder[]> {
   return body.folders
 }
 
-export function createFolder(name: string): Promise<Folder> {
-  return request('POST', '/folders', { name })
+export function createFolder(name: string, parentId: number | null): Promise<Folder> {
+  return request('POST', '/folders', { name, parent_id: parentId })
 }
 
 export async function renameFolder(folderId: number, name: string): Promise<void> {
   await request('POST', `/folders/${folderId}/rename`, { name })
 }
 
-export async function deleteFolder(folderId: number): Promise<void> {
-  await request('DELETE', `/folders/${folderId}`)
+export async function saveFolderNote(folderId: number, note: string): Promise<void> {
+  await request('POST', `/folders/${folderId}/note`, { note })
+}
+
+export async function moveFolder(folderId: number, parentId: number | null): Promise<void> {
+  await request('POST', `/folders/${folderId}/move`, { parent_id: parentId })
+}
+
+export function deleteFolder(folderId: number): Promise<DeletedFolder> {
+  return request('DELETE', `/folders/${folderId}`)
 }
 
 export async function renameLesson(lessonId: string, title: string): Promise<void> {
@@ -248,6 +317,10 @@ export async function renameLesson(lessonId: string, title: string): Promise<voi
 
 export async function moveLesson(lessonId: string, folderId: number | null): Promise<void> {
   await request('POST', `${lessonPath(lessonId)}/move`, { folder_id: folderId })
+}
+
+export async function setLessonDueDate(lessonId: string, dueDate: string | null): Promise<void> {
+  await request('POST', `${lessonPath(lessonId)}/due-date`, { due_date: dueDate })
 }
 
 export async function setLessonActive(lessonId: string, active: boolean): Promise<void> {

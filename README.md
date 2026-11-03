@@ -9,11 +9,13 @@ Kedami is a desktop app that takes course material for a week, module, or exam a
 - Math and physics
 - General: any other course, such as computer science or chemistry, through the math and physics pipeline with no subject-specific rules
 - Local storage; outbound traffic goes only to the Anthropic API
+- A library of folders nested to any depth, each with an optional private note, lessons with optional due dates, and placeholders for lessons not yet generated
 - Dark theme
 
 **Out of scope for MVP**
 - Running the student's code or queries, and any integration with sites such as LeetCode
 - Accounts, sync, packaging, distribution
+- System notifications, recurring deadlines, and folder-level deadlines
 
 See `roadmap.md` for the backlog.
 

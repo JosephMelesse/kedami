@@ -1,6 +1,7 @@
 """HTTP API. Every route requires the session token."""
 
 import hmac
+import shutil
 import uuid
 from dataclasses import asdict
 from typing import Annotated, Any
@@ -10,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StringConstraints
 
-from . import db, progress, simulation_state, solution_state, usage
+from . import db, deadlines, placeholders, progress, simulation_state, solution_state, usage
 from .checking import InvalidResponse, check
 from .config import Settings
 from .model import ModelError, call_model
@@ -67,8 +68,26 @@ class SolutionRequest(Body):
     part_id: Annotated[str, StringConstraints(min_length=1, max_length=200)]
 
 
+FolderName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=library.MAX_FOLDER_NAME)]
+
+
 class FolderRequest(Body):
-    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+    name: FolderName
+
+
+class NewFolderRequest(FolderRequest):
+    # None creates it at the top level.
+    parent_id: StrictInt | None = None
+
+
+class FolderNoteRequest(Body):
+    # Kept as typed, so saving never moves the text under the cursor.
+    note: Annotated[str, StringConstraints(max_length=library.MAX_FOLDER_NOTE)]
+
+
+class FolderMoveRequest(Body):
+    # None moves the folder to the top level.
+    parent_id: StrictInt | None
 
 
 class RenameRequest(Body):
@@ -78,6 +97,26 @@ class RenameRequest(Body):
 class MoveRequest(Body):
     # None moves the lesson to the home page.
     folder_id: StrictInt | None
+
+
+class DueDateRequest(Body):
+    # None clears it.
+    due_date: deadlines.DueDate | None
+
+
+class PlaceholderListRequest(Body):
+    text: Annotated[str, StringConstraints(max_length=placeholders.MAX_LIST_TEXT)]
+
+
+class PlannedLessonRequest(Body):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=placeholders.MAX_NAME)]
+    due_date: deadlines.DueDate | None = None
+
+
+class NewPlaceholdersRequest(Body):
+    # None creates them on the home page.
+    folder_id: StrictInt | None = None
+    placeholders: Annotated[list[PlannedLessonRequest], Field(min_length=1, max_length=placeholders.MAX_LINES)]
 
 
 class ActiveRequest(Body):
@@ -98,7 +137,7 @@ class MarkDoneRequest(Body):
     done: StrictBool
 
 
-def create_app(settings: Settings, start_generation=pipeline.start, call=call_model) -> FastAPI:
+def create_app(settings: Settings, start_generation=pipeline.start, call=call_model, today=deadlines.today) -> FastAPI:
     app = FastAPI(title="Kedami", docs_url=None, redoc_url=None, openapi_url=None)
     expected = f"Bearer {settings.token}".encode()
 
@@ -146,12 +185,21 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
             except progress.Conflict as error:
                 raise HTTPException(409, str(error)) from error
 
-    def summary(row: LessonRow) -> dict:
-        lesson = load_lesson(settings.data_dir, row.id) if row.status == "ready" else None
-        done = 0
-        if lesson:
-            with db.connect(settings.data_dir) as conn:
-                done = progress.problems_done(lesson, progress.load_all(conn, row.id))
+    def problem_counts(lesson_id: str) -> tuple[int, int] | None:
+        """Problems done and in all, from the lesson on disk, or None with no lesson. A rerun leaves the old one there."""
+        lesson = load_lesson(settings.data_dir, lesson_id)
+        if lesson is None:
+            return None
+        with db.connect(settings.data_dir) as conn:
+            return progress.problems_done(lesson, progress.load_all(conn, lesson_id)), len(problem_ids(lesson))
+
+    def is_done(counts: tuple[int, int] | None) -> bool:
+        return counts is not None and counts[0] == counts[1]
+
+    def summary(row: LessonRow, on: str) -> dict:
+        counts = problem_counts(row.id)
+        shown = counts if counts is not None and row.status == "ready" else (0, 0)
+        finished = is_done(counts)
         return {
             "id": row.id,
             "title": row.shown_title,
@@ -161,9 +209,12 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
             "error": row.error,
             "folder_id": row.folder_id,
             "created": row.created,
-            "problems_total": len(problem_ids(lesson)) if lesson else 0,
-            "problems_done": done,
+            "problems_total": shown[1],
+            "problems_done": shown[0],
             "active": bool(row.active),
+            "due_date": row.due_date,
+            "done": finished,
+            "overdue": deadlines.is_overdue(row.due_date, finished, on),
         }
 
     @app.get("/health")
@@ -174,7 +225,19 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
     def lessons():
         with db.connect(settings.data_dir) as conn:
             rows = list_lessons(conn)
-        return {"lessons": [summary(row) for row in rows]}
+        on = today()
+        return {"lessons": [summary(row, on) for row in rows]}
+
+    def checked_uploads(files: list[UploadFile], roles: list[str], force: list[bool]) -> list[Upload]:
+        """Read and check a lesson's upload, saving nothing."""
+        if not len(files) == len(roles) == len(force):
+            raise HTTPException(422, "Each file needs a role and a force transcription setting.")
+        uploads = [Upload(f.filename or "file", f.file.read(), r, x) for f, r, x in zip(files, roles, force)]
+        try:
+            check_uploads(uploads)
+        except SourceError as error:
+            raise HTTPException(422, str(error)) from error
+        return uploads
 
     @app.post("/lessons", status_code=201)
     def new_lesson(
@@ -184,17 +247,11 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         force: Annotated[list[bool], Form()],
         folder: Annotated[int | None, Form()] = None,
     ):
-        if not len(files) == len(roles) == len(force):
-            raise HTTPException(422, "Each file needs a role and a force transcription setting.")
-        uploads = [Upload(f.filename or "file", f.file.read(), r, x) for f, r, x in zip(files, roles, force)]
         if folder is not None:
             with db.connect(settings.data_dir) as conn:
                 if not library.folder_exists(conn, folder):
                     raise HTTPException(422, "That folder no longer exists.")
-        try:
-            check_uploads(uploads)
-        except SourceError as error:
-            raise HTTPException(422, str(error)) from error
+        uploads = checked_uploads(files, roles, force)
 
         lesson_id = str(uuid.uuid4())
         saved = save_uploads(pipeline.materials_dir(settings.data_dir, lesson_id), uploads)
@@ -205,11 +262,59 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         start_generation(settings.data_dir, lesson_id, subject, 1)
         return {"id": lesson_id}
 
+    @app.post("/lessons/{lesson_id}/fill")
+    def fill_placeholder(
+        lesson_id: str,
+        subject: Annotated[Subject, Form()],
+        files: Annotated[list[UploadFile], File()],
+        roles: Annotated[list[str], Form()],
+        force: Annotated[list[bool], Form()],
+    ):
+        """Upload a placeholder's material. See Filling in a placeholder in architecture/pipeline.md."""
+        not_a_placeholder = HTTPException(409, "This lesson isn't a placeholder any more.")
+        if get_row(lesson_id).status != "placeholder":
+            raise not_a_placeholder
+        uploads = checked_uploads(files, roles, force)
+
+        # A staging folder, so a second upload or a delete can't mix with this one or leave part of it behind.
+        materials = pipeline.materials_dir(settings.data_dir, lesson_id)
+        staging = materials.with_name(f".fill-{uuid.uuid4()}")
+        try:
+            saved = save_uploads(staging, uploads)
+            with db.connect(settings.data_dir) as conn:
+                conn.execute("BEGIN IMMEDIATE")
+                if not library.fill_placeholder(conn, lesson_id, subject):
+                    raise not_a_placeholder
+                for file in saved:
+                    add_material(conn, lesson_id, file.filename, file.role, file.force_transcription)
+                staging.rename(materials)
+        finally:
+            shutil.rmtree(staging, ignore_errors=True)
+        start_generation(settings.data_dir, lesson_id, subject, 1)
+        return {"id": lesson_id}
+
+    @app.post("/placeholders/parse")
+    def parse_placeholder_list(body: PlaceholderListRequest):
+        planned, problems = placeholders.parse_list(body.text)
+        return {"placeholders": [asdict(p) for p in planned], "problems": [asdict(p) for p in problems]}
+
+    @app.post("/placeholders", status_code=201)
+    def create_placeholders(body: NewPlaceholdersRequest):
+        ids = [str(uuid.uuid4()) for _ in body.placeholders]
+        with db.connect(settings.data_dir) as conn:
+            if body.folder_id is not None and not library.folder_exists(conn, body.folder_id):
+                raise HTTPException(404, "folder not found")
+            for lesson_id, planned in zip(ids, body.placeholders):
+                library.create_placeholder(conn, lesson_id, planned.name, 1, body.folder_id, planned.due_date)
+        return {"ids": ids}
+
     @app.post("/lessons/{lesson_id}/rerun")
     def rerun(lesson_id: str, body: RerunRequest):
         row = get_row(lesson_id)
         if row.status == "generating":
             raise HTTPException(409, "This lesson is already generating.")
+        if row.status == "placeholder":
+            raise HTTPException(409, "This lesson hasn't been generated yet. Upload its material to start it.")
         with db.connect(settings.data_dir) as conn:
             materials = {str(m.id): m for m in list_materials(conn, lesson_id)}
         unknown = sorted(body.force.keys() - materials.keys())
@@ -402,16 +507,43 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
             library.move_lesson(conn, lesson_id, body.folder_id)
         return {"id": lesson_id, "folder_id": body.folder_id}
 
+    @app.post("/lessons/{lesson_id}/due-date")
+    def set_due_date(lesson_id: str, body: DueDateRequest):
+        get_row(lesson_id)
+        with db.connect(settings.data_dir) as conn:
+            library.set_due_date(conn, lesson_id, body.due_date)
+        return {"id": lesson_id, "due_date": body.due_date}
+
     @app.get("/folders")
     def folders():
         with db.connect(settings.data_dir) as conn:
-            return {"folders": [asdict(f) for f in library.list_folders(conn)]}
+            found = library.list_folders(conn)
+            rows = list_lessons(conn)
+        due = [
+            (row.folder_id, row.due_date)
+            for row in rows
+            if row.folder_id is not None and row.due_date is not None and not is_done(problem_counts(row.id))
+        ]
+        soonest = deadlines.soonest_by_folder({f.id: f.parent_id for f in found}, due)
+        on = today()
+        return {
+            "folders": [
+                asdict(f)
+                | {
+                    "next_due": soonest.get(f.id),
+                    "next_due_overdue": deadlines.is_overdue(soonest.get(f.id), False, on),
+                }
+                for f in found
+            ]
+        }
 
     @app.post("/folders", status_code=201)
-    def create_folder(body: FolderRequest):
+    def create_folder(body: NewFolderRequest):
         with db.connect(settings.data_dir) as conn:
+            if body.parent_id is not None and not library.folder_exists(conn, body.parent_id):
+                raise HTTPException(404, "folder not found")
             try:
-                return asdict(library.create_folder(conn, body.name))
+                return asdict(library.create_folder(conn, body.name, body.parent_id))
             except library.FolderExists as error:
                 raise HTTPException(409, str(error)) from error
 
@@ -426,12 +558,37 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
                 raise HTTPException(409, str(error)) from error
         return {"id": folder_id, "name": body.name}
 
-    @app.delete("/folders/{folder_id}")
-    def delete_folder(folder_id: int):
+    @app.post("/folders/{folder_id}/note")
+    def save_folder_note(folder_id: int, body: FolderNoteRequest):
         with db.connect(settings.data_dir) as conn:
             if not library.folder_exists(conn, folder_id):
                 raise HTTPException(404, "folder not found")
-            library.delete_folder(conn, folder_id)
-        return {"deleted": folder_id}
+            library.set_folder_note(conn, folder_id, body.note)
+        return {"id": folder_id, "note": body.note}
+
+    @app.post("/folders/{folder_id}/move")
+    def move_folder(folder_id: int, body: FolderMoveRequest):
+        with db.connect(settings.data_dir) as conn:
+            conn.execute("BEGIN IMMEDIATE")  # Take the write lock before checking, so moves can't interleave into a cycle.
+            if not library.folder_exists(conn, folder_id):
+                raise HTTPException(404, "folder not found")
+            if body.parent_id is not None and not library.folder_exists(conn, body.parent_id):
+                raise HTTPException(404, "folder not found")
+            try:
+                library.move_folder(conn, folder_id, body.parent_id)
+            except library.FolderCycle as error:
+                raise HTTPException(422, str(error)) from error
+            except library.FolderExists as error:
+                raise HTTPException(409, str(error)) from error
+        return {"id": folder_id, "parent_id": body.parent_id}
+
+    @app.delete("/folders/{folder_id}")
+    def delete_folder(folder_id: int):
+        with db.connect(settings.data_dir) as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            if not library.folder_exists(conn, folder_id):
+                raise HTTPException(404, "folder not found")
+            deleted = library.delete_folder(conn, folder_id)
+        return {"deleted": folder_id, **asdict(deleted)}
 
     return app

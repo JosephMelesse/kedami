@@ -59,7 +59,7 @@ Before writing code, read `README.md` and every file in `architecture/`. Those d
 
 ## Most likely to be wrong
 
-The lesson schema and ID derivation (`server/kedami_server/lesson.py`, `ids.py`), and the restricted math parser (`mathparse.py`). Every later step depends on them, so they get tests first and changes to them come with tests.
+The lesson schema and ID derivation (`server/kedami_server/lesson.py`, `ids.py`), the restricted math parser (`mathparse.py`), database migrations (`migrations.py`), the folder tree (`library.py`: moves that would make a cycle, and deleting a folder with name clashes), and filling in a placeholder (see Filling in a placeholder in `architecture/pipeline.md`). Every later step depends on them, so they get tests first and changes to them come with tests.
 
 ## Commands
 

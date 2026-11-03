@@ -1,25 +1,34 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import {
   ApiError,
   createFolder,
+  createPlaceholders,
   deleteFolder,
   deleteLesson,
   type Folder,
   type LessonSummary,
   listFolders,
   listLessons,
+  moveFolder,
   moveLesson,
   renameFolder,
   renameLesson,
-  setLessonActive
+  setLessonActive,
+  setLessonDueDate
 } from '../api'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { ActiveLessons } from './ActiveLessons'
+import { DueDateDialog } from './DueDateDialog'
+import { deleteSummary, foldersAbove, moveTargets } from './folders'
+import { FolderNote } from './FolderNote'
 import { FolderTile } from './FolderTile'
 import { LessonMenu } from './LessonMenu'
 import { LessonTile } from './LessonTile'
+import { MoveDialog } from './MoveDialog'
 import { NameDialog } from './NameDialog'
 import { NewLessonTile } from './NewLessonTile'
+import { PlaceholderDialog } from './PlaceholderDialog'
+import { UpcomingLessons } from './UpcomingLessons'
 
 type State =
   | { status: 'loading' }
@@ -28,9 +37,13 @@ type State =
 
 type Dialog =
   | { kind: 'new-folder' }
+  | { kind: 'new-placeholder' }
   | { kind: 'rename-lesson'; lesson: LessonSummary }
+  | { kind: 'move-lesson'; lesson: LessonSummary }
+  | { kind: 'due-date'; lesson: LessonSummary }
   | { kind: 'delete-lesson'; lesson: LessonSummary }
   | { kind: 'rename-folder'; folder: Folder }
+  | { kind: 'move-folder'; folder: Folder }
   | { kind: 'delete-folder'; folder: Folder }
 
 const POLL_MS = 3000
@@ -48,6 +61,10 @@ export function LibraryScreen({ onOpen, onNew, folderId, onFolder }: LibraryProp
   const [state, setState] = useState<State>({ status: 'loading' })
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
+  // Shown only on the page it is about, so it doesn't follow the student around.
+  const [notice, setNotice] = useState<{ folderId: number | null; text: string } | null>(null)
+  // Notes typed since this screen opened. They win over a refresh that may have been read before the save landed.
+  const [typedNotes, setTypedNotes] = useState<Record<number, string>>({})
   const generating = state.status === 'ready' && state.lessons.some((lesson) => lesson.status === 'generating')
 
   const load = useCallback(async () => {
@@ -68,6 +85,7 @@ export function LibraryScreen({ onOpen, onNew, folderId, onFolder }: LibraryProp
 
   const act = async (action: () => Promise<unknown>) => {
     setProblem(null)
+    setNotice(null)
     try {
       await action()
     } catch (error) {
@@ -91,32 +109,45 @@ export function LibraryScreen({ onOpen, onNew, folderId, onFolder }: LibraryProp
   if (state.status === 'loading') return <p className="screen-message">Loading lessons</p>
   if (state.status === 'error') return <p className="screen-message">Could not load lessons: {state.message}</p>
 
-  const folder = state.folders.find((f) => f.id === folderId) ?? null
+  const folders = state.folders.map((f) => (f.id in typedNotes ? { ...f, note: typedNotes[f.id] } : f))
+  const folder = folders.find((f) => f.id === folderId) ?? null
+  const parentName = (f: Folder) => folders.find((other) => other.id === f.parent_id)?.name ?? 'Lessons'
   return (
     <>
       <LibraryView
         lessons={state.lessons}
-        folders={state.folders}
+        folders={folders}
         folder={folder}
         problem={problem}
+        notice={notice?.folderId === folderId ? notice.text : null}
         onOpen={onOpen}
         onNew={() => onNew(folder?.id ?? null)}
         onOpenFolder={(f) => onFolder(f.id)}
         onHome={() => onFolder(null)}
         onNewFolder={() => setDialog({ kind: 'new-folder' })}
+        onNewPlaceholder={() => setDialog({ kind: 'new-placeholder' })}
         onRenameFolder={(f) => setDialog({ kind: 'rename-folder', folder: f })}
+        onMoveFolder={(f) => setDialog({ kind: 'move-folder', folder: f })}
         onDeleteFolder={(f) => setDialog({ kind: 'delete-folder', folder: f })}
         onRename={(lesson) => setDialog({ kind: 'rename-lesson', lesson })}
-        onMove={(lesson, target) => act(() => moveLesson(lesson.id, target))}
+        onMove={(lesson) => setDialog({ kind: 'move-lesson', lesson })}
+        onDueDate={(lesson) => setDialog({ kind: 'due-date', lesson })}
         onSetActive={(lesson, active) => act(() => setLessonActive(lesson.id, active))}
         onDelete={(lesson) => setDialog({ kind: 'delete-lesson', lesson })}
+        onNoteChange={(f, note) => setTypedNotes((typed) => ({ ...typed, [f.id]: note }))}
       />
       {dialog?.kind === 'new-folder' && (
         <NameDialog
           title="New folder"
           confirmLabel="Create"
           onCancel={() => setDialog(null)}
-          onSubmit={(name) => named(() => createFolder(name))}
+          onSubmit={(name) => named(() => createFolder(name, folder?.id ?? null))}
+        />
+      )}
+      {dialog?.kind === 'new-placeholder' && (
+        <PlaceholderDialog
+          onCancel={() => setDialog(null)}
+          onCreate={(planned) => named(() => createPlaceholders(folder?.id ?? null, planned))}
         />
       )}
       {dialog?.kind === 'rename-folder' && (
@@ -126,6 +157,30 @@ export function LibraryScreen({ onOpen, onNew, folderId, onFolder }: LibraryProp
           initial={dialog.folder.name}
           onCancel={() => setDialog(null)}
           onSubmit={(name) => named(() => renameFolder(dialog.folder.id, name))}
+        />
+      )}
+      {dialog?.kind === 'move-folder' && (
+        <MoveDialog
+          title={`Move ${dialog.folder.name}`}
+          targets={moveTargets(folders, dialog.folder.parent_id, dialog.folder.id)}
+          onCancel={() => setDialog(null)}
+          onPick={(target) => named(() => moveFolder(dialog.folder.id, target))}
+        />
+      )}
+      {dialog?.kind === 'move-lesson' && (
+        <MoveDialog
+          title={`Move ${dialog.lesson.title}`}
+          targets={moveTargets(folders, dialog.lesson.folder_id)}
+          onCancel={() => setDialog(null)}
+          onPick={(target) => named(() => moveLesson(dialog.lesson.id, target))}
+        />
+      )}
+      {dialog?.kind === 'due-date' && (
+        <DueDateDialog
+          title={`Due date for ${dialog.lesson.title}`}
+          initial={dialog.lesson.due_date}
+          onCancel={() => setDialog(null)}
+          onSubmit={(date) => named(() => setLessonDueDate(dialog.lesson.id, date))}
         />
       )}
       {dialog?.kind === 'rename-lesson' && (
@@ -141,7 +196,11 @@ export function LibraryScreen({ onOpen, onNew, folderId, onFolder }: LibraryProp
       {dialog?.kind === 'delete-lesson' && (
         <ConfirmDialog
           title={`Delete ${dialog.lesson.title}?`}
-          body="Its files, progress, and simulations are removed for good."
+          body={
+            dialog.lesson.status === 'placeholder'
+              ? 'Nothing has been generated for it, so only the placeholder is removed.'
+              : 'Its files, progress, and simulations are removed for good.'
+          }
           confirmLabel="Delete"
           destructive
           onCancel={() => setDialog(null)}
@@ -154,18 +213,20 @@ export function LibraryScreen({ onOpen, onNew, folderId, onFolder }: LibraryProp
       {dialog?.kind === 'delete-folder' && (
         <ConfirmDialog
           title={`Delete ${dialog.folder.name}?`}
-          body={
-            dialog.folder.lessons === 0
-              ? 'The folder is empty.'
-              : `Its ${dialog.folder.lessons === 1 ? 'lesson moves' : `${dialog.folder.lessons} lessons move`} back to Lessons.`
-          }
+          body={deleteSummary(folders.find((f) => f.id === dialog.folder.id) ?? dialog.folder, parentName(dialog.folder))}
           confirmLabel="Delete folder"
           destructive
           onCancel={() => setDialog(null)}
           onConfirm={() => {
             setDialog(null)
-            onFolder(null)
-            act(() => deleteFolder(dialog.folder.id))
+            act(async () => {
+              const deleted = await deleteFolder(dialog.folder.id)
+              onFolder(deleted.parent_id)
+              if (deleted.renamed.length > 0) {
+                const names = deleted.renamed.map((f) => `${f.old} is now ${f.new}`).join(', ')
+                setNotice({ folderId: deleted.parent_id, text: `${names}, since that name was taken.` })
+              }
+            })
           }}
         />
       )}
@@ -179,23 +240,30 @@ interface LibraryViewProps {
   /** The open folder, or null for the home page. */
   folder: Folder | null
   problem: string | null
+  notice: string | null
   onOpen: (lesson: LessonSummary) => void
   onNew: () => void
   onOpenFolder: (folder: Folder) => void
   onHome: () => void
   onNewFolder: () => void
+  onNewPlaceholder: () => void
   onRenameFolder: (folder: Folder) => void
+  onMoveFolder: (folder: Folder) => void
   onDeleteFolder: (folder: Folder) => void
   onRename: (lesson: LessonSummary) => void
-  onMove: (lesson: LessonSummary, folderId: number | null) => void
+  onMove: (lesson: LessonSummary) => void
+  onDueDate: (lesson: LessonSummary) => void
   onSetActive: (lesson: LessonSummary, active: boolean) => void
   onDelete: (lesson: LessonSummary) => void
+  onNoteChange: (folder: Folder, note: string) => void
 }
 
-/** Home shows the active lessons, then folders, then the lessons in no folder, then the new lesson tile. A folder shows its lessons. */
+/** Home shows the active lessons, then the top-level folders, then the lessons in no folder, then the new lesson tile. A folder shows the same below a breadcrumb, without the active lessons. */
 export function LibraryView(props: LibraryViewProps) {
-  const { lessons, folders, folder, problem } = props
-  const shown = lessons.filter((lesson) => lesson.folder_id === (folder?.id ?? null))
+  const { lessons, folders, folder, problem, notice } = props
+  const here = folder?.id ?? null
+  const shown = lessons.filter((lesson) => lesson.folder_id === here)
+  const subfolders = folders.filter((f) => f.parent_id === here)
 
   return (
     <div className="library">
@@ -204,34 +272,65 @@ export function LibraryView(props: LibraryViewProps) {
           <button type="button" className="link-button" onClick={props.onHome}>
             Lessons
           </button>
+          {foldersAbove(folders, folder).map((above) => (
+            <Fragment key={above.id}>
+              <span className="muted"> / </span>
+              <button type="button" className="link-button" onClick={() => props.onOpenFolder(above)}>
+                {above.name}
+              </button>
+            </Fragment>
+          ))}
         </nav>
       )}
       <header className="library-header">
         <h1>{folder ? folder.name : 'Lessons'}</h1>
         {folder ? (
           <div className="library-actions">
+            <button type="button" className="button" onClick={props.onNewPlaceholder}>
+              New placeholder
+            </button>
+            <button type="button" className="button" onClick={props.onNewFolder}>
+              New folder
+            </button>
             <button type="button" className="button" onClick={() => props.onRenameFolder(folder)}>
               Rename
+            </button>
+            <button type="button" className="button" onClick={() => props.onMoveFolder(folder)}>
+              Move
             </button>
             <button type="button" className="button" onClick={() => props.onDeleteFolder(folder)}>
               Delete folder
             </button>
           </div>
         ) : (
-          <button type="button" className="button" onClick={props.onNewFolder}>
-            New folder
-          </button>
+          <div className="library-actions">
+            <button type="button" className="button" onClick={props.onNewPlaceholder}>
+              New placeholder
+            </button>
+            <button type="button" className="button" onClick={props.onNewFolder}>
+              New folder
+            </button>
+          </div>
         )}
       </header>
       {problem && <p className="answer-error">{problem}</p>}
+      {notice && <p className="muted library-notice">{notice}</p>}
       {!folder && <ActiveLessons lessons={lessons} onOpen={props.onOpen} />}
+      {!folder && <UpcomingLessons lessons={lessons} folders={folders} onOpen={props.onOpen} />}
+      {folder && (
+        <FolderNote
+          key={folder.id}
+          folderId={folder.id}
+          initial={folder.note}
+          onChange={(note) => props.onNoteChange(folder, note)}
+        />
+      )}
       <ul className="tile-grid">
-        {!folder &&
-          folders.map((f) => (
-            <li key={`folder-${f.id}`}>
-              <FolderTile folder={f} onOpen={() => props.onOpenFolder(f)} />
-            </li>
-          ))}
+        {subfolders.map((f) => (
+          <li key={`folder-${f.id}`}>
+            <FolderTile folder={f} onOpen={() => props.onOpenFolder(f)} />
+          </li>
+        ))}
         {shown.map((lesson) => (
           <li key={lesson.id} className="tile-wrap">
             <LessonTile lesson={lesson} onOpen={() => props.onOpen(lesson)} />
@@ -251,7 +350,8 @@ export function LibraryView(props: LibraryViewProps) {
                 lesson={lesson}
                 folders={folders}
                 onRename={() => props.onRename(lesson)}
-                onMove={(target) => props.onMove(lesson, target)}
+                onMove={() => props.onMove(lesson)}
+                onDueDate={() => props.onDueDate(lesson)}
                 onDelete={() => props.onDelete(lesson)}
               />
             </div>

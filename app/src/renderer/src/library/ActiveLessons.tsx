@@ -1,4 +1,5 @@
 import type { LessonSummary } from '../api'
+import { DueLabel } from './DueLabel'
 
 /** The home page's card of active lessons, a row each with a box per problem. See Active lessons in architecture/ui.md. */
 export function ActiveLessons({ lessons, onOpen }: { lessons: LessonSummary[]; onOpen: (lesson: LessonSummary) => void }) {
@@ -10,13 +11,18 @@ export function ActiveLessons({ lessons, onOpen }: { lessons: LessonSummary[]; o
       <ul className="active-rows">
         {active.map((lesson) => (
           <li key={lesson.id}>
-            <button type="button" className="active-row" onClick={() => onOpen(lesson)}>
+            <button
+              type="button"
+              className={lesson.due_date === null ? 'active-row' : 'active-row active-row-due'}
+              onClick={() => onOpen(lesson)}
+            >
               <span className="active-title">{lesson.title}</span>
               {lesson.status === 'ready' ? (
                 <ProblemsLeft done={lesson.problems_done} total={lesson.problems_total} />
               ) : (
                 <span className="muted">Generating</span>
               )}
+              <DueLabel date={lesson.due_date} overdue={lesson.overdue} />
             </button>
           </li>
         ))}

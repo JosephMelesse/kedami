@@ -47,12 +47,32 @@ The syntax tokens color code and nothing else. Each reads at 5.9:1 or more on `-
 
 | Screen | Contents |
 |---|---|
-| Library | The start screen. The Active card first, on the home page only (see Active lessons), then folder tiles, then the lessons in no folder, oldest first, with status and problem progress, then a New lesson tile that opens Upload. A New folder button creates a folder. Folders are one level deep; opening one shows its lessons, a Rename button, a Delete folder button (its lessons move back home), and a New lesson tile that creates the lesson in that folder. Each ready lesson tile has an Active checkbox in its top right corner, beside an options menu to rename it, move it to a folder or home, or delete it after a confirmation; a generating lesson can't be deleted, and a renamed lesson keeps its name through reruns |
-| Upload | A subject choice and a file drop, with a role tag and force-transcription toggle per file |
+| Library | The start screen. The Active card first, on the home page only (see Active lessons), then folder tiles, then the lessons in no folder, oldest first, with status and problem progress, then a New lesson tile that opens Upload. A New folder button creates a folder, and a New placeholder button plans a lesson; see Placeholder lessons. Opening a folder shows its subfolders, then its lessons, then a New lesson tile that creates the lesson in that folder; see Folders. Each ready lesson tile has an Active checkbox in its top right corner, beside an options menu to rename it, move it to a folder or home, or delete it after a confirmation; a generating lesson can't be deleted, and a renamed lesson keeps its name through reruns |
+| Upload | Opened from the New lesson tile, or from a placeholder, which it fills in and whose name it shows as its heading. A subject choice and a file drop, with a role tag and force-transcription toggle per file |
 | Generating | Current pipeline stage, with a 2048 game below it while the lesson generates; a failed lesson shows the reason and a Rerun button |
 | Lesson | Sections and blocks in order, with a progress indicator in the accent color. A Rerun button opens a dialog with the start stage and force-transcription toggles; a failed rerun shows its reason above the lesson. A Days button splits the lesson into days; see Finish lines. Opening a lesson returns to the block last read; see Reading position |
 
-The app header is visible on every screen and holds the music player and the Pomodoro timer. Clicking Kedami in it opens the Library home page from any screen, including from inside a folder.
+The app header is visible on every screen and holds the music player and the Pomodoro timer. Clicking Kedami in it opens the Library home page from any screen, including from inside a folder. Back on the Upload screen returns to the folder it was opened from.
+
+## Folders
+
+Folders organize lessons in the Library, and nest to any depth.
+
+- **Names:** unique within the same parent, ignoring case, so two courses can each have a "Week 1". The check folds only ASCII letters, as it always has. A name is at most 80 characters.
+- **Folder page:** a breadcrumb of the folders above it, starting from Lessons, which is the home page; the folder's name; and New folder, Rename, Move, and Delete folder buttons. Then its subfolders, by name, its lessons, oldest first, and the New lesson tile.
+- **Folder tile:** the folder's name and how many lessons it holds, counting those in its subfolders at any depth.
+- **Moving:** Move on a folder page, or on a lesson's options menu, opens a dialog listing Lessons and every folder by its full path, such as "Physics / Week 1". The current location can't be picked, and for a folder neither can the folder itself or anything inside it. The server refuses a move into itself or a descendant. A move into a parent that already has a folder of that name is refused with a message, as a rename is, since the student can rename and try again.
+- **Deleting:** a confirmation names what moves and where. The folder's lessons and subfolders move up to its parent, and the student lands on the parent's page. A subfolder whose name is taken there gets the lowest free number, as in `Week 1 (2)`, as a music file does, and a notice afterward says what was renamed. The deleted folder's own name doesn't count as taken, so a "Week 1" inside a "Week 1" keeps its name. Folders are never merged.
+
+## Folder notes
+
+Each folder has one optional plain-text note, for the student's own reminders. The home page has no note.
+
+- **Placement:** a text box at the top of the folder's page, above its subfolders and lessons, with a muted "Notes for this folder" placeholder. Line breaks are kept; nothing is rendered as Markdown.
+- **Saving:** on the server, one second after typing stops and when the student leaves the page. There is no button. A failed save shows a short message by the box and keeps the text. The library's background refresh never replaces what is in the box.
+- **Limit:** 20,000 characters. A note of only spaces and line breaks counts as empty.
+- **Moving and deleting:** a note moves with its folder. Deleting a folder deletes its note, and the confirmation says so when the note isn't empty. A subfolder that moves up keeps its own note.
+- **Privacy:** notes never go to the model or into any lesson material.
 
 ## Active lessons
 
@@ -60,9 +80,33 @@ The student marks the lessons they are working through as active, and the home p
 
 - **Marking:** a ready lesson's tile has an Active checkbox in its top right corner, left of the options button. Checking or unchecking it doesn't open the lesson. A generating lesson, or a new lesson that failed, has none.
 - **Card:** at the top of the home page, one card spanning the width of the library, on `--bg` with a 1px `--border` and the usual card radius. It holds an "Active" heading over a row per active lesson from any folder, oldest first. With no active lesson there is no card. Folders don't show it.
-- **Rows:** each row has the lesson title in 14px, then its boxes side by side, wrapping as needed, then "3 problems left" in `--text-muted`, or "All problems done" once none are. While the lesson reruns, "Generating" shows in place of the boxes. Clicking a row opens the lesson.
+- **Rows:** each row has the lesson title in 14px, then its boxes side by side, wrapping as needed, then "3 problems left" in `--text-muted`, or "All problems done" once none are, then its due date if it has one (see Deadlines). While the lesson reruns, "Generating" shows in place of the boxes. Clicking a row opens the lesson.
 - **Boxes:** one fills for each done problem, from the left, in `--correct`. The rest are `--surface-raised` with a 1px `--border`. A problem is done as defined in `completion-and-verification.md`, so undoing a mark done empties a box again.
 - **Persistence:** whether a lesson is active is saved on the server. New lessons start inactive, a rerun keeps it, and deleting the lesson removes it.
+
+## Deadlines
+
+A lesson can have one optional due date: a date with no time, in local time.
+
+- **Setting:** Set due date, or Change due date, on a lesson's options menu opens a dialog with a date field, Save, Cancel, and, when it has one, Clear. Any lesson can have one, whatever its status. A date in the past is allowed and shows as overdue at once.
+- **Overdue:** a lesson is overdue when its date has passed and it isn't done (see Completion in `completion-and-verification.md`). On the date itself it isn't overdue yet. A done lesson never shows as overdue, including while it reruns. A page left open past midnight updates the next time the library loads.
+- **Dates:** shown as "Due Nov 3", with the year when it isn't the current year.
+- **Tiles and rows:** lesson tiles and Active card rows show the due date. An overdue lesson adds a short "Overdue" label in `--retry`, and its tile has a `--retry` border. Rows have no border of their own, so only the label is colored.
+- **Upcoming card:** on the home page, below the Active card and styled like it, an "Upcoming" heading over a row per unfinished lesson with a due date, from any folder, soonest first, so overdue lessons come first. Each row has the title, the folder's full path in `--text-muted` if it is in one, and the due date. Clicking a row opens the lesson. With none, there is no card. Folders don't show it.
+- **Folder tile:** shows "Next due Nov 3", the soonest due date among unfinished lessons inside it, including its subfolders, with the Overdue label and border when that date has passed.
+- **Persistence:** saved on the server. A rerun or a move keeps it, and deleting the lesson removes it.
+- **Not included:** system notifications, recurring deadlines, and folder-level deadlines.
+
+## Placeholder lessons
+
+A placeholder is a lesson the student has planned but not generated, so a folder and its deadlines can be set up before the material is in hand.
+
+- **Creating:** New placeholder, on the home page or inside a folder, opens a dialog with a Name, at most 120 characters, and an optional Due date. It makes no model calls and needs no files.
+- **Pasting a list:** a Paste a list button in that dialog takes one placeholder per line, as `Name` or `Name | YYYY-MM-DD`, at most 100. Preview shows what would be created before anything is. One line that can't be read rejects the whole list, and every such line is named with its number and why: a second `|`, a `|` with no date after it, no name, a name that is too long, or a date that isn't real, such as `2026-02-30`. Blank lines are skipped, and two placeholders may share a name, as lessons may. Changing the text means previewing again.
+- **In the library:** a tile marked Placeholder where a lesson shows its subject, with a "Not generated" label. It can be renamed, moved, deleted, and given a due date like any lesson. It has no Active checkbox and no problem progress, and it counts toward its folder's lessons. Opening it goes to Upload.
+- **Filling in:** Upload works as it does for a new lesson, except that it fills in this placeholder rather than making a second lesson. The placeholder keeps its ID, name, folder, and due date, and goes straight to generating. An upload that is refused leaves it as it was.
+- **Deadlines:** a placeholder is never done, so it shows in the Upcoming card, counts toward folder due dates, and shows as overdue once its date passes.
+- **If generation fails:** it behaves like any failed new lesson, and keeps its name, folder, and due date.
 
 ## Reading position
 

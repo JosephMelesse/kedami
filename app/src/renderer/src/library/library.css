@@ -20,9 +20,78 @@
   margin-bottom: 32px;
 }
 
+.library-notice {
+  margin-bottom: 16px;
+}
+
 .library-actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
+}
+
+.folder-note {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.folder-note textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.dialog-action-start {
+  margin-right: auto;
+}
+
+.placeholder-preview,
+.placeholder-problems {
+  display: grid;
+  gap: 8px;
+  max-height: 240px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  font-size: 14px;
+  list-style: none;
+}
+
+.placeholder-preview li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.move-list {
+  display: grid;
+  min-width: 320px;
+  max-height: 320px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.move-list button {
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.move-list button:hover:not(:disabled) {
+  background: var(--surface-raised);
+}
+
+.move-list button:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
 }
 
 .tile-wrap {
@@ -144,6 +213,23 @@
   background: var(--surface-raised);
 }
 
+.tile-overdue {
+  border-color: var(--retry);
+}
+
+.due-label {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.due-overdue {
+  color: var(--retry);
+  font-weight: 500;
+}
+
 .tile-title {
   font-size: 18px;
   font-weight: 500;
@@ -184,7 +270,8 @@
   transition: width 200ms ease-out;
 }
 
-.active-lessons {
+.active-lessons,
+.upcoming-lessons {
   margin-bottom: 48px;
   /* The rows' own padding makes up the rest at the bottom. */
   padding: 24px 24px 16px;
@@ -193,7 +280,12 @@
   background: var(--bg);
 }
 
-.active-lessons h2 {
+.active-lessons:has(+ .upcoming-lessons) {
+  margin-bottom: 16px;
+}
+
+.active-lessons h2,
+.upcoming-lessons h2 {
   margin-bottom: 8px;
   font-size: 18px;
 }
@@ -231,6 +323,10 @@
   font-weight: 500;
 }
 
+.active-row-due {
+  grid-template-columns: minmax(0, 240px) 1fr auto auto;
+}
+
 @media (max-width: 720px) {
   .active-row {
     grid-template-columns: 1fr auto;
@@ -238,6 +334,10 @@
 
   .active-title {
     grid-column: 1 / -1;
+  }
+
+  .upcoming-row .upcoming-path {
+    grid-column: 1;
   }
 }
 

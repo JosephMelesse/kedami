@@ -9,7 +9,7 @@ import { RestScreen } from './pomodoro/RestScreen'
 
 type Screen =
   | { name: 'library'; folderId: number | null }
-  | { name: 'new'; folderId: number | null }
+  | { name: 'new'; folderId: number | null; placeholder: { id: string; title: string } | null }
   | { name: 'generating'; lessonId: string }
   | { name: 'lesson'; lessonId: string }
 
@@ -27,14 +27,25 @@ export function App() {
       <main inert={restTime !== null}>
         {screen.name === 'library' && (
           <LibraryScreen
-            onOpen={(lesson) => (lesson.status === 'ready' ? openLesson(lesson.id) : openGenerating(lesson.id))}
-            onNew={(folderId) => setScreen({ name: 'new', folderId })}
+            onOpen={(lesson) => {
+              if (lesson.status === 'ready') openLesson(lesson.id)
+              else if (lesson.status === 'placeholder') {
+                const placeholder = { id: lesson.id, title: lesson.title }
+                setScreen({ name: 'new', folderId: lesson.folder_id, placeholder })
+              } else openGenerating(lesson.id)
+            }}
+            onNew={(folderId) => setScreen({ name: 'new', folderId, placeholder: null })}
             folderId={screen.folderId}
             onFolder={(folderId) => setScreen({ name: 'library', folderId })}
           />
         )}
         {screen.name === 'new' && (
-          <NewLessonScreen folderId={screen.folderId} onCreated={openGenerating} onBack={openLibrary} />
+          <NewLessonScreen
+            folderId={screen.folderId}
+            placeholder={screen.placeholder}
+            onCreated={openGenerating}
+            onBack={() => setScreen({ name: 'library', folderId: screen.folderId })}
+          />
         )}
         {screen.name === 'generating' && (
           <GeneratingScreen key={screen.lessonId} lessonId={screen.lessonId} onReady={openLesson} onBack={openLibrary} />

@@ -20,6 +20,10 @@
 16. Run log
 17. Active lessons
 23. Diagram layout check: monospace diagram text, measured by the server, with clipped and overlapping text sent back to the model
+24. Subfolders: nested folders, names unique within a parent, moving folders, and a breadcrumb
+25. Folder notes
+26. Deadlines: one due date per lesson, the overdue rule, and the Upcoming card
+27. Placeholder lessons: planned lessons that Upload fills in
 
 Steps 18 to 22 built LeetCode and SQL lessons, which have since been removed. They live on in `kedami-personal`.
 

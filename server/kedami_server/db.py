@@ -5,6 +5,8 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
+from . import migrations
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
@@ -13,16 +15,23 @@ CREATE TABLE IF NOT EXISTS settings (
 
 CREATE TABLE IF NOT EXISTS folders (
     id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE COLLATE NOCASE,
-    created TEXT NOT NULL
+    -- Deferred so a delete can remove a folder before its subfolders move up; see library.delete_folder.
+    parent_id INTEGER REFERENCES folders (id) DEFERRABLE INITIALLY DEFERRED,
+    name TEXT NOT NULL COLLATE NOCASE,
+    created TEXT NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    CHECK (parent_id IS NULL OR parent_id <> id)
 );
+
+-- UNIQUE (parent_id, name) would allow duplicates at the top level, since NULLs count as distinct. IDs start at 1.
+CREATE UNIQUE INDEX IF NOT EXISTS folders_unique_name ON folders (COALESCE(parent_id, 0), name COLLATE NOCASE);
 
 CREATE TABLE IF NOT EXISTS lessons (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
     custom_title TEXT,
-    subject TEXT NOT NULL,
-    status TEXT NOT NULL CHECK (status IN ('generating', 'ready', 'failed')),
+    subject TEXT,
+    status TEXT NOT NULL CHECK (status IN ('placeholder', 'generating', 'ready', 'failed')),
     current_stage INTEGER,
     schema_version INTEGER NOT NULL,
     revision INTEGER NOT NULL DEFAULT 1,
@@ -31,7 +40,10 @@ CREATE TABLE IF NOT EXISTS lessons (
     folder_id INTEGER REFERENCES folders (id) ON DELETE SET NULL,
     reading_block TEXT,
     day_starts TEXT,
-    active INTEGER NOT NULL DEFAULT 0
+    active INTEGER NOT NULL DEFAULT 0,
+    due_date TEXT,
+    -- Only a placeholder, which hasn't been uploaded to yet, has no subject.
+    CHECK (subject IS NOT NULL OR status = 'placeholder')
 );
 
 CREATE TABLE IF NOT EXISTS simulations (
@@ -97,6 +109,7 @@ def db_path(data_dir: Path) -> Path:
 
 def init(data_dir: Path) -> None:
     data_dir.mkdir(parents=True, exist_ok=True)
+    migrations.run(db_path(data_dir))
     with connect(data_dir) as conn:
         conn.executescript(SCHEMA)
         _add_missing_columns(conn)
@@ -111,6 +124,10 @@ ADDED_COLUMNS = {
         "reading_block": "TEXT",
         "day_starts": "TEXT",
         "active": "INTEGER NOT NULL DEFAULT 0",
+        "due_date": "TEXT",
+    },
+    "folders": {
+        "note": "TEXT NOT NULL DEFAULT ''",
     },
 }
 

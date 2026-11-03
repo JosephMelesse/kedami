@@ -104,13 +104,16 @@ def test_a_corrupt_lesson_file_counts_as_unreadable(data_dir):
 
 
 def test_a_database_with_the_old_columns_and_table_still_works(tmp_path, lesson_data):
+    # Its status check names placeholders, so it has been through that migration and keeps the old columns.
     conn = sqlite3.connect(tmp_path / "kedami.db")
     conn.executescript(
         """
         CREATE TABLE lessons (
             id TEXT PRIMARY KEY, title TEXT NOT NULL, custom_title TEXT, subject TEXT NOT NULL,
-            status TEXT NOT NULL, current_stage INTEGER, schema_version INTEGER NOT NULL,
-            revision INTEGER NOT NULL DEFAULT 1, created TEXT NOT NULL, error TEXT, domain TEXT, chapter INTEGER
+            status TEXT NOT NULL CHECK (status IN ('placeholder', 'generating', 'ready', 'failed')),
+            current_stage INTEGER, schema_version INTEGER NOT NULL,
+            revision INTEGER NOT NULL DEFAULT 1, created TEXT NOT NULL, error TEXT, domain TEXT, chapter INTEGER,
+            due_date TEXT
         );
         INSERT INTO lessons (id, title, subject, status, schema_version, created, domain, chapter)
         VALUES ('old', 'Old', 'computer_science', 'ready', 1, '2026-10-01', 'sql', 3);
@@ -122,6 +125,7 @@ def test_a_database_with_the_old_columns_and_table_still_works(tmp_path, lesson_
     db.init(tmp_path)
 
     with db.connect(tmp_path) as conn:
+        assert {row[1] for row in conn.execute("PRAGMA table_info(lessons)")} >= {"domain", "chapter"}
         assert [row.id for row in list_lessons(conn)] == ["old"]
         assert get_lesson_row(conn, "old").title == "Old"
         add_ready_lesson(conn, Lesson.model_validate(lesson_data))
