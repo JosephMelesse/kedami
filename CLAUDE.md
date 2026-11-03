@@ -1,6 +1,6 @@
 # Kedami
 
-Kedami is a local-first desktop app that turns course material into one interactive lesson, sequenced so that finishing the lesson means the problem set is done. The MVP covers math, physics, and a general subject for any other course, for a single user.
+Kedami is a local-first desktop app that builds one interactive lesson from a course's problem set and reference, sequenced so that finishing the lesson means the problem set is done. The MVP covers math, physics, and a general subject for any other course, for a single user.
 
 ## Read first
 
@@ -47,6 +47,7 @@ Before writing code, read `README.md` and every file in `architecture/`. Those d
 - Progress is stored apart from the lesson, keyed by block and part ID.
 - The `verified` flag is set only by the server's verification pass.
 - Problem block IDs derive from the source reference, and part IDs from the part label.
+- Problem text and reference passages are placed by the server, word for word. The model refers to passages by number and never restates them, and text it does write is labeled as added.
 
 **UI**
 - All colors come from the design tokens in `architecture/ui.md`.
@@ -59,7 +60,7 @@ Before writing code, read `README.md` and every file in `architecture/`. Those d
 
 ## Most likely to be wrong
 
-The lesson schema and ID derivation (`server/kedami_server/lesson.py`, `ids.py`), the restricted math parser (`mathparse.py`), database migrations (`migrations.py`), the folder tree (`library.py`: moves that would make a cycle, and deleting a folder with name clashes), and filling in a placeholder (see Filling in a placeholder in `architecture/pipeline.md`). Every later step depends on them, so they get tests first and changes to them come with tests.
+The lesson schema and ID derivation (`server/kedami_server/lesson.py`, `ids.py`), the restricted math parser (`mathparse.py`), the reference word check and passage split, unit coverage and order, what counts as a figure (see `architecture/pipeline.md`), database migrations (`migrations.py`), the folder tree (`library.py`: moves that would make a cycle, and deleting a folder with name clashes), and filling in a placeholder (see Filling in a placeholder in `architecture/pipeline.md`). Every later step depends on them, so they get tests first and changes to them come with tests.
 
 ## Commands
 

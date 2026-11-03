@@ -38,9 +38,10 @@ Anthropic is the only provider.
 |---|---|---|
 | Generate | `claude-sonnet-5-5` at high effort | Extraction, planning, lesson sections, hints, simulations |
 | Transcribe | `claude-opus-5-5` at medium effort | Turning flagged pages into Markdown with LaTeX |
+| Format | `claude-haiku-4-5` | Formatting the reference's kept pages as Markdown |
 | Second solve | `claude-opus-5-5` at high effort | Independent solution for verification |
 | Solution | `claude-opus-5-5` at high effort | Step-by-step solutions to problem parts, on request |
-| Small checks | `claude-haiku-4-5` | Scoring extracted page text, hint leak check |
+| Small checks | `claude-haiku-4-5` | Scoring extracted page text, describing cropped figures, hint leak check |
 
 - All calls go through one server function (`server/kedami_server/model.py`), so models and retry policy are set in one place. Model names live in `MODEL_ROLES` in `server/kedami_server/config.py`.
 - Generate calls opt into server-side refusal fallback (`fallbacks: "default"`), so a declined request is re-run on Anthropic's recommended fallback model instead of failing the lesson.
@@ -87,7 +88,7 @@ Every pipeline run leaves one record of what it made and what it took, so the co
 - The run: when it started, its wall time, the stage it started from, whether it was a rerun of an existing lesson, and the outcome. A failed run also records the stage it failed in and the reason, as the Generating screen shows it for a new lesson.
 - The code: the commit the server is running from and whether the working tree had uncommitted changes, read from git when the server starts. Both are empty when git can't be read.
 - The material: each file with its role, the number of pages kept and transcribed, and the length of the normalized text. These come from the stage 1 output on disk and are empty if a run fails before it is written.
-- The lesson: ID, title, and subject. A run that ends ready also records the number of sections, blocks, problems, and parts, and how many answers were verified out of those that could be.
+- The lesson: ID, title, and subject. A run that ends ready also records the number of sections, blocks, problems, and parts, and how many answers were verified out of those that could be. It also records how the lesson was built: words of source text and of added explanations, units, skipped passages, pages that failed the word check, and figures cropped, left out, and drawn.
 - The usage: calls, model time, tokens of each kind, and cost, for each stage, role, and model that ran. These are the run's calls from the usage log, added up when the run ends.
 - The prices: the list prices of the models that ran, as they stood in config, so cost by kind of token can be worked out later whatever the config says by then.
 
@@ -112,4 +113,5 @@ Most likely to be wrong: counting the calls made on the transcription threads un
 - Electron main cancels any renderer request that isn't to a local file, the music protocol, or `127.0.0.1` or `localhost`, frames included, as a backstop to the CSPs.
 - The music protocol serves only audio files directly inside the data folder's `music/`. The renderer names a track by file name; main resolves it and refuses anything outside that folder. Simulation frames can't load media at all.
 - Diagram SVG is sanitized with DOMPurify before rendering.
+- A cropped figure is a PNG the server rendered from the PDF, named by an ID checked against the ID pattern, and shown only in an `img` element. The page's CSP allows `blob:` images for it.
 - All expression parsing uses a restricted parser with whitelisted names, for both model output and user input. SymPy's default string parsing evaluates code and must not be used directly.

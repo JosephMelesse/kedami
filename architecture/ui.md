@@ -40,7 +40,7 @@ The syntax tokens color code and nothing else. Each reads at 5.9:1 or more on `-
 - Inter, KaTeX, and JetBrains Mono (for code, with ligatures off so code shows as typed) fonts are bundled with the app.
 - The music player's ▶ and ⏸ come from `app/src/renderer/src/assets/media-symbols.woff2`, a two-glyph subset of Noto Sans Symbols2 (SIL OFL, license alongside it), so both symbols match in size.
 - Code in lesson blocks is highlighted in Python on `--surface-raised`: keywords in `--syntax-keyword`, strings in `--syntax-string`, numbers and constants (such as `True` and `None`) in `--syntax-number`, the names of functions and classes and built-ins in `--syntax-name`, comments in `--text-muted` italic, and everything else in `--text`.
-- Plots, diagrams, and simulations take their colors from the tokens.
+- Plots, diagrams, and simulations take their colors from the tokens. A cropped figure is the one exception: it keeps its own pixels, on its own background, inside a card.
 - The app icon is ፩ (U+1369, Ethiopic digit one) in `--accent` on a `--bg` rounded square, rendered from Noto Sans Ethiopic Medium to `app/resources/icon.png`. The same glyph, as an inline SVG outline in `--accent`, sits before "Kedami" in the app header.
 
 ## Screens
@@ -48,9 +48,9 @@ The syntax tokens color code and nothing else. Each reads at 5.9:1 or more on `-
 | Screen | Contents |
 |---|---|
 | Library | The start screen. The Active card first, on the home page only (see Active lessons), then folder tiles, then the lessons in no folder, oldest first, with status and problem progress, then a New lesson tile that opens Upload. A New folder button creates a folder, and a New placeholder button plans a lesson; see Placeholder lessons. Opening a folder shows its subfolders, then its lessons, then a New lesson tile that creates the lesson in that folder; see Folders. Each ready lesson tile has an Active checkbox in its top right corner, beside an options menu to rename it, move it to a folder or home, or delete it after a confirmation; a generating lesson can't be deleted, and a renamed lesson keeps its name through reruns |
-| Upload | Opened from the New lesson tile, or from a placeholder, which it fills in and whose name it shows as its heading. A subject choice and a file drop, with a role tag and force-transcription toggle per file |
+| Upload | Opened from the New lesson tile, or from a placeholder, which it fills in and whose name it shows as its heading. A subject choice and a file drop, with a role tag and force-transcription toggle per file. Generate lesson needs at least one file tagged as a problem set and one as a reference, and a line says which is missing |
 | Generating | Current pipeline stage, with a 2048 game below it while the lesson generates; a failed lesson shows the reason and a Rerun button |
-| Lesson | Sections and blocks in order, with a progress indicator in the accent color. A Rerun button opens a dialog with the start stage and force-transcription toggles; a failed rerun shows its reason above the lesson. A Days button splits the lesson into days; see Finish lines. Opening a lesson returns to the block last read; see Reading position |
+| Lesson | Sections and blocks in order, with a progress indicator in the accent color; see Source and added content. A Rerun button opens a dialog with the start stage and force-transcription toggles; a failed rerun shows its reason above the lesson. A Days button splits the lesson into days; see Finish lines. Opening a lesson returns to the block last read; see Reading position |
 
 The app header is visible on every screen and holds the music player and the Pomodoro timer. Clicking Kedami in it opens the Library home page from any screen, including from inside a folder. Back on the Upload screen returns to the folder it was opened from.
 
@@ -73,6 +73,12 @@ Each folder has one optional plain-text note, for the student's own reminders. T
 - **Limit:** 20,000 characters. A note of only spaces and line breaks counts as empty.
 - **Moving and deleting:** a note moves with its folder. Deleting a folder deletes its note, and the confirmation says so when the note isn't empty. A subfolder that moves up keeps its own note.
 - **Privacy:** notes never go to the model or into any lesson material.
+
+## Source and added content
+
+- **Source text** is the lesson's main reading, in the body style with no card. A muted line above each block names its file and pages, such as "Chap34mine.pdf, pp. 5-6".
+- **Figures** sit in a card, scaled to the lesson column and never above their own size, with the caption and a muted line naming the file and page below. The renderer fetches each image with the session token and shows it through a blob URL.
+- **Added blocks:** an explanation or diagram has a muted "Added" eyebrow in a lesson with source blocks. Worked examples, checkpoints, and problems have their own labels already.
 
 ## Active lessons
 

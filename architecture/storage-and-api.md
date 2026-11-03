@@ -7,8 +7,9 @@ Everything lives in one app data folder, which main passes to the server at laun
 | Item | Location |
 |---|---|
 | Original files | `materials/{lesson_id}/` |
-| Stage outputs | `work/{lesson_id}/`: `pages.json` (routes and text per page), `normalized/`, `extraction.json`, `plan.json`, `outline.json`, `section-{n}.json`, `verification-{n}.json` |
+| Stage outputs | `work/{lesson_id}/`: `pages.json` (routes and text per page), `normalized/`, `figures/`, `figures.json`, `passages.json`, `extraction.json`, `plan.json`, `outline.json`, `section-{n}.json`, `verification-{n}.json` |
 | Lessons | `lessons/{lesson_id}.json` |
+| Lesson figures | `figures/{lesson_id}/{figure_id}.png`: copied from the stage output when a run succeeds, replaced by a rerun that succeeds, and deleted with the lesson |
 | Music player tracks | `music/`, written and read only by Electron main |
 | Run log | `runs.jsonl`: one line per pipeline run (see Run log in `system.md`). Deleting a lesson or the database keeps it |
 | Index and progress | SQLite database |
@@ -49,7 +50,8 @@ All routes require the session token.
 | POST | `/lessons/{id}/fill` | Fill in a placeholder: the same upload as `POST /lessons`, without a folder; starts the pipeline. Refused if the lesson isn't a placeholder |
 | POST | `/placeholders/parse` | Read a pasted list of placeholders; returns the placeholders, or every line it couldn't read and why. Saves nothing |
 | POST | `/placeholders` | Create placeholders: an optional folder and a list of names with optional due dates, all or none |
-| DELETE | `/lessons/{id}` | Delete a lesson that isn't generating: its JSON, files, stage outputs, progress, simulations, solutions, and usage log |
+| GET | `/lessons/{id}/figures/{figure_id}` | A figure's PNG |
+| DELETE | `/lessons/{id}` | Delete a lesson that isn't generating: its JSON, figures, files, stage outputs, progress, simulations, solutions, and usage log |
 | POST | `/lessons/{id}/rename` | Rename a lesson |
 | POST | `/lessons/{id}/active` | Mark a ready lesson active or not |
 | POST | `/lessons/{id}/move` | Move a lesson to a folder, or home with `null` |

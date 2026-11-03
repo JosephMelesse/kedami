@@ -24,6 +24,11 @@
 25. Folder notes
 26. Deadlines: one due date per lesson, the overdue rule, and the Upcoming card
 27. Placeholder lessons: planned lessons that Upload fills in
+28. Mandatory reference: refuse an upload without one, and fail a lesson whose reference has no readable text
+29. Reference formatting and passages: the format call, the word check, and the passage split, with no change to lessons yet
+30. Dissection and reconstruction: units, the plan's order rules, source markers, and added labels. Rerun Geometric Optics, compare it side by side with the current lesson, log the cost, and stop for review before going on
+31. Cropped figures: finding, describing, serving, and showing them
+32. A figure and a simulation in every section
 
 Steps 18 to 22 built LeetCode and SQL lessons, which have since been removed.
 
@@ -37,4 +42,9 @@ Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the s
 - **Per-page re-transcribe:** a page review screen with a control to re-transcribe a single page.
 - **Short text answers:** an answer kind for a term or name, matched against a list of accepted answers ignoring case and spacing, in place of a self check for questions such as "Which flag is set on unsigned overflow?"
 - **Light theme:** same token names, same accent, feedback, and syntax hues, darkened to reach at least 4.5:1 contrast on white.
+- **More figures:** crop vector drawings, which a local check can't yet tell from tables and rules, and figures on scanned pages and in image files, perhaps from boxes the transcribing model gives. Until then, those sections get a drawn diagram.
+- **Figure placement:** put a figure where it falls among its page's text, rather than after it.
+- **Open the source:** a source block's label opens its page.
+- **Adding a reference on rerun:** so a lesson with none can be rebuilt.
+- **Checking added text:** compare added explanations with the reference.
 - **Packaging and distribution:** bundling the Python server, plus key handling for other users.

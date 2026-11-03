@@ -1,6 +1,6 @@
 # Kedami architecture
 
-Kedami is a desktop app that takes course material for a week, module, or exam and produces one interactive lesson. The lesson is sequenced so that completing it means the associated problem set is done. Lesson content is grounded in the material provided.
+Kedami is a desktop app that takes course material for a week, module, or exam and produces one interactive lesson. The lesson is sequenced so that completing it means the associated problem set is done. It is built from the material itself: the problem set and the reference are both required, both appear word for word, and the model writes only what connects them.
 
 ## Scope
 

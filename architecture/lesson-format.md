@@ -24,10 +24,12 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 
 | Block | Purpose | Fields | Counts toward completion |
 |---|---|---|---|
-| `explanation` | Teach a concept | `body` (Markdown with LaTeX) | No |
+| `source` | Reference text, word for word | `body` (Markdown with LaTeX), `file`, `first_page`, `last_page` | No |
+| `figure` | A figure cropped from the reference | `figure_id`, `caption`, `file`, `page` | No |
+| `explanation` | Model-written text that connects units or fills a gap | `body` (Markdown with LaTeX) | No |
 | `worked_example` | A similar problem solved in steps, revealed one at a time | `prompt`, `steps` | No |
 | `plot` | Functions over a domain | `functions` (`expression`, `label`), optional `parameters` (`name`, `min`, `max`, `default`), `x_domain` as `[min, max]`, optional `y_domain`, `caption` | No |
-| `diagram` | Static figure | `svg`, `caption` | No |
+| `diagram` | A model-drawn figure, for a section with no `figure` | `svg`, `caption` | No |
 | `simulation` | Interactive canvas simulation | `code`, `caption` | No |
 | `checkpoint` | Model-written practice question | `prompt`, `answer`, `hints`, `verified` | No |
 | `problem` | A real homework item | `source_ref`, `prompt` (shared, may be empty), `parts` | Yes |
@@ -46,6 +48,13 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 | `self_check` | `rubric` | The rubric is shown after the student commits; they grade themselves |
 | `choice` | `options` (at least 2), `correct_index` | Index match |
 | `multi_choice` | `options` (at least 2), `correct_indexes` (at least 1, no duplicates) | Exact set match, for "select all that apply" |
+
+## Source and added content
+
+- A `source` block's body comes only from the reference's passages, and a `figure` block's image only from its cropped figures. The model can't write either. See `pipeline.md`.
+- A `figure` block's caption is the small model's description, not the reference's own caption, which stays in the text around it.
+- In a lesson with `source` blocks, `explanation` and `diagram` blocks are labeled as added, so the student can tell the course material from what the model wrote. A lesson from before dissection has no `source` blocks and no labels.
+- Nothing checks an added explanation against the reference. Verification still covers answers only.
 
 ## General lessons
 
@@ -76,13 +85,13 @@ The server's Pydantic models in `server/kedami_server/lesson.py` are the source 
 
 ## Simulations
 
-- Requested where the section plan calls for one; each is a separate model call.
+- Every section has one, briefed by the plan; each is a separate model call.
 - The code runs in a sandboxed frame with no network, no Node access, and no access to app data.
 - The frame receives the design token values when it loads and uses them for all colors.
 - The frame must report ready within a few seconds with no errors. Otherwise the block is hidden and flagged for regeneration.
 - Simulations are illustrative: they never count toward completion and never supply numbers the student is checked against.
 - Each simulation has a regenerate button.
-- The plan gives a section a one-line simulation brief only where one would teach what a static plot or diagram can't. The section call places one `simulation` block (a caption) exactly when there is a brief. The block keeps the brief, and its code stays empty: the code is written by a separate call only when the student clicks Generate simulation, so lesson generation never waits on it.
+- The plan gives every section a one-line simulation brief. The section call places one `simulation` block (a caption). The block keeps the brief, and its code stays empty: the code is written by a separate call only when the student clicks Generate simulation, so lesson generation never waits on it.
 - The code is the body of `function simulation(root, canvas, tokens, ready)`: `root` is a div to build controls in, `canvas` is a 320 px tall canvas already in it, `tokens` holds the color token values and the font, and `ready()` must be called once it works. Code that never calls `ready(` is rejected and retried.
 - The frame is a separate page, `simulation.html`, loaded with `sandbox="allow-scripts"` and no same-origin access. Its CSP allows no network. The ready window is 4 seconds; an error or timeout before ready flags the simulation on the server and shows a one-line notice with the regenerate button in its place.
 - Written and regenerated code is the one exception to never editing a lesson: it is stored apart from the lesson JSON, in the `simulations` table, and served in place of the JSON's empty code. A rerun replaces the lesson and clears these rows.
