@@ -18,11 +18,9 @@ from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
 
-from .. import databases, db, library, progress, run_log, simulation_state, solution_state, test_flags, usage
-from ..lesson import QueryAnswer, Section
+from .. import db, library, progress, run_log, simulation_state, solution_state, usage
+from ..lesson import Section
 from ..model import ModelError, call_model
-from ..practice import choose, load_bank
-from ..sql_chapters import BOOK_CREDIT
 from ..storage import lessons_dir
 from ..usage_table import RunTable
 from . import prompts
@@ -30,12 +28,8 @@ from .assemble import assemble_lesson, assemble_section
 from .hints import add_hints
 from .ingest import Material, Normalized, ingest
 from .plan import SectionPlan, place_problems
-from .recommended import RecommendedProblem, bank_databases, parse_recommended
-from .recommended import build_extraction as build_recommended
 from .retry import ATTEMPTS, GenerationError, retrying
-from .leetcode import ProblemListError, build_extraction, find_in_dataset, parse_problem_list
-from .schemas import ConceptMap, Extraction, Plan, ProblemsAndConcepts, SectionDraft
-from .sql import add_practice, refuse_queries, settle_queries
+from .schemas import Extraction, Plan, ProblemsAndConcepts, SectionDraft
 from .verify import verify_section
 
 log = logging.getLogger(__name__)
@@ -143,18 +137,6 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
     _clear_from(work, start_stage)
     with db.connect(data_dir) as conn:
         materials = library.list_materials(conn, lesson_id)
-        row = library.get_lesson_row(conn, lesson_id)
-    domain = row.domain if row else None
-    sql = subject == "computer_science" and domain == "sql"
-    # A SQL chapter lesson's problem set is the problems recommended for the chapter.
-    chapter = row.chapter if row and sql else None
-    image_for = lambda database: databases.image_for(data_dir, materials_dir(data_dir, lesson_id), database)  # noqa: E731
-    # A SQL lesson's course database, if it has one: its name and bytes.
-    course = None
-    if sql:
-        names = databases.course_databases(materials_dir(data_dir, lesson_id))
-        if names:
-            course = (names[0], image_for(f"course/{names[0]}"))
 
     if start_stage <= 1:
         _set_stage(data_dir, lesson_id, 1)
@@ -170,17 +152,11 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
         )
     if not normalized.problem_set.strip():
         raise GenerationError("No text could be read from the problem set.")
-    recommended = _recommended(data_dir, normalized) if chapter is not None else None
-    database = prompts.course_database(course[0], databases.tables(course[1])) if course else None
-    problem_databases = _problem_databases(recommended, image_for) if recommended else None
-    context = prompts.materials(subject, normalized.problem_set, normalized.reference, database, problem_databases)
+    context = prompts.materials(subject, normalized.problem_set, normalized.reference)
 
     if start_stage <= 2:
         _set_stage(data_dir, lesson_id, 2)
-        if recommended is not None:
-            extraction = _extract_recommended(recommended, context, call)
-        else:
-            extraction = _extract(data_dir, subject, domain, normalized, context, call)
+        extraction = _extract(context, call)
         _write(work / "extraction.json", extraction)
     else:
         extraction = _load(work / "extraction.json", Extraction)
@@ -191,7 +167,7 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
         def plan_attempt(feedback: str | None) -> tuple[Plan, list[SectionPlan]]:
             plan = call(
                 "generate",
-                system=prompts.PLAN_SYSTEM + (prompts.SQL_PLAN_RULES if sql else ""),
+                system=prompts.PLAN_SYSTEM,
                 prompt=context + [prompts.plan_request(extraction, feedback)],
                 output=Plan,
             )
@@ -206,18 +182,7 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
         outline = place_problems(plan, extraction)
 
     _set_stage(data_dir, lesson_id, 4)
-    section_rules = {"computer_science": prompts.CS_SECTION_RULES, "general": prompts.GENERAL_SECTION_RULES}
-    if sql:
-        rules = prompts.sql_section_rules(course[0] if course else None, chapter=chapter is not None)
-    else:
-        rules = section_rules.get(subject, "")
-    section_system = prompts.SECTION_SYSTEM + rules
-    # Practice exercises from the bank, chosen by the features each section teaches, never a problem set's.
-    practice = [[] for _ in outline]
-    if sql:
-        assigned = {a.exercise for a in extraction.answers.values() if isinstance(a, QueryAnswer)}
-        bank = [e for e in load_bank(data_dir) if e.id not in assigned]
-        practice = choose(bank, [set(s.sql_features) for s in outline])
+    section_system = prompts.SECTION_SYSTEM + (prompts.GENERAL_SECTION_RULES if subject == "general" else "")
     sections: list[Section] = []
     for number, section_plan in enumerate(outline, start=1):
         tries = count(1)
@@ -233,114 +198,46 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
                 prompt=context + [prompts.section_request(section_plan, outline, feedback)],
                 output=SectionDraft,
             )
-            section = assemble_section(section_plan, draft, extraction.answers, drop_bad_diagrams=last)
-            if sql:
-                return settle_queries(section, course)
-            refuse_queries(section)
-            return section
+            return assemble_section(section_plan, draft, drop_bad_diagrams=last)
 
         section = retrying(f"Section {number} ({section_plan.title})", section_attempt)
         section = retrying(f"Hints for section {number}", lambda _feedback, s=section: add_hints(s, context, call))
         try:
             section, results = retrying(
                 f"Verification for section {number}",
-                lambda _feedback, s=section: verify_section(s, context, call, image_for),
+                lambda _feedback, s=section: verify_section(s, context, call),
             )
             _write_json(work / f"verification-{number}.json", [asdict(r) for r in results])
         except GenerationError as error:
             # Unverified is the safe state, so a verification pass that keeps failing leaves it there.
             _write_json(work / f"verification-{number}.json", {"error": str(error)})
-        # Practice comes from the bank whole, so it is added after the model's hints and verification.
-        section = add_practice(section, practice[number - 1])
         _write(work / f"section-{number}.json", section)
         sections.append(section)
 
-    credits = [BOOK_CREDIT] if chapter is not None else []
     filenames = [m.filename for m in materials]
-    lesson = assemble_lesson(lesson_id, plan.title, subject, filenames, sections, domain, credits)
+    lesson = assemble_lesson(lesson_id, plan.title, subject, filenames, sections)
     target = lesson_path(data_dir, lesson_id)
     target.parent.mkdir(parents=True, exist_ok=True)
     _write(target, lesson)
     with db.connect(data_dir) as conn:
         if rerun:
             progress.carry_over(conn, lesson_id, lesson)
-            test_flags.carry_over(conn, lesson_id, lesson)
             simulation_state.clear(conn, lesson_id)
             solution_state.clear(conn, lesson_id)
         library.set_ready(conn, lesson_id, rerun=rerun)
 
 
-def _recommended(data_dir: Path, normalized: Normalized) -> list[RecommendedProblem]:
-    try:
-        return parse_recommended(normalized.problem_set, load_bank(data_dir))
-    except ProblemListError as error:
-        raise GenerationError(str(error)) from error
-
-
-def _problem_databases(recommended: list[RecommendedProblem], image_for: Callable[[str], bytes]) -> str | None:
-    """The tables of the bank databases a chapter lesson's problems use, as the model sees them."""
-    shown = []
-    for database in bank_databases(recommended):
-        try:
-            image = image_for(database)
-        except databases.DatabaseMissing as error:
-            raise GenerationError(f"A problem's database is missing: {error}. Import Spider again.") from error
-        shown.append(prompts.course_database(database.partition("/")[2], databases.tables(image)))
-    return "\n\n".join(shown) or None
-
-
-def _extract_recommended(recommended: list[RecommendedProblem], context: list[dict], call: Call) -> Extraction:
-    # The server lists the problems; the model only says which concepts each needs.
-    return retrying(
+def _extract(context: list[dict], call: Call) -> Extraction:
+    draft = retrying(
         "Extraction",
-        lambda feedback: build_recommended(
-            recommended,
-            call(
-                "generate",
-                system=prompts.SQL_EXTRACT_SYSTEM,
-                prompt=context + [prompts.sql_extract_request(recommended, feedback)],
-                output=ConceptMap,
-            ),
+        lambda feedback: call(
+            "generate",
+            system=prompts.EXTRACT_SYSTEM,
+            prompt=context + [prompts.extract_request(feedback)],
+            output=ProblemsAndConcepts,
         ),
     )
-
-
-def _extract(
-    data_dir: Path, subject: str, domain: str | None, normalized: Normalized, context: list[dict], call: Call
-) -> Extraction:
-    # Only DSA lessons have a LeetCode problem list; a computer science lesson with no domain is DSA.
-    if subject != "computer_science" or domain == "sql":
-        draft = retrying(
-            "Extraction",
-            lambda feedback: call(
-                "generate",
-                system=prompts.EXTRACT_SYSTEM,
-                prompt=context + [prompts.extract_request(feedback)],
-                output=ProblemsAndConcepts,
-            ),
-        )
-        return Extraction.model_validate(draft.model_dump())
-
-    # The server lists the problems; the model only says which concepts each needs.
-    try:
-        listed = parse_problem_list(normalized.problem_set)
-        found = find_in_dataset(data_dir, listed)
-    except ProblemListError as error:
-        raise GenerationError(str(error)) from error
-    descriptions = {number: problem.description for number, problem in found.items()}
-    return retrying(
-        "Extraction",
-        lambda feedback: build_extraction(
-            listed,
-            call(
-                "generate",
-                system=prompts.CS_EXTRACT_SYSTEM,
-                prompt=context + [prompts.cs_extract_request(listed, descriptions, feedback)],
-                output=ConceptMap,
-            ),
-            found,
-        ),
-    )
+    return Extraction.model_validate(draft.model_dump())
 
 
 def _clear_from(work: Path, stage: int) -> None:

@@ -9,7 +9,6 @@ const lesson: LessonSummary = {
   id: 'sample',
   title: 'Projectile motion',
   subject: 'physics',
-  domain: null,
   status: 'ready',
   current_stage: null,
   error: null,

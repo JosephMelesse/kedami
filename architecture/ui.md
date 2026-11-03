@@ -39,7 +39,7 @@ The syntax tokens color code and nothing else. Each reads at 5.9:1 or more on `-
 
 - Inter, KaTeX, and JetBrains Mono (for code, with ligatures off so code shows as typed) fonts are bundled with the app.
 - The music player's ▶ and ⏸ come from `app/src/renderer/src/assets/media-symbols.woff2`, a two-glyph subset of Noto Sans Symbols2 (SIL OFL, license alongside it), so both symbols match in size.
-- Code is highlighted the same way in lesson code blocks and in the workspace editor, in Python and SQL, on `--surface-raised`: keywords in `--syntax-keyword`, strings in `--syntax-string`, numbers and constants (such as `True`, `None`, and `NULL`) in `--syntax-number`, the names of functions and classes, built-ins, and SQL types in `--syntax-name`, comments in `--text-muted` italic, and everything else in `--text`.
+- Code in lesson blocks is highlighted in Python on `--surface-raised`: keywords in `--syntax-keyword`, strings in `--syntax-string`, numbers and constants (such as `True` and `None`) in `--syntax-number`, the names of functions and classes and built-ins in `--syntax-name`, comments in `--text-muted` italic, and everything else in `--text`.
 - Plots, diagrams, and simulations take their colors from the tokens.
 - The app icon is ፩ (U+1369, Ethiopic digit one) in `--accent` on a `--bg` rounded square, rendered from Noto Sans Ethiopic Medium to `app/resources/icon.png`. The same glyph, as an inline SVG outline in `--accent`, sits before "Kedami" in the app header.
 
@@ -48,32 +48,11 @@ The syntax tokens color code and nothing else. Each reads at 5.9:1 or more on `-
 | Screen | Contents |
 |---|---|
 | Library | The start screen. The Active card first, on the home page only (see Active lessons), then folder tiles, then the lessons in no folder, oldest first, with status and problem progress, then a New lesson tile that opens Upload. A New folder button creates a folder. Folders are one level deep; opening one shows its lessons, a Rename button, a Delete folder button (its lessons move back home), and a New lesson tile that creates the lesson in that folder. Each ready lesson tile has an Active checkbox in its top right corner, beside an options menu to rename it, move it to a folder or home, or delete it after a confirmation; a generating lesson can't be deleted, and a renamed lesson keeps its name through reruns |
-| Upload | A subject choice. Computer science then asks for its domain: Data structures and algorithms, or SQL. A DSA lesson picks its problems in the problem picker (see Picking problems in `code-problems.md`) and can add reference files. A SQL lesson either recommends problems for one chapter or takes an uploaded problem set with an optional course database; see SQL lessons below. Every other lesson has a file drop, with a role tag and force-transcription toggle per file |
+| Upload | A subject choice and a file drop, with a role tag and force-transcription toggle per file |
 | Generating | Current pipeline stage, with a 2048 game below it while the lesson generates; a failed lesson shows the reason and a Rerun button |
 | Lesson | Sections and blocks in order, with a progress indicator in the accent color. A Rerun button opens a dialog with the start stage and force-transcription toggles; a failed rerun shows its reason above the lesson. A Days button splits the lesson into days; see Finish lines. Opening a lesson returns to the block last read; see Reading position |
-| Workspace | One code problem, opened by its Solve button: description, editor, and console; see Workspace |
 
 The app header is visible on every screen and holds the music player and the Pomodoro timer. Clicking Kedami in it opens the Library home page from any screen, including from inside a folder.
-
-## Workspace
-
-Where a code problem is solved. Its contents are in `code-problems.md`; this is the layout.
-
-- **Placement:** everything below the app header is replaced by the workspace, as the rest screen replaces it. The lesson underneath keeps its state and scroll position, and returns with the Back to lesson button at the top left. The header stays usable, and the rest screen covers the workspace like any other screen.
-- **Top bar:** Back to lesson, then the problem's title and difficulty, then the part's state label.
-- **Editor bar:** above the editor, the language, a Vim checkbox, the Vim mode while Vim is on, and, for code, Reset.
-- **Panes:** fixed proportions with no dividers to drag. The description pane takes the left 40% of the width and the full height. On the right, the editor takes the top 60% and the console the bottom 40%, with Run and Submit along the console's bottom edge. Each pane is a card on `--surface` with a 1px `--border`, 8px apart, and scrolls on its own; the editor and console fill the window's height.
-- **Narrow windows:** at 720px wide or less, the panes stack in one column: description, then editor, then console, and the page scrolls.
-
-## SQL lessons
-
-The Upload screen of a SQL lesson, after the domain choice. See Creating a SQL lesson in `sql-lessons.md`.
-
-- **How:** a choice of Learn a chapter, chosen by default, or Upload a problem set.
-- **Learn a chapter:** a chapter dropdown listing the 15 chapters in order, each with how many problems it can recommend; a number of problems from 1 to 10, 5 by default; and a Recommend problems button. The recommended problems show as a list: each problem's text, then its database or "Solved on pgexercises", and a remove button. Recommend again replaces the list with the next set. A chapter that has fewer problems than asked says so. A line says the explanations come from the book and the examples use its people database. There is no file drop.
-- **Upload a problem set:** the file drop, with a role tag and force-transcription toggle per file, then a Course database slot with a Choose button. The slot shows the file's name and the tables found with their row counts, or why it was refused, and a Remove button. Below it, a line says homework queries are checked against it, without it they are self checks, and practice comes from Spider either way.
-- Generate lesson needs at least one recommended problem, or a problem set file and a database that passed its check if one was chosen.
-- **In the lesson:** a chapter lesson's header has a muted line crediting the book: "Explanations draw on Structured Query Language, Wikibooks (CC BY-SA)", with the book's URL as plain text.
 
 ## Active lessons
 

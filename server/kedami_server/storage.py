@@ -1,13 +1,18 @@
 """Lesson files in the app data folder."""
 
+import logging
 import re
 import shutil
 from pathlib import Path
+
+from pydantic import ValidationError
 
 from . import db
 from .ids import ID_PATTERN
 from .lesson import Lesson
 from .library import add_ready_lesson
+
+log = logging.getLogger(__name__)
 
 SAMPLE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "sample-lesson.json"
 
@@ -42,9 +47,15 @@ def delete_lesson_files(data_dir: Path, lesson_id: str) -> None:
 
 
 def load_lesson(data_dir: Path, lesson_id: str) -> Lesson | None:
+    """The lesson, or None if it is missing or no longer fits the lesson format, such as one that uses a removed
+    subject or answer kind. Such a lesson stays listed and can be deleted, but it can't be opened."""
     if not re.fullmatch(ID_PATTERN, lesson_id):
         return None
     path = lessons_dir(data_dir) / f"{lesson_id}.json"
     if not path.is_file():
         return None
-    return Lesson.model_validate_json(path.read_text())
+    try:
+        return Lesson.model_validate_json(path.read_text())
+    except ValidationError:
+        log.warning("lesson %s no longer fits the lesson format", lesson_id)
+        return None

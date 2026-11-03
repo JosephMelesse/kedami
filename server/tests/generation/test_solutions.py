@@ -6,8 +6,6 @@ from pydantic import ValidationError
 from kedami_server import db, solution_state
 from kedami_server.generation import pipeline
 from kedami_server.generation.schemas import GeneralSteps, MathSteps, PhysicsSteps, SectionDraft
-from kedami_server.generation.solutions import has_solution
-from kedami_server.lesson import Part
 from kedami_server.model import ModelError
 
 from .conftest import AUTH
@@ -87,15 +85,6 @@ def test_general_steps_keep_markdown_and_inline_math():
 def test_unusable_general_steps_are_rejected(change, message):
     with pytest.raises(ValidationError, match=message):
         GeneralSteps.model_validate({**general(1), **change})
-
-
-def test_only_math_physics_and_general_parts_with_checked_or_shown_answers_have_solutions():
-    part = lambda answer: Part.model_validate({"label": "(a)", "prompt": "x", "answer": answer})
-    numeric = part({"kind": "numeric", "value": 1})
-    external = part({"kind": "external", "platform": "leetcode", "number": 1, "title": "Two Sum", "slug": "two-sum"})
-    assert has_solution("math", numeric) and has_solution("physics", numeric) and has_solution("general", numeric)
-    assert not has_solution("computer_science", numeric)
-    assert not has_solution("computer_science", external)
 
 
 # Writing on request

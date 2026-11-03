@@ -1,5 +1,3 @@
-import { CodeProblemSummary } from '../../code/CodeProblemSummary'
-import { QuerySummary } from '../../code/QuerySummary'
 import { AnswerField } from '../answers/AnswerField'
 import { ShowSolution } from '../answers/ShowSolution'
 import { Markdown } from '../Markdown'
@@ -34,10 +32,6 @@ export function ProblemBlockView({ block, lessonId }: { block: ProblemBlock; les
             </section>
           )
         }
-        // A code problem's description shows in its workspace, not in the lesson.
-        if (part.answer.kind === 'code') {
-          return <CodeProblemSummary key={part.id} block={block} part={part} answer={part.answer} name={block.source_ref} />
-        }
         // A single-part problem shows its prompt without the part label.
         return (
           <div key={part.id} className="part-single">
@@ -58,9 +52,6 @@ interface PartAnswerProps {
 }
 
 function PartAnswer({ block, part, name, lessonId }: PartAnswerProps) {
-  if (part.answer.kind === 'query') {
-    return <QuerySummary blockId={block.id} partId={part.id} answer={part.answer} verified={part.verified} name={name} />
-  }
   return (
     <>
       <AnswerField
@@ -71,10 +62,7 @@ function PartAnswer({ block, part, name, lessonId }: PartAnswerProps) {
         hints={part.hints}
         verified={part.verified}
       />
-      {/* LeetCode problems have no solutions; every math and physics part does. */}
-      {part.answer.kind !== 'external' && part.answer.kind !== 'code' && (
-        <ShowSolution lessonId={lessonId} blockId={block.id} partId={part.id} name={name} />
-      )}
+      <ShowSolution lessonId={lessonId} blockId={block.id} partId={part.id} name={name} />
     </>
   )
 }

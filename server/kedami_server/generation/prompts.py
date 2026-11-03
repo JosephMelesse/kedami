@@ -29,34 +29,12 @@ MARKDOWN = (
 )
 
 
-def materials(
-    subject: str, problem_set: str, reference: str, database: str | None = None, problem_databases: str | None = None
-) -> list[dict]:
-    """The course material, as the cached opening of every request for a lesson. A SQL lesson's course database
-    comes with it as its tables, and a chapter lesson's the tables of the bank databases its problems use."""
+def materials(subject: str, problem_set: str, reference: str) -> list[dict]:
+    """The course material, as the cached opening of every request for a lesson."""
     text = f"Subject: {subject}\n\n<problem_set>\n{problem_set}\n</problem_set>"
     if reference.strip():
         text += f"\n\n<reference_material>\n{reference}\n</reference_material>"
-    if database:
-        text += f"\n\n<course_database>\n{database}\n</course_database>"
-    if problem_databases:
-        text += f"\n\n<problem_databases>\n{problem_databases}\n</problem_databases>"
     return [{"type": "text", "text": text, "cache_control": {"type": "ephemeral"}}]
-
-
-# Rows of each course table shown to the model, and the longest value shown.
-DATABASE_ROWS = 5
-DATABASE_VALUE = 80
-
-
-def course_database(name: str, tables: list[dict]) -> str:
-    """A course database as the model sees it: each table's columns, row count, and first rows."""
-    lines = [f"Database `{name}` (SQLite):"]
-    for table in tables:
-        lines.append(f"\nTable {table['name']} ({', '.join(table['columns'])}), {table['count']} rows. First rows:")
-        for row in table["rows"][:DATABASE_ROWS]:
-            lines.append(json.dumps([str(v)[:DATABASE_VALUE] if isinstance(v, str) else v for v in row], default=str))
-    return "\n".join(lines)
 
 
 def _with_feedback(text: str, feedback: str | None) -> dict:
@@ -124,52 +102,6 @@ def extract_request(feedback: str | None = None) -> dict:
     return _with_feedback("Extract the problems and concepts from the problem set above.", feedback)
 
 
-CS_EXTRACT_SYSTEM = f"""You map the problems of a data structures and algorithms assignment to the concepts a lesson
-must teach. The problems are LeetCode problems, given by number and title, and with their descriptions when known.
-
-For each listed problem, give its number and the IDs of the concepts a student needs to solve it, such as hash maps,
-two pointers, or binary search on the answer. Draw the concepts from the reference material when it is given,
-otherwise from what the problems require. Keep each concept specific enough to teach in a few paragraphs, list each
-once, and cover every listed problem exactly once using the numbers given.
-
-{MARKDOWN}"""
-
-
-def cs_extract_request(problems: list, descriptions: dict[int, str], feedback: str | None = None) -> dict:
-    data = [
-        {"number": p.number, "title": p.title} | ({"description": descriptions[p.number]} if p.number in descriptions else {})
-        for p in problems
-    ]
-    return _with_feedback(
-        f"Map these LeetCode problems to the concepts they need:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}",
-        feedback,
-    )
-
-
-SQL_EXTRACT_SYSTEM = f"""You map the problems of a SQL lesson to the concepts a lesson must teach. The problems
-were recommended for one chapter of a SQL course: some are questions on a database whose tables are given, and some
-are solved on pgexercises, given by title.
-
-For each problem, give its number and the IDs of the concepts a student needs to solve it, such as filtering rows
-with WHERE, or joining two tables on a key. Draw the concepts from the reference material, which is the chapter of
-the book the lesson teaches from. Keep each concept specific enough to teach in a few paragraphs, list each once,
-and cover every problem exactly once using the numbers given.
-
-{MARKDOWN}"""
-
-
-def sql_extract_request(problems: list, feedback: str | None = None) -> dict:
-    data = []
-    for p in problems:
-        on_bank = p.answer.kind == "query"
-        where = {"database": p.answer.database.partition("/")[2]} if on_bank else {"solved_on": "pgexercises"}
-        data.append({"number": p.number, "text": p.text} | where)
-    return _with_feedback(
-        f"Map these SQL problems to the concepts they need:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}",
-        feedback,
-    )
-
-
 # Stage 3: plan
 
 PLAN_SYSTEM = """You plan the order of a lesson that teaches the concepts a homework assignment needs.
@@ -184,15 +116,6 @@ Give the lesson a short title and each section a title and a one-line goal.
 A section may call for one interactive simulation: give a one-line brief in `simulation` only where dragging or
 watching something move would teach what a static plot or diagram can't, such as how components change as a vector
 rotates. Most sections should have none. A simulation is illustrative; it never shows a homework answer."""
-
-
-# Added to the plan prompt for SQL lessons.
-SQL_PLAN_RULES = """
-
-This is a SQL lesson. Give each section `sql_features`: the SQL features it teaches, from the list the schema
-allows. The server adds practice exercises to each section from a bank, chosen by these features, so list a feature
-in the section that first teaches it. Selecting counts as taught from the start; list it only for a section that
-teaches plain SELECT."""
 
 
 def plan_request(extraction: Extraction, feedback: str | None = None) -> dict:
@@ -255,52 +178,6 @@ def section_request(section: SectionPlan, outline: list[SectionPlan], feedback: 
     return _with_feedback(f"Write this section:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}", feedback)
 
 
-# Added to the section prompt for computer science lessons.
-CS_SECTION_RULES = """
-
-For this computer science lesson:
-- The homework problems are LeetCode problems the student solves in a code editor or on LeetCode. Place each like any homework problem,
-  with `parts` as an empty list. Never solve, outline, or give code for an assigned LeetCode problem anywhere in the
-  section, including worked examples.
-- Write all code in Python, in fenced ```python blocks, short and runnable.
-- Use checkpoints as comprehension checks: `choice` or `multi_choice` for time and space complexity and for which
-  approach fits, `numeric` for what a snippet prints or how many times a loop runs, and `self_check` with a rubric
-  for explaining why an approach works."""
-
-
-def sql_section_rules(course: str | None, chapter: bool = False) -> str:
-    """Added to the section prompt for SQL lessons. `course` is the course database's name, if there is one, and
-    `chapter` says the lesson is a chapter lesson: its reference is the bundled book and its problems recommended."""
-    if course:
-        queries = (
-            f"- A homework part or checkpoint that asks the student to write a query has a `query` answer: `reference` is one "
-            f"SQLite query against the course database `{course}` that answers it and returns between 1 and 200 rows. Use "
-            "only its tables and columns, exactly as named.\n"
-            f"- Worked examples and code in explanations query the course database `{course}`."
-        )
-    else:
-        queries = (
-            "- There is no course database, so a homework part that asks for a query is a `self_check` whose rubric "
-            "says what a correct query does, and checkpoints don't ask for queries."
-        )
-    book = (
-        "\n- The reference material is a book that teaches standard SQL rather than one system's. Write SQLite, "
-        "and say where SQLite differs from what the book shows, as with ROLLUP and CUBE, which SQLite lacks.\n"
-        "- The homework problems were chosen by the server, which has their answers: some are questions on the "
-        "problem databases, and some are solved on pgexercises. Place each like any homework problem, with `parts` as "
-        "an empty list."
-        if chapter
-        else ""
-    )
-    return f"""
-
-For this SQL lesson:
-- Write all SQL in fenced ```sql blocks, in SQLite.{book}
-{queries}
-- Never give the query for an assigned homework problem anywhere in the section, including worked examples.
-- The server adds practice exercises from a bank to the end of each section. Don't write any."""
-
-
 # Added to the section prompt for general lessons.
 GENERAL_SECTION_RULES = """
 
@@ -319,16 +196,8 @@ or the correct option, and it never works the problem through to the end.
 {MARKDOWN}"""
 
 
-def shown_answer(answer) -> dict:
-    """An answer as the hint calls see it. A code answer's tests and starter code are left out: the
-    description in the question is what a hint is written from."""
-    if answer.kind == "code":
-        return answer.model_dump(exclude={"tests", "starter_code"})
-    return answer.model_dump()
-
-
 def hints_request(found: list["Target"]) -> dict:
-    data = [{"target": t.key, "question": t.question, "answer": shown_answer(t.answer)} for t in found]
+    data = [{"target": t.key, "question": t.question, "answer": t.answer.model_dump()} for t in found]
     return {
         "type": "text",
         "text": f"Write hints for each of these questions, using the target IDs as given:\n\n"
@@ -342,7 +211,7 @@ def replacement_request(failing: dict, by_key: dict, hints: dict) -> dict:
             "target": key,
             "index": index,
             "question": by_key[key].question,
-            "answer": shown_answer(by_key[key].answer),
+            "answer": by_key[key].answer.model_dump(),
             "rejected_hint": hints[key][index],
             "reason": reason,
         }
@@ -369,7 +238,7 @@ def judge_request(to_judge: list[tuple[str, int, str]], by_key: dict) -> dict:
             "target": key,
             "index": index,
             "question": by_key[key].question,
-            "answer": shown_answer(by_key[key].answer),
+            "answer": by_key[key].answer.model_dump(),
             "hint": hint,
         }
         for key, index, hint in to_judge
@@ -387,7 +256,6 @@ For each question, give only the final answer in the form requested:
 - expression: `expression`, using only the names listed.
 - choice: `correct` with the one correct option's index (0-based).
 - select_all: `correct` with the index of every correct option (0-based).
-- query: `query`, one SQLite query against the database named, whose tables are given with the material.
 Set the other fields to null. A question that builds on an earlier part of the same problem uses your own earlier
 results. {MATH_SYNTAX}"""
 

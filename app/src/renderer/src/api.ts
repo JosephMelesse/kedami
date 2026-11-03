@@ -3,8 +3,7 @@ import type { Lesson } from './lesson/types'
 
 export type LessonStatus = 'generating' | 'ready' | 'failed'
 
-// A SQL lesson's course database is uploaded with the role 'database' and kept apart from the material that is read.
-export type MaterialRole = 'problem_set' | 'reference' | 'database'
+export type MaterialRole = 'problem_set' | 'reference'
 
 export interface Material {
   id: number
@@ -37,7 +36,6 @@ export interface LessonSummary {
   id: string
   title: string
   subject: Lesson['subject']
-  domain: Lesson['domain']
   status: LessonStatus
   current_stage: number | null
   error: string | null
@@ -116,14 +114,10 @@ export async function listLessons(): Promise<LessonSummary[]> {
 export async function createLesson(
   subject: Lesson['subject'],
   files: NewFile[],
-  folderId: number | null,
-  domain: Lesson['domain'] = null,
-  chapter: number | null = null
+  folderId: number | null
 ): Promise<string> {
   const form = new FormData()
   form.append('subject', subject)
-  if (domain !== null) form.append('domain', domain)
-  if (chapter !== null) form.append('chapter', String(chapter))
   if (folderId !== null) form.append('folder', String(folderId))
   for (const { file, role, force } of files) {
     form.append('files', file, file.name)
@@ -132,106 +126,6 @@ export async function createLesson(
   }
   const body = await request<{ id: string }>('POST', '/lessons', form)
   return body.id
-}
-
-/** An imported LeetCode problem, as the problem picker's search finds it. */
-export interface LeetCodeMatch {
-  number: number
-  slug: string
-  /** Made from the slug, since the dataset has no titles: "Two Sum II Input Array Is Sorted". */
-  title: string
-  difficulty: string
-}
-
-/** The matches, and whether any problems are imported at all. */
-export function searchLeetCode(query: string): Promise<{ problems: LeetCodeMatch[]; imported: boolean }> {
-  return request('GET', `/leetcode/search?q=${encodeURIComponent(query)}`)
-}
-
-/** A SQL chapter, with where its problems come from and how many it can recommend. */
-export interface SqlChapter {
-  number: number
-  name: string
-  source: 'spider' | 'pgexercises'
-  available: number
-}
-
-/** The chapters, and whether the Spider bank is imported at all. */
-export function listSqlChapters(): Promise<{ chapters: SqlChapter[]; imported: boolean }> {
-  return request('GET', '/sql/chapters')
-}
-
-/** A recommended problem: a Spider exercise on its database, or a pgexercises page by its path. */
-export interface Recommendation {
-  source: 'spider' | 'pgexercises'
-  id: string
-  text: string
-  database: string | null
-}
-
-/** Up to `count` problems for a chapter; `round` is how many times Recommend again was pressed. */
-export function recommendProblems(
-  chapter: number,
-  count: number,
-  round: number
-): Promise<{ problems: Recommendation[]; available: number }> {
-  return request('POST', '/sql/recommend', { chapter, count, round })
-}
-
-/** A course database's name and tables with their row counts, once the server has checked it. */
-export interface CheckedDatabase {
-  name: string
-  tables: { name: string; count: number }[]
-}
-
-/** Checks a course database as soon as it is picked; throws an ApiError with the reason it was refused. */
-export function checkDatabase(file: File): Promise<CheckedDatabase> {
-  const form = new FormData()
-  form.append('file', file, file.name)
-  return request('POST', '/sql/database', form)
-}
-
-/** A database table beside a query exercise: its columns, first rows, and how many rows it has. */
-export interface TableView {
-  name: string
-  columns: string[]
-  rows: unknown[][]
-  count: number
-}
-
-/** A query's result as the workspace shows it: at most 100 rows of `count`, with `truncated` past 1,000. */
-export interface QueryResult {
-  columns: string[]
-  rows: unknown[][]
-  count: number
-  truncated: boolean
-}
-
-const partQuery = (partId: string | null) => (partId === null ? '' : `?part_id=${encodeURIComponent(partId)}`)
-
-export async function getTables(lessonId: string, blockId: string, partId: string | null): Promise<TableView[]> {
-  const body = await request<{ tables: TableView[] }>('GET', `${blockPath(lessonId, blockId)}/tables${partQuery(partId)}`)
-  return body.tables
-}
-
-/** Run a query without checking it. A query that can't run comes back with its error, not as a failure. */
-export function runQuery(
-  lessonId: string,
-  blockId: string,
-  partId: string | null,
-  query: string
-): Promise<QueryResult & { error: string | null }> {
-  return request('POST', `${blockPath(lessonId, blockId)}/run-query`, { part_id: partId, query })
-}
-
-/** Check a query. Wrong comes with the reason and the student's own result. */
-export function checkQuery(
-  lessonId: string,
-  blockId: string,
-  partId: string | null,
-  query: string
-): Promise<{ correct: boolean; progress: ProgressRecord; reason: string | null; result: QueryResult }> {
-  return request('POST', `${blockPath(lessonId, blockId)}/check`, { part_id: partId, response: query })
 }
 
 export async function rerunLesson(lessonId: string, stage: number, force: Record<number, boolean>): Promise<void> {
@@ -255,15 +149,7 @@ export async function getPlotPoints(lessonId: string, blockId: string): Promise<
   return body.functions
 }
 
-/** A test the student flagged as broken, named by its text. See architecture/code-problems.md, Flags. */
-export interface TestFlag {
-  block_id: string
-  part_id: string
-  args: string
-  expected: string
-}
-
-export function getProgress(lessonId: string): Promise<{ progress: ProgressRecord[]; flags: TestFlag[] }> {
+export function getProgress(lessonId: string): Promise<{ progress: ProgressRecord[] }> {
   return request('GET', `${lessonPath(lessonId)}/progress`)
 }
 
@@ -287,51 +173,6 @@ export async function revealHints(
     count
   })
   return body.progress
-}
-
-/** Save a code part's code, or a query part's or checkpoint's query (partId null), as it is typed. */
-export async function saveCode(
-  lessonId: string,
-  blockId: string,
-  partId: string | null,
-  code: string
-): Promise<ProgressRecord> {
-  const body = await request<{ progress: ProgressRecord }>('POST', `${blockPath(lessonId, blockId)}/code`, {
-    part_id: partId,
-    code
-  })
-  return body.progress
-}
-
-/** Record a Submit. The runner checked the code; the server records whether every unflagged test passed. */
-export async function submitCode(
-  lessonId: string,
-  blockId: string,
-  partId: string,
-  code: string,
-  passed: boolean
-): Promise<ProgressRecord> {
-  const body = await request<{ progress: ProgressRecord }>('POST', `${blockPath(lessonId, blockId)}/submit`, {
-    part_id: partId,
-    code,
-    passed
-  })
-  return body.progress
-}
-
-export async function flagTest(
-  lessonId: string,
-  blockId: string,
-  partId: string,
-  action: 'flag' | 'unflag' | 'clear',
-  test?: { args: string; expected: string }
-): Promise<TestFlag[]> {
-  const body = await request<{ flags: TestFlag[] }>('POST', `${blockPath(lessonId, blockId)}/flags`, {
-    part_id: partId,
-    action,
-    ...(test ? { test: { args: test.args, expected: test.expected } } : {})
-  })
-  return body.flags
 }
 
 export async function markDone(lessonId: string, blockId: string, partId: string, done: boolean): Promise<ProgressRecord> {

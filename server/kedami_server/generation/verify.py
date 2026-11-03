@@ -5,10 +5,8 @@ never the stored answer, hints, or lesson content. An item is verified only when
 finds the two results equivalent. self_check answers are not verified.
 """
 
-from collections.abc import Callable
 from dataclasses import dataclass
 
-from .. import queries
 from ..checking import equivalent
 from ..lesson import (
     Answer,
@@ -18,7 +16,6 @@ from ..lesson import (
     MultiChoiceAnswer,
     NumericAnswer,
     ProblemBlock,
-    QueryAnswer,
     Section,
 )
 from ..mathparse import MathParseError, parse_math
@@ -35,22 +32,12 @@ class Result:
     verified: bool
 
 
-# Self checks are the student's own judgment, external problems are solved elsewhere, and code problems'
-# tests come from the imported dataset.
-NOT_VERIFIED = ("self_check", "external", "code")
-
-
-# The bytes of the database a query answer names, for checking a solver's query.
-ImageFor = Callable[[str], bytes]
+# Self checks are the student's own judgment.
+NOT_VERIFIED = ("self_check",)
 
 
 def verifiable(section: Section) -> list[Target]:
-    # A bank exercise's reference comes from the bank, so it isn't solved again.
-    return [t for t in targets(section) if t.answer.kind not in NOT_VERIFIED and not _from_bank(t.answer)]
-
-
-def _from_bank(answer: Answer) -> bool:
-    return isinstance(answer, QueryAnswer) and answer.exercise is not None
+    return [t for t in targets(section) if t.answer.kind not in NOT_VERIFIED]
 
 
 def answer_format(answer: Answer) -> dict:
@@ -65,12 +52,10 @@ def answer_format(answer: Answer) -> dict:
             return {"format": "choice", "options": answer.options}
         case MultiChoiceAnswer():
             return {"format": "select_all", "options": answer.options}
-        case QueryAnswer():
-            return {"format": "query", "database": answer.database.partition("/")[2]}
     raise ValueError(f"{answer.kind} answers are not verified")
 
 
-def agrees(answer: Answer, solution: FinalAnswer, image_for: ImageFor | None = None) -> bool:
+def agrees(answer: Answer, solution: FinalAnswer) -> bool:
     match answer:
         case NumericAnswer():
             if solution.value is None:
@@ -90,20 +75,10 @@ def agrees(answer: Answer, solution: FinalAnswer, image_for: ImageFor | None = N
         case MultiChoiceAnswer():
             given = solution.correct or []
             return len(set(given)) == len(given) and set(given) == set(answer.correct_indexes)
-        case QueryAnswer():
-            if not solution.query or image_for is None:
-                return False
-            try:
-                reason, _ = queries.check(image_for(answer.database), answer.reference, answer.ordered, solution.query)
-            except (queries.QueryError, queries.BrokenReference, LookupError):
-                return False
-            return reason is None
     return False
 
 
-def verify_section(
-    section: Section, materials: list[dict], call: Call, image_for: ImageFor | None = None
-) -> tuple[Section, list[Result]]:
+def verify_section(section: Section, materials: list[dict], call: Call) -> tuple[Section, list[Result]]:
     items = verifiable(section)
     if not items:
         return section, []
@@ -119,7 +94,7 @@ def verify_section(
             target=t.key,
             stored=t.answer.model_dump(),
             solution=solutions[t.key].model_dump() if t.key in solutions else None,
-            verified=t.key in solutions and agrees(t.answer, solutions[t.key], image_for),
+            verified=t.key in solutions and agrees(t.answer, solutions[t.key]),
         )
         for t in items
     ]

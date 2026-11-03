@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from .checking import InvalidResponse, check
-from .lesson import CodeAnswer, Lesson, ProblemBlock, QueryAnswer, SelfCheckAnswer
+from .lesson import Lesson, ProblemBlock, SelfCheckAnswer
 from .targets import find_target
 
 NOT_STARTED = "not_started"
@@ -57,15 +57,6 @@ def after_hints(record: Record, count: int, available: int) -> Record:
     return replace(record, status=status, hints_used=max(record.hints_used, count))
 
 
-def after_code_saved(record: Record, code: str, starter_code: str) -> Record:
-    """Save a code part's code. Code changed from the starter code starts the part; a done part keeps its
-    state, since its code can still be edited and run."""
-    if record.status == NOT_STARTED and code == starter_code:
-        return record
-    status = IN_PROGRESS if record.status == NOT_STARTED else record.status
-    return replace(record, status=status, last_response=code)
-
-
 def after_mark_done(record: Record, done: bool) -> Record:
     if record.part_id is None:
         raise Conflict("checkpoints can't be marked done")
@@ -97,9 +88,7 @@ def carried_over(record: Record, lesson: Lesson) -> Record | None:
     - Checkpoint progress resets, and progress for parts that no longer exist is deleted.
     - Parts that were marked done stay marked done.
     - A saved response is rechecked against the new stored answer. A self check's result
-      is the student's own judgment, so it stands while the answer is still a self check. A
-      code part's code and state stand while it is still a code part: the server can't run it. A
-      query part's do too while it is still a query part, since rechecking needs its database.
+      is the student's own judgment, so it stands while the answer is still a self check.
     - Hints used is capped at the new number of hints.
     """
     if record.part_id is None:
@@ -112,7 +101,7 @@ def carried_over(record: Record, lesson: Lesson) -> Record | None:
         return record
     if record.last_response is None:
         return replace(record, status=IN_PROGRESS if record.hints_used else NOT_STARTED)
-    if isinstance(target.answer, SelfCheckAnswer | CodeAnswer | QueryAnswer) and record.status in (CORRECT, IN_PROGRESS):
+    if isinstance(target.answer, SelfCheckAnswer) and record.status in (CORRECT, IN_PROGRESS):
         return record
     try:
         correct = check(target.answer, record.last_response)

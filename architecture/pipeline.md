@@ -19,8 +19,8 @@ Stages 1 to 4 run as a background job on the server. The renderer polls lesson s
 
 ## Upload rules
 
-- At least one file must be tagged as a problem set. For a DSA lesson, or a SQL lesson with recommended problems, it is the `problems.md` the renderer writes from the picked problems.
-- Supported inputs are PDF, images, plain text, and Markdown. A SQL lesson also takes a database: a SQLite file or a SQL script, checked and saved at upload (see Course databases in `sql-lessons.md`). A database isn't transcribed or sent to the model; only its tables are.
+- At least one file must be tagged as a problem set.
+- Supported inputs are PDF, images, plain text, and Markdown.
 - Each file has a "force transcription" toggle.
 
 ## Stage 1: page routing
@@ -43,7 +43,6 @@ Stages 1 to 4 run as a background job on the server. The renderer polls lesson s
 
 - Every problem in the problem set is captured with its source reference (for example, "PS3 #4") and its parts.
 - A part that asks the student to pick from listed options, including True/False, has its options captured separately, as written and in order, and left out of the part's text. The lesson shows them once, as the answer's choices.
-- For a computer science lesson, the server parses the LeetCode problem list itself, looks each problem up in the imported dataset, and the model only maps problems to concepts. Each problem's answer, with its tests when it is in the dataset, is saved with the stage output (`extraction.json`). See `lesson-format.md` and `code-problems.md`.
 - Concepts are drawn from the reference material and linked to the problems that need them.
 
 ## Stage 3: sequencing rules
@@ -76,8 +75,7 @@ Stages 1 to 4 run as a background job on the server. The renderer polls lesson s
 
 **Progress carries over**
 - Problem block IDs are derived from the source reference and part IDs from the part label, so they stay the same across reruns.
-- Each saved response is rechecked against the new stored answer, and the part's state is updated. A response that no longer fits the answer's form counts as wrong. A self check's result is the student's own judgment, so it stands while the part is still a self check. A code part's saved code and state stand while it is still a code part, since the server can't run it, and a query part's do while it is still a query part.
-- Test flags stay while their test still exists.
+- Each saved response is rechecked against the new stored answer, and the part's state is updated. A response that no longer fits the answer's form counts as wrong. A self check's result is the student's own judgment, so it stands while the part is still a self check.
 - Hints used is capped at the new number of hints.
 - Parts that were marked done stay marked done.
 - Progress for parts that no longer exist is deleted. Checkpoint progress resets.

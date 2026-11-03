@@ -19,7 +19,7 @@
 | Marked done | Confirmed manually | "Marked done" in `--text-muted` | `--border` |
 
 - States apply per part and show on that part's answer field.
-- "In progress, wrong" is not stored separately: it is an in-progress part with a recorded attempt. A correct response always moves a part to correct, so the last attempt was wrong. A code part saves its code without an attempt, so saved code alone is not wrong.
+- "In progress, wrong" is not stored separately: it is an in-progress part with a recorded attempt. A correct response always moves a part to correct, so the last attempt was wrong.
 - A multi-part card shows a count in its header, such as "2 of 3 parts done".
 - Checkpoints use the same states, except marked done.
 - Attempts are unlimited until a part is correct. A correct part is locked: no more checks and no mark done.
@@ -41,8 +41,6 @@
 - Numeric: a stored value of zero uses the tolerance as an absolute one.
 - Expression: the response may use only the names in the stored answer. SymPy simplification is tried first; otherwise both sides are compared at 8 points with every name drawn from 0.5 to 3 with a fixed seed, so a response always gets the same result.
 - For `self_check`, the student's own judgment after seeing the rubric is recorded as the result.
-- For `code`, the sandboxed runner checks the code in the renderer and reports the result, which the server records as given. See `code-problems.md`.
-- For `query`, the server runs the student's query and the reference in fresh copies of the database and compares their results. A query that fails to run is malformed: rejected with SQLite's message and not an attempt. See `sql-lessons.md`.
 
 ## Verifying stored answers
 
@@ -53,6 +51,3 @@
 - Each section's results, with both answers, are saved to `work/{lesson_id}/verification-{n}.json`.
 - If not, it shows an "Unverified answer" label. For problem parts, mark done is the way past it.
 - `self_check` answers are not verified.
-- `code` answers are not verified: their tests come from the imported dataset. They show no "Unverified answer" label.
-- `external` answers (LeetCode problems not in the dataset) are not checked or verified, and show no "Unverified answer" label. Mark done is the only way to finish them.
-- `query` answers with a model-written reference are verified by a second solve that writes its own query, checked against the reference by the same comparison. Bank exercises are not verified, since their references come from the bank, and show no "Unverified answer" label.

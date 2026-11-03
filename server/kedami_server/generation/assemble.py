@@ -10,13 +10,10 @@ from pydantic import ValidationError
 from ..ids import slugify
 from ..lesson import (
     ChoiceAnswer,
-    CodeAnswer,
-    ExternalAnswer,
     Lesson,
     MultiChoiceAnswer,
     Part,
     ProblemBlock,
-    QueryAnswer,
     Section,
 )
 from .diagrams import layout_problems
@@ -31,13 +28,10 @@ class SectionError(ValueError):
 def assemble_section(
     plan: SectionPlan,
     draft: SectionDraft,
-    fixed: dict[str, CodeAnswer | ExternalAnswer | QueryAnswer] | None = None,
     drop_bad_diagrams: bool = False,
 ) -> Section:
-    """Build a section. Problems in `fixed` were listed by the server, LeetCode problems or a SQL chapter's
-    recommended problems, so their parts get that answer. A diagram with layout problems is a SectionError,
-    unless `drop_bad_diagrams` is set for the last attempt, and then it is left out."""
-    fixed = fixed or {}
+    """Build a section. A diagram with layout problems is a SectionError, unless `drop_bad_diagrams` is set for
+    the last attempt, and then it is left out."""
     targets = {slugify(p.source_ref): p for p in plan.problems}
     typed = [block.typed for block in draft.blocks]
     placed = [_problem_id(block) for block in typed if isinstance(block, ProblemDraft)]
@@ -59,8 +53,7 @@ def assemble_section(
         if index in bad_diagrams:
             continue
         if isinstance(block, ProblemDraft):
-            problem_id = _problem_id(block)
-            blocks.append(_problem(block, targets[problem_id], fixed.get(problem_id)))
+            blocks.append(_problem(block, targets[_problem_id(block)]))
         elif isinstance(block, SimulationDraft):
             # The code is written on request, after the lesson is ready.
             blocks.append(
@@ -108,11 +101,7 @@ def _check_problems(placed: list[str], targets: dict) -> None:
         raise SectionError(f"these problems are missing from the section: {', '.join(missing)}")
 
 
-def _problem(draft: ProblemDraft, extracted, fixed: CodeAnswer | ExternalAnswer | QueryAnswer | None = None) -> dict:
-    if fixed is not None:
-        # A problem the server listed: every part takes the server's answer, whatever the draft gave.
-        answers = {slugify(part.label): fixed for part in extracted.parts}
-        return _problem_block(extracted, answers)
+def _problem(draft: ProblemDraft, extracted) -> dict:
     answers = {}
     for part in draft.parts:
         try:
@@ -161,16 +150,12 @@ def assemble_lesson(
     subject: str,
     source_files: list[str],
     sections: list[Section],
-    domain: str | None = None,
-    credits: list[str] | None = None,
 ) -> Lesson:
     return Lesson(
         schema_version=1,
         id=lesson_id,
         title=title,
         subject=subject,
-        domain=domain,
-        credits=credits or [],
         source_files=source_files,
         sections=sections,
     )

@@ -3,7 +3,7 @@
 import json
 import sqlite3
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from datetime import UTC, datetime
 
 from .lesson import Lesson, ProblemBlock
@@ -31,10 +31,6 @@ class LessonRow:
     day_starts: str | None = None
     # Whether the student is working through it, shown in the home page's Active card. A rerun keeps it.
     active: bool = False
-    # Computer science only; see Lesson.domain. Rows made before domains existed have none.
-    domain: str | None = None
-    # The SQL chapter a lesson was made for, whose recommended problems are its problem set; null otherwise.
-    chapter: int | None = None
 
     @property
     def shown_title(self) -> str:
@@ -44,9 +40,9 @@ class LessonRow:
 def add_ready_lesson(conn: sqlite3.Connection, lesson: Lesson) -> None:
     """Index a lesson that already exists on disk. Does nothing if it is already indexed."""
     conn.execute(
-        "INSERT OR IGNORE INTO lessons (id, title, subject, domain, status, current_stage, schema_version, created)"
-        " VALUES (?, ?, ?, ?, 'ready', NULL, ?, ?)",
-        (lesson.id, lesson.title, lesson.subject, lesson.domain, lesson.schema_version, _now()),
+        "INSERT OR IGNORE INTO lessons (id, title, subject, status, current_stage, schema_version, created)"
+        " VALUES (?, ?, ?, 'ready', NULL, ?, ?)",
+        (lesson.id, lesson.title, lesson.subject, lesson.schema_version, _now()),
     )
 
 
@@ -60,15 +56,12 @@ def create_generating(
     subject: str,
     schema_version: int,
     folder_id: int | None = None,
-    domain: str | None = None,
-    chapter: int | None = None,
 ) -> None:
     """Index a lesson whose generation is starting. The title arrives with the plan."""
     conn.execute(
-        "INSERT INTO lessons"
-        " (id, title, subject, domain, chapter, status, current_stage, schema_version, created, folder_id)"
-        " VALUES (?, 'New lesson', ?, ?, ?, 'generating', NULL, ?, ?, ?)",
-        (lesson_id, subject, domain, chapter, schema_version, _now(), folder_id),
+        "INSERT INTO lessons (id, title, subject, status, current_stage, schema_version, created, folder_id)"
+        " VALUES (?, 'New lesson', ?, 'generating', NULL, ?, ?, ?)",
+        (lesson_id, subject, schema_version, _now(), folder_id),
     )
 
 
@@ -143,12 +136,18 @@ def set_force(conn: sqlite3.Connection, material_id: int, force: bool) -> None:
 
 def list_lessons(conn: sqlite3.Connection) -> list[LessonRow]:
     rows = conn.execute("SELECT * FROM lessons ORDER BY created, id").fetchall()
-    return [LessonRow(**row) for row in rows]
+    return [_lesson_row(row) for row in rows]
 
 
 def get_lesson_row(conn: sqlite3.Connection, lesson_id: str) -> LessonRow | None:
     row = conn.execute("SELECT * FROM lessons WHERE id = ?", (lesson_id,)).fetchone()
-    return LessonRow(**row) if row else None
+    return _lesson_row(row) if row else None
+
+
+def _lesson_row(row: sqlite3.Row) -> LessonRow:
+    """Older databases keep columns that are no longer used, so only the row's known fields are read."""
+    known = {field.name for field in fields(LessonRow)}
+    return LessonRow(**{key: row[key] for key in row.keys() if key in known})
 
 
 def problem_ids(lesson: Lesson) -> list[str]:

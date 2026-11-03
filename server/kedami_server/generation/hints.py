@@ -17,7 +17,6 @@ from ..lesson import (
     MultiChoiceAnswer,
     NumericAnswer,
     ProblemBlock,
-    QueryAnswer,
     Section,
 )
 from . import prompts
@@ -66,9 +65,6 @@ def leak_reason(answer: Answer, hint: str) -> str | None:
         case MultiChoiceAnswer():
             if all(_option_in(answer.options[i], lowered) for i in answer.correct_indexes):
                 return "it names every correct option"
-        case QueryAnswer():
-            if _squash(answer.reference.rstrip().rstrip(";")) in _squash(hint):
-                return "it contains the reference query"
     return None
 
 

@@ -15,8 +15,7 @@ export function toProgressMap(records: ProgressRecord[]): ProgressMap {
 }
 
 /** "In progress, wrong" is an in-progress part whose last attempt was wrong. A right attempt makes a
- * part correct, so an in-progress part with any attempt got its last one wrong. A code part saves its
- * code without an attempt, so code alone doesn't make it wrong. */
+ * part correct, so an in-progress part with any attempt got its last one wrong. */
 export function partState(record: ProgressRecord | undefined): PartState {
   if (!record) return 'not_started'
   if (record.status === 'in_progress' && record.attempts > 0) return 'wrong'

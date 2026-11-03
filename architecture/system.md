@@ -4,7 +4,7 @@
 
 | Process | Responsibility | Stack |
 |---|---|---|
-| Electron renderer | UI only: file drop, lesson rendering, answer input, progress, sandboxed simulation frames, code editor and sandboxed runner frame, Pomodoro timer, music player | TypeScript, React, KaTeX, DOMPurify, CodeMirror, Pyodide |
+| Electron renderer | UI only: file drop, lesson rendering, answer input, progress, sandboxed simulation frames, Pomodoro timer, music player | TypeScript, React, KaTeX, DOMPurify |
 | Electron main | Window management; spawns and kills the server; passes the port and session token to the renderer; copies and serves music player tracks | TypeScript |
 | Local server | Ingestion, model calls, verification, answer checking, storage | Python, FastAPI, SymPy, SQLite |
 
@@ -109,10 +109,7 @@ Most likely to be wrong: counting the calls made on the transcription threads un
 - The API key lives in the server's `.env`. The renderer never sees it.
 - The only outbound traffic is to the Anthropic API. Fonts and the alarm sound are bundled.
 - Model-written code runs only inside a sandboxed frame with no network, no Node access, and no access to app data.
-- The student's code, and the dataset's test arguments and expected values, run only inside the runner frame, which has the same limits. Pyodide is bundled, never fetched. The server never runs or evaluates either; the import reads tests with Python's `ast` parser only.
-- SQL from the student, the exercise bank, or the model runs only on the server, in a fresh in-memory copy of its database, never in the database file or `kedami.db`. An authorizer allows reads only, one statement runs, and a query stops after 2 seconds. See `sql-lessons.md`.
 - Electron main cancels any renderer request that isn't to a local file, the music protocol, or `127.0.0.1` or `localhost`, frames included, as a backstop to the CSPs.
 - The music protocol serves only audio files directly inside the data folder's `music/`. The renderer names a track by file name; main resolves it and refuses anything outside that folder. Simulation frames can't load media at all.
-- Two kinds of link leave the app: a LeetCode problem and a pgexercises page. The renderer asks main to open one, main checks it (a LeetCode slug, or a pgexercises path of one section folder and one page name, such as `joins/self2.html`) and builds the URL, and the student's default browser opens it. The app itself sends nothing to either site.
 - Diagram SVG is sanitized with DOMPurify before rendering.
 - All expression parsing uses a restricted parser with whitelisted names, for both model output and user input. SymPy's default string parsing evaluates code and must not be used directly.

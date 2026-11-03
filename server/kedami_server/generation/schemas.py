@@ -5,21 +5,18 @@ server derives IDs, copies problem text verbatim from extraction, generates hint
 later call, and sets verified only in the verification pass.
 """
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import AliasChoices, Field, PrivateAttr, TypeAdapter, ValidationError, field_validator, model_validator
+from pydantic import Field, PrivateAttr, TypeAdapter, ValidationError, field_validator, model_validator
 
 from ..ids import slugify
 from ..lesson import (
     MAX_HINTS,
     Answer,
-    CodeAnswer,
-    ExternalAnswer,
     Model,
     PlainText,
     PlotFunction,
     PlotParameter,
-    QueryAnswer,
     Range,
 )
 
@@ -66,7 +63,7 @@ class ExtractedProblem(Model):
 
 
 class ProblemsAndConcepts(Model):
-    """What the extraction call returns for a math or physics lesson."""
+    """What the extraction call returns."""
 
     concepts: list[Concept]
     problems: Annotated[list[ExtractedProblem], Field(min_length=1)]
@@ -90,41 +87,14 @@ class ProblemsAndConcepts(Model):
 class Extraction(ProblemsAndConcepts):
     """The stage 2 output saved to disk and used by later stages."""
 
-    # Answers of problems the server listed, keyed by problem ID: LeetCode problems, solved in the workspace or
-    # on LeetCode, and a SQL chapter's recommended problems, from the bank or on pgexercises. The model never
-    # writes them. Read under their old name too.
-    answers: dict[str, Annotated[CodeAnswer | ExternalAnswer | QueryAnswer, Field(discriminator="kind")]] = Field(
-        default={}, validation_alias=AliasChoices("answers", "externals")
-    )
-
-    @model_validator(mode="after")
-    def answers_name_problems(self) -> "Extraction":
-        unknown = set(self.answers) - {slugify(p.source_ref) for p in self.problems}
-        if unknown:
-            raise ValueError(f"Listed answers for unknown problems: {', '.join(sorted(unknown))}")
-        return self
-
-
-class ProblemConcepts(Model):
-    number: int = Field(description="The problem number exactly as given.")
-    concepts: list[str] = Field(description="IDs of the concepts a student needs to solve this problem.")
-
-
-class ConceptMap(Model):
-    """What the extraction call returns for a computer science lesson. The server lists the problems."""
-
-    concepts: list[Concept]
-    problems: list[ProblemConcepts]
-
-    @model_validator(mode="after")
-    def references_are_consistent(self) -> "ConceptMap":
-        concept_ids = [c.id for c in self.concepts]
-        _require_unique(concept_ids, "concept ids")
-        for problem in self.problems:
-            unknown = set(problem.concepts) - set(concept_ids)
-            if unknown:
-                raise ValueError(f"problem {problem.number} needs unknown concepts: {', '.join(sorted(unknown))}")
-        return self
+    @model_validator(mode="before")
+    @classmethod
+    def without_removed_fields(cls, data: Any) -> Any:
+        """Saved outputs from before LeetCode and SQL were removed name the answers the server listed. An empty list
+        changes nothing, so the output can still be rerun from; a lesson that had some can't be."""
+        if not isinstance(data, dict):
+            return data
+        return {key: value for key, value in data.items() if key not in ("answers", "externals") or value}
 
 
 def _require_unique(values: list[str], what: str) -> None:
@@ -136,13 +106,6 @@ def _require_unique(values: list[str], what: str) -> None:
 # Stage 3: plan
 
 
-# The SQL features a section can teach, as queries.FEATURES lists them.
-SqlFeature = Literal[
-    "selecting", "filtering", "sorting", "limiting", "distinct", "aggregates", "grouping", "having", "joins",
-    "subqueries", "set operations", "patterns",
-]
-
-
 class PlannedSection(Model):
     title: PlainText
     goal: PlainText = Field(description="One line: what the student can do after this section.")
@@ -152,11 +115,14 @@ class PlannedSection(Model):
         description="A one-line brief for an interactive simulation, only where one would teach something a static "
         "plot or diagram can't. Otherwise null.",
     )
-    sql_features: list[SqlFeature] = Field(
-        default=[],
-        description="SQL lessons only: the SQL features this section teaches, which choose its practice exercises. "
-        "Otherwise empty.",
-    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def without_removed_fields(cls, data: Any) -> Any:
+        """Plans saved before SQL lessons were removed have an empty list of SQL features."""
+        if not isinstance(data, dict) or data.get("sql_features"):
+            return data
+        return {key: value for key, value in data.items() if key != "sql_features"}
 
 
 class Plan(Model):
@@ -236,7 +202,7 @@ _BLOCK = TypeAdapter(TypedBlock)
 class AnswerDraft(Model):
     """One answer, flat. Fill the fields for its kind and leave the others null."""
 
-    kind: Literal["numeric", "expression", "self_check", "choice", "multi_choice", "query"]
+    kind: Literal["numeric", "expression", "self_check", "choice", "multi_choice"]
     value: float | None = Field(default=None, description="numeric: the answer in the unit given.")
     rel_tolerance: float | None = Field(default=None, description="numeric: allowed relative error, such as 0.01.")
     unit: str | None = Field(default=None, description="numeric: the unit shown beside the input, if any.")
@@ -245,9 +211,6 @@ class AnswerDraft(Model):
     options: list[str] | None = Field(default=None, description="choice and multi_choice: the options.")
     correct: list[int] | None = Field(
         default=None, description="choice: the one correct index; multi_choice: every correct index."
-    )
-    reference: str | None = Field(
-        default=None, description="query: one SQLite query against the course database that answers the question."
     )
     _typed: Answer = PrivateAttr()
 
@@ -269,9 +232,6 @@ class AnswerDraft(Model):
                 fields |= {"options": self.options, "correct_index": self.correct[0]}
             case "multi_choice":
                 fields |= {"options": self.options, "correct_indexes": self.correct}
-            case "query":
-                # The server names the course database and decides whether order matters; see generation/sql.py.
-                fields |= {"database": "course/pending", "reference": self.reference}
         try:
             self._typed = _ANSWER.validate_python(fields)
         except ValidationError as error:
@@ -383,7 +343,6 @@ class FinalAnswer(Model):
     value: float | None = Field(default=None, description="number: the answer in the unit given.")
     expression: str | None = Field(default=None, description="expression: the answer in SymPy syntax.")
     correct: list[int] | None = Field(default=None, description="choice: the one correct index; select_all: every correct index.")
-    query: str | None = Field(default=None, description="query: the SQLite query that answers the question.")
 
 
 class Solution(FinalAnswer):
