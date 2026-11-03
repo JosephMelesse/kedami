@@ -25,7 +25,7 @@
 26. Deadlines: one due date per lesson, the overdue rule, and the Upcoming card
 27. Placeholder lessons: planned lessons that Upload fills in
 
-Steps 18 to 22 built LeetCode and SQL lessons, which have since been removed. They live on in `kedami-personal`.
+Steps 18 to 22 built LeetCode and SQL lessons, which have since been removed.
 
 Steps 1 and 2 prove the lesson format is good to study from. Step 3 proves the sequencing. Each later step is independent of the ones after it.
 
