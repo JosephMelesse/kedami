@@ -22,7 +22,8 @@ export function NewLessonScreen({ folderId, placeholder = null, onCreated, onBac
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const hasProblemSet = files.some((f) => f.role === 'problem_set')
-  const ready = subject !== null && hasProblemSet && !pending
+  const hasReference = files.some((f) => f.role === 'reference')
+  const ready = subject !== null && hasProblemSet && hasReference && !pending
 
   const add = (list: FileList | null) => {
     if (!list) return
@@ -68,7 +69,7 @@ export function NewLessonScreen({ folderId, placeholder = null, onCreated, onBac
       <form className="form-screen" onSubmit={submit}>
         <header className="lesson-header">
           <h1>{placeholder ? placeholder.title : 'New lesson'}</h1>
-          <p className="muted">Add the problem set and any reference material. Kedami turns them into one lesson.</p>
+          <p className="muted">Add the problem set and the reference material. Kedami turns them into one lesson.</p>
         </header>
         <fieldset className="field">
           <legend className="field-label">Subject</legend>
@@ -92,6 +93,7 @@ export function NewLessonScreen({ folderId, placeholder = null, onCreated, onBac
           <FileList files={files} onChange={update} onRemove={(i) => setFiles(files.filter((_, j) => j !== i))} />
         )}
         {files.length > 0 && !hasProblemSet && <p className="answer-error">Tag at least one file as a problem set.</p>}
+        {files.length > 0 && !hasReference && <p className="answer-error">Tag at least one file as a reference.</p>}
         {error && <p className="answer-error">{error}</p>}
         <div className="answer-actions">
           <button type="submit" className="button button-primary" disabled={!ready}>

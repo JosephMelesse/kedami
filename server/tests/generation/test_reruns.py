@@ -46,15 +46,18 @@ def revision(data_dir, lesson_id):
 # Uploads
 
 
+NOTES = ("notes.md", b"Notes on projectiles.", "reference", False)
+
+
 @pytest.mark.parametrize(
     "files, message",
     [
         ([], "Field required"),
         ([("notes.md", b"x", "reference", False)], "at least one file as a problem set"),
-        ([("ps.docx", b"x", "problem_set", False)], "only PDF"),
-        ([("ps.pdf", b"not a pdf", "problem_set", False)], "could not be read as a PDF"),
+        ([("ps.docx", b"x", "problem_set", False), NOTES], "only PDF"),
+        ([("ps.pdf", b"not a pdf", "problem_set", False), NOTES], "could not be read as a PDF"),
         ([("ps.md", b"x", "homework", False)], "role must be"),
-        ([("ps.pdf", text_pdf(*[LONG] * 101), "problem_set", False)], "101 pages"),
+        ([("ps.pdf", text_pdf(*[LONG] * 100), "problem_set", False), NOTES], "101 pages"),
         ([("ps.md", b"x", "problem_set", False)] * 21, "at most 20 files"),
     ],
 )
@@ -113,7 +116,7 @@ def test_stage_one_routes_uploaded_pdfs_and_images(started, data_dir):
 
 def test_problem_set_with_no_readable_text_fails(started, data_dir):
     client, _, _ = started
-    lesson_id = upload(client, [("blank.png", png(), "problem_set", False)]).json()["id"]
+    lesson_id = upload(client, [("blank.png", png(), "problem_set", False), NOTES]).json()["id"]
     run(data_dir, lesson_id, FakeModel({Transcription: [{"markdown": ""}]}))
     assert lesson_status(client, lesson_id)["error"] == "No text could be read from the problem set."
 

@@ -30,7 +30,8 @@ MARKDOWN = (
 
 
 def materials(subject: str, problem_set: str, reference: str) -> list[dict]:
-    """The course material, as the cached opening of every request for a lesson."""
+    """The course material, as the cached opening of every request for a lesson. Only a lesson from before a
+    reference was required has none; it can't be rerun, but its solutions and simulations are still written."""
     text = f"Subject: {subject}\n\n<problem_set>\n{problem_set}\n</problem_set>"
     if reference.strip():
         text += f"\n\n<reference_material>\n{reference}\n</reference_material>"
@@ -92,8 +93,8 @@ From the problem set, capture every problem with:
 
 A problem with no lettered parts has one part whose label is the problem number.
 
-Concepts are the ideas the lesson must teach. Draw them from the reference material when it is given, otherwise
-from what the problems require. Keep them specific enough to teach in a few paragraphs, and list each once.
+Concepts are the ideas the lesson must teach. Draw them from the reference material. Keep them specific enough to
+teach in a few paragraphs, and list each once.
 
 {MARKDOWN}"""
 

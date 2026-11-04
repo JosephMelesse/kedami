@@ -35,6 +35,8 @@ def check_uploads(uploads: list[Upload]) -> None:
             raise SourceError(f"{upload.name}: role must be problem set or reference.")
     if not any(u.role == "problem_set" for u in uploads):
         raise SourceError("Tag at least one file as a problem set.")
+    if not any(u.role == "reference" for u in uploads):
+        raise SourceError("Tag at least one file as a reference.")
     pages = sum(page_count(u.name, u.data) for u in uploads)
     if pages > MAX_PAGES:
         raise SourceError(f"These files have {pages} pages; a lesson can use at most {MAX_PAGES}.")

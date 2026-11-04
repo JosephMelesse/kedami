@@ -74,16 +74,20 @@ def start(data_dir: Path, lesson_id: str, subject: str, start_stage: int = 1) ->
     return thread
 
 
-def available_stages(data_dir: Path, lesson_id: str, has_materials: bool) -> list[int]:
-    """Stages a rerun can start from. Stage 1 needs the uploaded files; stage k needs the
-    saved outputs of stages 1 to k-1."""
+def available_stages(data_dir: Path, lesson_id: str, has_reference: bool) -> list[int]:
+    """Stages a rerun can start from. Stage 1 needs an uploaded reference, which every lesson now needs and a
+    rerun can't add; stage k needs the saved outputs of stages 1 to k-1, with a reference that has text."""
     work = work_dir(data_dir, lesson_id)
     outputs = [
-        (work / NORMALIZED / PROBLEM_SET_FILE).exists(),
+        (work / NORMALIZED / PROBLEM_SET_FILE).exists() and _has_text(work / NORMALIZED / REFERENCE_FILE),
         _load(work / "extraction.json", Extraction) is not None,
         _load(work / "plan.json", Plan) is not None,
     ]
-    return [stage for stage in STAGES if (has_materials if stage == 1 else all(outputs[: stage - 1]))]
+    return [stage for stage in STAGES if (has_reference if stage == 1 else all(outputs[: stage - 1]))]
+
+
+def _has_text(path: Path) -> bool:
+    return path.exists() and bool(path.read_text().strip())
 
 
 def run(data_dir: Path, lesson_id: str, subject: str, start_stage: int = 1, call: Call = call_model) -> None:
@@ -152,6 +156,8 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
         )
     if not normalized.problem_set.strip():
         raise GenerationError("No text could be read from the problem set.")
+    if not normalized.reference.strip():
+        raise GenerationError("No text could be read from the reference.")
     context = prompts.materials(subject, normalized.problem_set, normalized.reference)
 
     if start_stage <= 2:

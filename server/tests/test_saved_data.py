@@ -166,6 +166,7 @@ def test_a_lesson_with_older_stage_outputs_can_still_be_rerun_from_any_stage(dat
     work = pipeline.work_dir(data_dir, "old")
     (work / pipeline.NORMALIZED).mkdir(parents=True)
     (work / pipeline.NORMALIZED / pipeline.PROBLEM_SET_FILE).write_text("PS1")
+    (work / pipeline.NORMALIZED / pipeline.REFERENCE_FILE).write_text("Notes")
     (work / "extraction.json").write_text(json.dumps(extraction(answers={})))
     section = {"title": "A", "goal": "B", "concepts": [], "simulation": None, "sql_features": []}
     (work / "plan.json").write_text(json.dumps({"title": "T", "sections": [section]}))

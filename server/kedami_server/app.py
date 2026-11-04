@@ -323,7 +323,8 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
         changed = {key: value for key, value in body.force.items() if materials[key].force_transcription != value}
         if changed and body.stage != 1:
             raise HTTPException(422, "Changing force transcription needs a rerun from stage 1.")
-        if body.stage not in pipeline.available_stages(settings.data_dir, lesson_id, bool(materials)):
+        has_reference = any(m.role == "reference" for m in materials.values())
+        if body.stage not in pipeline.available_stages(settings.data_dir, lesson_id, has_reference):
             raise HTTPException(409, f"This lesson can't be rerun from stage {body.stage}.")
         with db.connect(settings.data_dir) as conn:
             for key, value in changed.items():
@@ -351,7 +352,9 @@ def create_app(settings: Settings, start_generation=pipeline.start, call=call_mo
                 {"id": m.id, "filename": m.filename, "role": m.role, "force_transcription": m.force_transcription}
                 for m in materials
             ],
-            "rerun_stages": pipeline.available_stages(settings.data_dir, lesson_id, bool(materials)),
+            "rerun_stages": pipeline.available_stages(
+                settings.data_dir, lesson_id, any(m.role == "reference" for m in materials)
+            ),
             "reading_block": row.reading_block,
             "day_starts": library.day_starts(row, loaded) if loaded else [],
         }

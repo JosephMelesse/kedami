@@ -281,8 +281,8 @@ def test_an_upload_that_loses_a_race_leaves_nothing_behind(client, data_dir, run
 def test_filling_refuses_what_is_not_a_placeholder(client, data_dir):
     made = client.post(
         "/lessons",
-        data={"subject": "math", "roles": ["problem_set"], "force": ["false"]},
-        files=[("files", ("ps.md", b"PS1\n1. x", "text/markdown"))],
+        data={"subject": "math", "roles": ["problem_set", "reference"], "force": ["false", "false"]},
+        files=[("files", ("ps.md", b"PS1\n1. x", "text/markdown")), ("files", ("notes.md", b"Notes", "text/markdown"))],
         headers=AUTH,
     ).json()["id"]
     assert fill(client, made).status_code == 409

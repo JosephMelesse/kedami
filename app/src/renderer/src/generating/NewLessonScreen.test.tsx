@@ -45,12 +45,16 @@ describe('a new lesson', () => {
     expect(labels).toEqual(['Math', 'Physics', 'General'])
   })
 
-  it('needs a subject and a problem set', async () => {
+  it('needs a subject, a problem set, and a reference', async () => {
     expect(generate().disabled).toBe(true)
     await act(async () => radio('Physics').click())
     expect(generate().disabled).toBe(true)
     await addFiles('ps3.pdf')
+    expect(generate().disabled).toBe(true)
+    expect(container.textContent).toContain('Tag at least one file as a reference.')
+    await addFiles('notes.pdf')
     expect(generate().disabled).toBe(false)
+    expect(container.textContent).not.toContain('Tag at least one file as a reference.')
   })
 
   it('takes the first file as the problem set and later ones as reference', async () => {
@@ -119,7 +123,7 @@ describe('filling in a placeholder', () => {
       )
     )
     await act(async () => radio('General').click())
-    await addFiles('ps3.pdf')
+    await addFiles('ps3.pdf', 'notes.pdf')
   }
 
   it('shows its name and uploads to it, keeping its ID, without naming a folder', async () => {

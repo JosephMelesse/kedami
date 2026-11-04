@@ -176,10 +176,10 @@ def test_deleting_a_folder_moves_its_lessons_home(two_lessons, data_dir):
 def test_new_lesson_can_start_in_a_folder(started):
     client, _, _ = started
     folder = client.post("/folders", json={"name": "Week 3"}, headers=AUTH).json()["id"]
-    files = [("ps.md", b"PS1 1. x", "problem_set", False)]
+    files = [("ps.md", b"PS1 1. x", "problem_set", False), ("notes.md", b"Notes", "reference", False)]
     response = client.post(
         "/lessons",
-        data={"subject": "math", "roles": ["problem_set"], "force": ["false"], "folder": str(folder)},
+        data={"subject": "math", "roles": ["problem_set", "reference"], "force": ["false", "false"], "folder": str(folder)},
         files=[("files", (f[0], f[1], "text/markdown")) for f in files],
         headers=AUTH,
     )
