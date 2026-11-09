@@ -13,6 +13,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from . import db, library, usage
+from .generation.formatting import FAILED_WORD_CHECK, FORMATTED
 from .generation.ingest import KEEP, TRANSCRIBE
 from .generation.verify import NOT_VERIFIED
 from .lesson import CheckpointBlock, Lesson, ProblemBlock
@@ -146,11 +147,21 @@ def _made(lesson: Lesson | None) -> dict:
 def _read(work: Path) -> dict:
     """What stage 1 read from the material, or nothing if its output isn't on disk."""
     try:
-        routes = Counter(page["route"] for page in json.loads((work / "pages.json").read_text()))
+        pages = json.loads((work / "pages.json").read_text())
+        routes = Counter(page["route"] for page in pages)
+        formats = Counter(page.get("format") for page in pages)
         chars = sum(len(file.read_text()) for file in (work / "normalized").iterdir())
-    except (OSError, ValueError, KeyError, TypeError):
-        return {"pages_kept": None, "pages_transcribed": None, "normalized_chars": None}
-    return {"pages_kept": routes[KEEP], "pages_transcribed": routes[TRANSCRIBE], "normalized_chars": chars}
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return dict.fromkeys(
+            ("pages_kept", "pages_formatted", "pages_failed_word_check", "pages_transcribed", "normalized_chars")
+        )
+    return {
+        "pages_kept": routes[KEEP],
+        "pages_formatted": formats[FORMATTED],
+        "pages_failed_word_check": formats[FAILED_WORD_CHECK],
+        "pages_transcribed": routes[TRANSCRIBE],
+        "normalized_chars": chars,
+    }
 
 
 def _append(file: Path, line: str) -> None:

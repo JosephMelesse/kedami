@@ -47,6 +47,7 @@ A placeholder (see Placeholder lessons in `ui.md`) becomes a generating lesson u
 - The route and reason for each page are saved with the stage output (`pages.json`).
 - "Negligible" means fewer than 40 non-space characters. The small check rules on all of a file's text-layer pages in one call, and a page it gives no verdict for is transcribed.
 - Force transcription has no effect on text and Markdown files.
+- A PDF's text layer has its control characters removed and its line ends made plain. PDFium's mark for a hyphen at a line end becomes a hyphen.
 - Pages are joined into one normalized document per role, each page marked with its file and page number. Blank pages are left out. A problem set or reference with no readable text fails the lesson.
 
 ## Stage 1: formatting the reference
@@ -56,7 +57,8 @@ A kept PDF page is its raw text layer: lines wrapped where the page wrapped them
 - The format model gets up to 10 consecutive kept pages in one call and returns each as Markdown, with a list of the lines it dropped.
 - It may only add structure: join wrapped lines, and mark headings, lists, tables, and code. It may drop only running headers, footers, and page numbers. It may not reword, correct, summarize, or reorder.
 - **The word check:** the server removes the dropped lines from the page, then compares the page's letters and digits, in order, with the reply's. A dropped line must match a whole line of the page. Spacing, punctuation, and Markdown syntax are ignored, so `out-\ngoing` and `outgoing` count as the same.
-- A page that fails the check, or that the reply leaves out, keeps its raw text. `pages.json` records which. A failed check never fails the lesson.
+- A page that fails the check, that the reply leaves out, or whose call fails keeps its raw text. `pages.json` records which, and the lines dropped from each formatted page. Formatting never fails the lesson.
+- A dropped line that appears more than once on a page can be any of them, so a page number that is also a table cell doesn't fail the check.
 - Transcribed pages and text files are not formatted.
 
 ## Stage 1: figures

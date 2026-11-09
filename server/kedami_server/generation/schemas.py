@@ -36,6 +36,16 @@ class Transcription(Model):
     markdown: str = Field(description="The page as Markdown with LaTeX. Empty if the page is blank.")
 
 
+class FormattedPage(Model):
+    page: int
+    markdown: str = Field(description="The page as Markdown, with every word as it was.")
+    dropped_lines: list[str] = Field(description="Each running header, footer, or page number left out, as written.")
+
+
+class FormattedPages(Model):
+    pages: list[FormattedPage]
+
+
 # Stage 2: extraction
 
 

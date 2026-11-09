@@ -27,6 +27,7 @@ from . import prompts
 from .assemble import assemble_lesson, assemble_section
 from .hints import add_hints
 from .ingest import Material, Normalized, ingest
+from .passages import split_passages
 from .plan import SectionPlan, place_problems
 from .retry import ATTEMPTS, GenerationError, retrying
 from .schemas import Extraction, Plan, ProblemsAndConcepts, SectionDraft
@@ -150,6 +151,7 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
         (work / NORMALIZED / PROBLEM_SET_FILE).write_text(normalized.problem_set)
         (work / NORMALIZED / REFERENCE_FILE).write_text(normalized.reference)
         _write_json(work / "pages.json", [asdict(p) for p in pages])
+        _write_json(work / "passages.json", [asdict(p) for p in split_passages(pages)])
     else:
         normalized = Normalized(
             (work / NORMALIZED / PROBLEM_SET_FILE).read_text(), (work / NORMALIZED / REFERENCE_FILE).read_text()
@@ -249,7 +251,7 @@ def _extract(context: list[dict], call: Call) -> Extraction:
 def _clear_from(work: Path, stage: int) -> None:
     """Remove outputs of the stages a run will redo, so none are left over from a longer earlier run."""
     outputs = {
-        1: ["pages.json", NORMALIZED],
+        1: ["pages.json", "passages.json", NORMALIZED],
         2: ["extraction.json"],
         3: ["plan.json", "outline.json"],
         4: ["section-*.json", "verification-*.json"],

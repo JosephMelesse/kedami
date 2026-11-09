@@ -3,6 +3,7 @@
 See architecture/system.md, Run log.
 """
 
+import json
 import threading
 
 import pytest
@@ -114,6 +115,8 @@ def test_a_ready_run_records_what_it_made_and_what_it_took(new_lesson, data_dir)
             {"filename": "reference.md", "role": "reference", "force_transcription": False},
         ],
         "pages_kept": 2,
+        "pages_formatted": 0,
+        "pages_failed_word_check": 0,
         "pages_transcribed": 0,
         "normalized_chars": sum(len(path.read_text()) for path in normalized.iterdir()),
     }
@@ -279,3 +282,20 @@ def test_the_commit_is_empty_when_git_was_not_read(new_lesson, data_dir):
     run(data_dir, new_lesson, FakeModel(happy_script()))
     [record] = run_log.read(data_dir)
     assert (record["commit"], record["dirty"]) == (None, None)
+
+
+def test_a_run_counts_the_pages_it_formatted(new_lesson, data_dir):
+    work = data_dir / "work" / new_lesson
+    work.mkdir(parents=True, exist_ok=True)
+    (work / "normalized").mkdir(exist_ok=True)
+    (work / "pages.json").write_text(json.dumps([
+        {"route": "keep", "format": "formatted"},
+        {"route": "keep", "format": "formatted"},
+        {"route": "keep", "format": "failed the word check"},
+        {"route": "keep", "format": "left out of the reply"},
+        {"route": "transcribe", "format": None},
+        {"route": "keep"},  # Saved before pages were formatted.
+    ]))
+    material = run_log._read(work)
+    assert (material["pages_kept"], material["pages_formatted"], material["pages_failed_word_check"]) == (5, 2, 1)
+    assert material["pages_transcribed"] == 1

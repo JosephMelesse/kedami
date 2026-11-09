@@ -9,13 +9,15 @@ Page routing (architecture/pipeline.md):
 When the small check gives no verdict for a page, the page takes the safer route and is transcribed.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import copy_context
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TypeVar
 
 from . import prompts
+from .formatting import format_run, runs_of_pages
 from .retry import retrying
 from .schemas import TextChecks, Transcription
 from .sources import Page, page_png, read_pages
@@ -42,6 +44,9 @@ class RoutedPage:
     route: str
     reason: str
     markdown: str
+    # What became of formatting a reference's kept PDF page, or None for a page that isn't formatted.
+    format: str | None = None
+    dropped_lines: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -114,10 +119,7 @@ def ingest(source_dir: Path, materials: list[Material], call: Callable) -> tuple
         )
         return reply.markdown
 
-    # Each call runs in its own copy of this thread's context, so the usage log still knows its lesson.
-    contexts = [copy_context() for _ in images]
-    with ThreadPoolExecutor(max_workers=TRANSCRIBE_WORKERS) as pool:
-        transcribed = dict(zip(images, pool.map(lambda context, key: context.run(transcribe, key), contexts, images)))
+    transcribed = dict(zip(images, _in_parallel(transcribe, list(images))))
 
     pages = [
         RoutedPage(
@@ -130,7 +132,32 @@ def ingest(source_dir: Path, materials: list[Material], call: Callable) -> tuple
         )
         for material, page, route, reason in routed
     ]
+    kept = [routed_page for routed_page, (_, page, _, _) in zip(pages, routed) if _is_formatted(routed_page, page)]
+    formatted = {
+        (page.file, page.page): page
+        for run in _in_parallel(lambda run: format_run(run, call), runs_of_pages(kept))
+        for page in run
+    }
+    pages = [formatted.get((page.file, page.page), page) for page in pages]
     return Normalized(_join(pages, "problem_set"), _join(pages, "reference")), pages
+
+
+def _is_formatted(routed: RoutedPage, page: Page) -> bool:
+    """Only a reference's kept PDF pages are: other text is already what its author wrote, or the model's Markdown."""
+    return routed.role == "reference" and routed.route == KEEP and page.kind == "pdf"
+
+
+T = TypeVar("T")
+R = TypeVar("R")
+
+
+def _in_parallel(work: Callable[[T], R], items: Iterable[T]) -> list[R]:
+    """Run model calls at once, in order. Each runs in its own copy of this thread's context, so the usage log still
+    knows its lesson."""
+    items = list(items)
+    contexts = [copy_context() for _ in items]
+    with ThreadPoolExecutor(max_workers=TRANSCRIBE_WORKERS) as pool:
+        return list(pool.map(lambda context, item: context.run(work, item), contexts, items))
 
 
 def _join(pages: list[RoutedPage], role: str) -> str:

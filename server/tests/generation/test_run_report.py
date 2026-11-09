@@ -126,6 +126,13 @@ def test_counts_of_one_read_as_singular(data_dir):
     assert "- Took: 1 call, " in text
 
 
+def test_a_run_says_how_many_kept_pages_were_formatted(data_dir):
+    material = {"files": [], "pages_kept": 12, "pages_formatted": 9, "pages_failed_word_check": 2,
+                "pages_transcribed": 1, "normalized_chars": 40}
+    text = written(data_dir, record(material=material))
+    assert "- Read: 12 pages kept as text (9 formatted, 2 failed the word check), 1 transcribed, 40 characters" in text
+
+
 def test_calls_with_no_listed_price_are_counted_not_costed(data_dir):
     usage = [group("generate", "generate", "sonnet", cost=0.5, output=50_000),
              group("generate", "generate", "unlisted", calls=2, unpriced=2, output=9_000)]

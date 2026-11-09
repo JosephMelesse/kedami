@@ -80,6 +80,32 @@ def transcribe_request(file: str, page: int, png: bytes) -> list[dict]:
     ]
 
 
+FORMAT_SYSTEM = """You format text taken from the text layer of PDF pages of course material as Markdown, so that it
+reads well. A text layer wraps lines where the page wrapped them, splits bullets across lines, breaks code apart, and
+mixes in running headers and page numbers.
+
+You may only add structure:
+- Join wrapped lines, and put a blank line between paragraphs. A word split by a hyphen at a line end may be rejoined.
+- Mark headings, lists, tables, and code. Use `-` for a bullet symbol, and put code in fences.
+
+Every letter and digit you keep must stay exactly as written and in the same order. Do not reword, correct, summarize,
+reorder, explain, or add anything, even to fix an obvious typo. Do not change capitalization. Do not turn symbols into
+LaTeX: leave θ as θ and x2 as x2. A bullet written as a letter stays that letter.
+
+You may drop only running headers, running footers, and page numbers. Consecutive pages show you what repeats. List
+each line you drop in `dropped_lines`, as it is written on the page. Anything else stays, however short it is.
+
+Return every page you are given. Do not use HTML."""
+
+
+def format_request(file: str, pages: list[tuple[int, str]]) -> dict:
+    data = [{"page": number, "text": text} for number, text in pages]
+    return {
+        "type": "text",
+        "text": f"Format each page extracted from {file}:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}",
+    }
+
+
 # Stage 2: extraction
 
 EXTRACT_SYSTEM = f"""You extract the structure of a homework assignment so it can be taught as one lesson.

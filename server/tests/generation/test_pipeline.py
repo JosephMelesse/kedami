@@ -149,7 +149,7 @@ def test_happy_path_produces_a_ready_lesson(started, data_dir):
 
     work = data_dir / "work" / lesson_id
     assert sorted(p.name for p in work.iterdir()) == [
-        "extraction.json", "normalized", "outline.json", "pages.json", "plan.json",
+        "extraction.json", "normalized", "outline.json", "pages.json", "passages.json", "plan.json",
         "section-1.json", "section-2.json", "verification-1.json", "verification-2.json",
     ]
     pages = json.loads((work / "pages.json").read_text())

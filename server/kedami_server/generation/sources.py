@@ -2,6 +2,7 @@
 
 import io
 import re
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -82,7 +83,13 @@ def read_pages(path: Path) -> list[Page]:
     if kind == "image":
         return [Page(path.name, 1, "image", None)]
     pdf = pdfium.PdfDocument(path)
-    return [Page(path.name, i + 1, "pdf", pdf[i].get_textpage().get_text_bounded()) for i in range(len(pdf))]
+    return [Page(path.name, i + 1, "pdf", _plain(pdf[i].get_textpage().get_text_bounded())) for i in range(len(pdf))]
+
+
+def _plain(text: str) -> str:
+    """A text layer without PDFium's marks: Windows line ends, 0x02 for a hyphen at a line end, and control characters."""
+    text = text.replace("\r\n", "\n").replace("\r", "\n").replace("\x02", "-")
+    return "".join(ch for ch in text if ch in "\n\t" or unicodedata.category(ch) != "Cc")
 
 
 def page_png(path: Path, page: Page) -> bytes:

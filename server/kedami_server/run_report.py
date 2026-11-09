@@ -48,8 +48,15 @@ def _run(number: int, run: dict) -> str:
         f"Material: {files or 'none'}",
     ]
     if material["pages_kept"] is not None:
+        # A run from before the reference was formatted has no count of it.
+        formatted = (
+            f" ({material['pages_formatted']} formatted, {material['pages_failed_word_check']} failed the word check)"
+            if material.get("pages_formatted") is not None
+            else ""
+        )
         facts.append(
-            f"Read: {_n(material['pages_kept'], 'page')} kept as text, {material['pages_transcribed']} transcribed, "
+            f"Read: {_n(material['pages_kept'], 'page')} kept as text{formatted}, "
+            f"{material['pages_transcribed']} transcribed, "
             f"{material['normalized_chars']:,} characters of normalized text"
         )
     if lesson["sections"] is not None:
