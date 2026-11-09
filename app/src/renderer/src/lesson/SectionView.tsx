@@ -8,9 +8,11 @@ interface SectionViewProps {
   lessonId: string
   /** The day each finish line ends, by the block that follows it. The lesson draws the one before the first block. */
   lineBefore?: ReadonlyMap<string, number>
+  /** Whether the lesson has source blocks, so what the model wrote is labeled as added. */
+  labelAdded?: boolean
 }
 
-export function SectionView({ section, lessonId, lineBefore }: SectionViewProps) {
+export function SectionView({ section, lessonId, lineBefore, labelAdded = false }: SectionViewProps) {
   return (
     <section className="lesson-section">
       <header>
@@ -23,7 +25,7 @@ export function SectionView({ section, lessonId, lineBefore }: SectionViewProps)
           <Fragment key={block.id}>
             {day && <FinishLine day={day} />}
             <div data-block-id={block.id}>
-              <BlockView block={block} lessonId={lessonId} />
+              <BlockView block={block} lessonId={lessonId} labelAdded={labelAdded} />
             </div>
           </Fragment>
         )

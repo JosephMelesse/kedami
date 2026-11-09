@@ -27,10 +27,11 @@ from . import prompts
 from .assemble import assemble_lesson, assemble_section
 from .hints import add_hints
 from .ingest import Material, Normalized, ingest
-from .passages import split_passages
+from .passages import Passage, load_passages, split_passages
 from .plan import SectionPlan, place_problems
 from .retry import ATTEMPTS, GenerationError, retrying
-from .schemas import Extraction, Plan, ProblemsAndConcepts, SectionDraft
+from .schemas import Extraction, Plan, ProblemsAndUnits, SectionDraft
+from .units import check_units
 from .verify import verify_section
 
 log = logging.getLogger(__name__)
@@ -40,6 +41,7 @@ STAGE_NAMES = {1: "ingest", 2: "extract", 3: "plan", 4: "generate"}
 NORMALIZED = "normalized"
 PROBLEM_SET_FILE = "problem-set.md"
 REFERENCE_FILE = "reference.md"
+PASSAGES_FILE = "passages.json"
 
 Call = Callable[..., BaseModel]
 
@@ -53,14 +55,19 @@ def work_dir(data_dir: Path, lesson_id: str) -> Path:
 
 
 def normalized_materials(data_dir: Path, lesson_id: str, subject: str) -> list[dict]:
-    """The cached opening of model requests for a lesson, or nothing if stage 1 output is missing."""
-    folder = work_dir(data_dir, lesson_id) / NORMALIZED
+    """The cached opening of model requests for a lesson, or nothing if stage 1 output is missing. A lesson from
+    before passages shows its normalized reference instead."""
+    work = work_dir(data_dir, lesson_id)
+    folder = work / NORMALIZED
     if not (folder / PROBLEM_SET_FILE).exists():
         return []
+    passages = load_passages(work / PASSAGES_FILE)
     reference = folder / REFERENCE_FILE
-    return prompts.materials(
-        subject, (folder / PROBLEM_SET_FILE).read_text(), reference.read_text() if reference.exists() else ""
-    )
+    if passages is not None:
+        text = prompts.reference_passages(passages)
+    else:
+        text = reference.read_text() if reference.exists() else ""
+    return prompts.materials(subject, (folder / PROBLEM_SET_FILE).read_text(), text)
 
 
 def lesson_path(data_dir: Path, lesson_id: str) -> Path:
@@ -77,10 +84,12 @@ def start(data_dir: Path, lesson_id: str, subject: str, start_stage: int = 1) ->
 
 def available_stages(data_dir: Path, lesson_id: str, has_reference: bool) -> list[int]:
     """Stages a rerun can start from. Stage 1 needs an uploaded reference, which every lesson now needs and a
-    rerun can't add; stage k needs the saved outputs of stages 1 to k-1, with a reference that has text."""
+    rerun can't add; stage k needs the saved outputs of stages 1 to k-1, with a reference that has passages."""
     work = work_dir(data_dir, lesson_id)
     outputs = [
-        (work / NORMALIZED / PROBLEM_SET_FILE).exists() and _has_text(work / NORMALIZED / REFERENCE_FILE),
+        (work / NORMALIZED / PROBLEM_SET_FILE).exists()
+        and _has_text(work / NORMALIZED / REFERENCE_FILE)
+        and bool(load_passages(work / PASSAGES_FILE)),
         _load(work / "extraction.json", Extraction) is not None,
         _load(work / "plan.json", Plan) is not None,
     ]
@@ -151,20 +160,22 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
         (work / NORMALIZED / PROBLEM_SET_FILE).write_text(normalized.problem_set)
         (work / NORMALIZED / REFERENCE_FILE).write_text(normalized.reference)
         _write_json(work / "pages.json", [asdict(p) for p in pages])
-        _write_json(work / "passages.json", [asdict(p) for p in split_passages(pages)])
+        passages = split_passages(pages)
+        _write_json(work / PASSAGES_FILE, [asdict(p) for p in passages])
     else:
         normalized = Normalized(
             (work / NORMALIZED / PROBLEM_SET_FILE).read_text(), (work / NORMALIZED / REFERENCE_FILE).read_text()
         )
+        passages = load_passages(work / PASSAGES_FILE) or []
     if not normalized.problem_set.strip():
         raise GenerationError("No text could be read from the problem set.")
-    if not normalized.reference.strip():
+    if not normalized.reference.strip() or not passages:
         raise GenerationError("No text could be read from the reference.")
-    context = prompts.materials(subject, normalized.problem_set, normalized.reference)
+    context = prompts.materials(subject, normalized.problem_set, prompts.reference_passages(passages))
 
     if start_stage <= 2:
         _set_stage(data_dir, lesson_id, 2)
-        extraction = _extract(context, call)
+        extraction = _extract(context, passages, call)
         _write(work / "extraction.json", extraction)
     else:
         extraction = _load(work / "extraction.json", Extraction)
@@ -179,7 +190,7 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
                 prompt=context + [prompts.plan_request(extraction, feedback)],
                 output=Plan,
             )
-            return plan, place_problems(plan, extraction)
+            return plan, place_problems(plan, extraction, passages)
 
         plan, outline = retrying("Planning", plan_attempt)
         _write(work / "plan.json", plan)
@@ -187,7 +198,7 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
         _record(data_dir, lambda conn: library.set_title(conn, lesson_id, plan.title))
     else:
         plan = _load(work / "plan.json", Plan)
-        outline = place_problems(plan, extraction)
+        outline = place_problems(plan, extraction, passages)
 
     _set_stage(data_dir, lesson_id, 4)
     section_system = prompts.SECTION_SYSTEM + (prompts.GENERAL_SECTION_RULES if subject == "general" else "")
@@ -206,7 +217,7 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
                 prompt=context + [prompts.section_request(section_plan, outline, feedback)],
                 output=SectionDraft,
             )
-            return assemble_section(section_plan, draft, drop_bad_diagrams=last)
+            return assemble_section(section_plan, draft, passages, drop_bad_diagrams=last)
 
         section = retrying(f"Section {number} ({section_plan.title})", section_attempt)
         section = retrying(f"Hints for section {number}", lambda _feedback, s=section: add_hints(s, context, call))
@@ -235,23 +246,25 @@ def _generate(data_dir: Path, lesson_id: str, subject: str, start_stage: int, ca
         library.set_ready(conn, lesson_id, rerun=rerun)
 
 
-def _extract(context: list[dict], call: Call) -> Extraction:
-    draft = retrying(
-        "Extraction",
-        lambda feedback: call(
+def _extract(context: list[dict], passages: list[Passage], call: Call) -> Extraction:
+    def attempt(feedback: str | None) -> Extraction:
+        draft = call(
             "generate",
             system=prompts.EXTRACT_SYSTEM,
             prompt=context + [prompts.extract_request(feedback)],
-            output=ProblemsAndConcepts,
-        ),
-    )
-    return Extraction.model_validate(draft.model_dump())
+            output=ProblemsAndUnits,
+        )
+        extraction = Extraction.model_validate(draft.model_dump())
+        check_units(extraction, passages)
+        return extraction
+
+    return retrying("Extraction", attempt)
 
 
 def _clear_from(work: Path, stage: int) -> None:
     """Remove outputs of the stages a run will redo, so none are left over from a longer earlier run."""
     outputs = {
-        1: ["pages.json", "passages.json", NORMALIZED],
+        1: ["pages.json", PASSAGES_FILE, NORMALIZED],
         2: ["extraction.json"],
         3: ["plan.json", "outline.json"],
         4: ["section-*.json", "verification-*.json"],
@@ -272,7 +285,7 @@ def _outline_json(plan: Plan, outline: list[SectionPlan]) -> dict:
                 "id": s.id,
                 "title": s.title,
                 "goal": s.goal,
-                "concepts": [c.id for c in s.concepts],
+                "units": [u.id for u in s.units],
                 "problems": [p.source_ref for p in s.problems],
             }
             for s in outline

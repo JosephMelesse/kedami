@@ -10,7 +10,7 @@ from kedami_server.app import create_app
 from kedami_server.config import Settings
 from kedami_server.library import MAX_FOLDER_NOTE
 
-from .conftest import AUTH
+from .conftest import AUTH, REFERENCE_TEXT
 from .test_pipeline import FakeModel, happy_script, run
 
 SECRET = "my private exam plan zebra"
@@ -124,7 +124,7 @@ def test_a_note_never_reaches_the_model_or_the_lesson(started, data_dir):
         data={"subject": "physics", "roles": ["problem_set", "reference"], "force": ["false", "false"],
               "folder": str(folder)},
         files=[("files", ("problem-set.md", b"PS1\n1. A ball...", "text/markdown")),
-               ("files", ("reference.md", b"Notes on projectiles.", "text/markdown"))],
+               ("files", ("reference.md", REFERENCE_TEXT, "text/markdown"))],
         headers=AUTH,
     )
     lesson_id = response.json()["id"]

@@ -10,11 +10,12 @@ from typing import TYPE_CHECKING
 
 from ..mathparse import CONSTANTS, FUNCTIONS
 from .plan import SectionPlan
-from .schemas import Extraction
+from .schemas import Extraction, Unit
 
 if TYPE_CHECKING:
     from ..lesson import Answer, Part, ProblemBlock, Section
     from .hints import Target
+    from .passages import Passage
     from .schemas import FinalAnswer
 
 MATH_SYNTAX = (
@@ -29,9 +30,21 @@ MARKDOWN = (
 )
 
 
+def reference_passages(passages: list["Passage"]) -> str:
+    """The reference as later stages see it: each passage marked with its number, under its file and page."""
+    lines, page = [], None
+    for passage in passages:
+        if (passage.file, passage.page) != page:
+            page = (passage.file, passage.page)
+            lines.append(f"[{passage.file}, page {passage.page}]")
+        lines.append(f"[p{passage.number}]\n{passage.text}")
+    return "\n\n".join(lines)
+
+
 def materials(subject: str, problem_set: str, reference: str) -> list[dict]:
-    """The course material, as the cached opening of every request for a lesson. Only a lesson from before a
-    reference was required has none; it can't be rerun, but its solutions and simulations are still written."""
+    """The course material, as the cached opening of every request for a lesson. The reference is its passages, or
+    for a lesson from before them, its normalized text. Only a lesson from before a reference was required has
+    none; it can't be rerun, but its solutions and simulations are still written."""
     text = f"Subject: {subject}\n\n<problem_set>\n{problem_set}\n</problem_set>"
     if reference.strip():
         text += f"\n\n<reference_material>\n{reference}\n</reference_material>"
@@ -108,35 +121,43 @@ def format_request(file: str, pages: list[tuple[int, str]]) -> dict:
 
 # Stage 2: extraction
 
-EXTRACT_SYSTEM = f"""You extract the structure of a homework assignment so it can be taught as one lesson.
+EXTRACT_SYSTEM = f"""You extract the structure of a homework assignment and its reference material, so the two
+can be taught as one lesson built from the material itself.
 
 From the problem set, capture every problem with:
 - its source reference (for example "PS3 #4"; build one from the assignment name and problem number if none is written),
 - its shared text and each part, copied verbatim, keeping every number, unit, and symbol,
 - for a part that asks the student to pick from listed options, including True/False, its options in `options`,
   as written and in order, left out of the part's text so they aren't shown twice,
-- the concepts a student needs to solve it.
+- the IDs of the units a student needs to solve it.
 
 A problem with no lettered parts has one part whose label is the problem number.
 
-Concepts are the ideas the lesson must teach. Draw them from the reference material. Keep them specific enough to
-teach in a few paragraphs, and list each once.
+The reference is split into numbered passages, each marked like [p12]. Cut it into units and skipped ranges:
+- A unit is a run of consecutive passages that teaches one idea, given by its first and last passage numbers, with
+  an ID, a title, and a one-line summary. The lesson shows its passages word for word, so cut where the material
+  moves to a new idea. A unit stays within one file.
+- A skipped range is material that doesn't teach: course logistics, a table of contents, a bibliography, or a
+  repeated slide. Give a reason for each. Material that no problem needs still teaches, so it goes in a unit.
+- Every passage belongs to exactly one unit or skipped range, with no gaps and no overlaps. A [Figure: ...] passage
+  only describes a figure, and may fall anywhere.
 
 {MARKDOWN}"""
 
 
 def extract_request(feedback: str | None = None) -> dict:
-    return _with_feedback("Extract the problems and concepts from the problem set above.", feedback)
+    return _with_feedback("Extract the problems from the problem set, and cut the reference into units.", feedback)
 
 
 # Stage 3: plan
 
-PLAN_SYSTEM = """You plan the order of a lesson that teaches the concepts a homework assignment needs.
+PLAN_SYSTEM = """You plan the order of a lesson that teaches a homework assignment from its reference material.
 
-Group the concepts into sections and order them so that each builds on the ones before it. Every concept that a
-problem needs must be introduced in exactly one section. The server places each problem in the section where the
-last concept it needs is introduced, so the order of concepts decides when each problem comes up. Prefer sections
-that each end with a problem or two over one long section of theory followed by all the problems.
+Group the units into sections and order them so that each builds on the ones before it. Every unit goes in exactly
+one section. Within one file, keep the units in the order of the file; sections may move between files. The server
+places each problem in the section of the last unit it needs, so the order of units decides when each problem comes
+up. Prefer sections that each end with a problem or two over one long section of reading followed by all the
+problems.
 
 Give the lesson a short title and each section a title and a one-line goal.
 
@@ -147,22 +168,31 @@ rotates. Most sections should have none. A simulation is illustrative; it never 
 
 def plan_request(extraction: Extraction, feedback: str | None = None) -> dict:
     data = {
-        "concepts": [c.model_dump() for c in extraction.concepts],
-        "problems": [{"source_ref": p.source_ref, "concepts": p.concepts} for p in extraction.problems],
+        "units": [_unit(u) for u in extraction.units],
+        "problems": [{"source_ref": p.source_ref, "units": p.units} for p in extraction.problems],
     }
-    return _with_feedback(f"Plan the lesson for these concepts and problems:\n\n{json.dumps(data, indent=2)}", feedback)
+    return _with_feedback(f"Plan the lesson for these units and problems:\n\n{json.dumps(data, indent=2)}", feedback)
+
+
+def _unit(unit: "Unit") -> dict:
+    span = f"p{unit.first}" if unit.first == unit.last else f"p{unit.first}-p{unit.last}"
+    return {"id": unit.id, "title": unit.title, "summary": unit.summary, "passages": span}
 
 
 # Stage 4: section content
 
-SECTION_SYSTEM = f"""You write one section of an interactive lesson. Finishing the lesson means the student has done
-their homework, so each section teaches exactly what its problems need, grounded in the course material.
+SECTION_SYSTEM = f"""You build one section of an interactive lesson from its course material. Finishing the lesson
+means the student has done their homework. The reference material is the lesson's main reading: you place it, and
+write only what it doesn't supply.
 
 Return the section's blocks in the order the student meets them. Each block is one object with a `type`; fill
 the fields for that type and set every other field to null. Each answer is one object with a `kind`; fill the fields
 for that kind and set the others to null (`correct` holds the one correct index for `choice`, or every correct index
 for `multi_choice`).
-- `explanation`: teaches a concept.
+- `source`: marks where one of this section's units goes. Give its `unit` ID. Its passages are inserted word for
+  word, so never restate, quote, or summarize them.
+- `explanation`: a short passage of your own that connects two units or fills a gap the problems need. It is
+  labeled as added. Most units need none.
 - `worked_example`: a similar problem solved in steps that are revealed one at a time.
 - `plot`: functions of `x` over `x_domain`, with optional `parameters` the student can drag. Expressions may use only
   `x` and the parameter names. Give `y_domain` when the default would be misleading.
@@ -179,7 +209,9 @@ for `multi_choice`).
   part, using the part labels exactly as given. Do not restate the problem; its text is inserted for you.
 
 Rules:
-- Include every one of this section's homework problems exactly once, after the teaching it needs, and no others.
+- Place every one of this section's units exactly once, in the order given, and no others.
+- Include every one of this section's homework problems exactly once, after the units it needs, and no others.
+- A [Figure: ...] passage describes a figure in the reference that the lesson can't show. A `diagram` may draw it.
 - Worked examples and checkpoints must never use an actual homework problem; change the scenario and the numbers.
 - Choose each answer kind to match the question. Keep a homework part's form: never turn a free-response part into
   multiple choice. Use `numeric` for a number (the student types only the number; give `unit` separately and a
@@ -197,8 +229,8 @@ def section_request(section: SectionPlan, outline: list[SectionPlan], feedback: 
         "this_section": {
             "title": section.title,
             "goal": section.goal,
-            "concepts": [c.model_dump() for c in section.concepts],
-            "homework_problems": [p.model_dump(exclude={"concepts"}) for p in section.problems],
+            "units": [_unit(u) for u in section.units],
+            "homework_problems": [p.model_dump(exclude={"units"}) for p in section.problems],
             "simulation_brief": section.simulation,
         },
     }
@@ -413,7 +445,7 @@ Return only the function body."""
 
 
 def simulation_request(section: "Section", caption: str, brief: str | None, failure: str | None = None) -> dict:
-    teaching = [b.body for b in section.blocks if b.type == "explanation"]
+    teaching = [b.body for b in section.blocks if b.type in ("source", "explanation")]
     data = {"section": section.title, "goal": section.goal, "brief": brief, "caption": caption, "teaching": teaching}
     text = f"Write the simulation for this section:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}"
     if failure:

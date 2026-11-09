@@ -6,12 +6,12 @@ from kedami_server import db
 from kedami_server.generation import pipeline
 from kedami_server.generation.schemas import Transcription
 
-from .conftest import AUTH, upload
+from .conftest import AUTH, REFERENCE_TEXT, upload
 from .files import png
 from .test_pipeline import FakeModel, happy_script, lesson_status, run
 
 PROBLEM_SET = ("ps.md", b"PS1\n1. A ball...", "problem_set", False)
-REFERENCE = ("notes.md", b"Notes on projectiles.", "reference", False)
+REFERENCE = ("notes.md", REFERENCE_TEXT, "reference", False)
 
 
 def lessons_on_disk(data_dir):
@@ -76,7 +76,9 @@ def without_reference(client, data_dir):
     run(data_dir, lesson_id, FakeModel(happy_script()))
     with db.connect(data_dir) as conn:
         conn.execute("DELETE FROM materials WHERE lesson_id = ? AND role = 'reference'", (lesson_id,))
-    (pipeline.work_dir(data_dir, lesson_id) / pipeline.NORMALIZED / pipeline.REFERENCE_FILE).write_text("")
+    work = pipeline.work_dir(data_dir, lesson_id)
+    (work / pipeline.NORMALIZED / pipeline.REFERENCE_FILE).write_text("")
+    (work / pipeline.PASSAGES_FILE).unlink()
     return lesson_id
 
 
@@ -110,4 +112,4 @@ def test_the_extraction_prompt_treats_the_reference_as_always_there():
     from kedami_server.generation import prompts
 
     assert "when it is given" not in prompts.EXTRACT_SYSTEM
-    assert "otherwise" not in prompts.EXTRACT_SYSTEM.split("Concepts are")[1]
+    assert "otherwise" not in prompts.EXTRACT_SYSTEM.split("The reference is split")[1]

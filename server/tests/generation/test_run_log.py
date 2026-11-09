@@ -10,12 +10,12 @@ import pytest
 
 from kedami_server import db, run_log
 from kedami_server.config import MODEL_PRICES
-from kedami_server.generation.schemas import Plan, ProblemsAndConcepts, SectionDraft, Solutions, Transcription
+from kedami_server.generation.schemas import Plan, ProblemsAndUnits, SectionDraft, Solutions, Transcription
 from kedami_server.model import ModelError
 
-from .conftest import AUTH
+from .conftest import AUTH, REFERENCE_TEXT
 from .files import text_pdf
-from .test_ingest import transcribed
+from .factories import extraction
 from .test_pipeline import FakeModel, happy_script, lesson_status, run
 from .test_usage_log import LoggingModel, printed
 
@@ -29,7 +29,12 @@ def scanned(create, pages):
 
 
 def scanned_script(pages, overrides=None):
-    return happy_script({Transcription: [transcribed] * pages, **(overrides or {})})
+    """Every scanned page reads as the three paragraphs the units need, so the units cover 3 passages a page."""
+    script = {Transcription: [THREE_PARAGRAPHS] * pages, ProblemsAndUnits: [extraction(last=3 * pages)]}
+    return happy_script({**script, **(overrides or {})})
+
+
+THREE_PARAGRAPHS = {"markdown": REFERENCE_TEXT.decode()}
 
 
 def logged(data_dir, lesson_id):
@@ -67,7 +72,7 @@ def test_transcription_calls_are_counted_under_the_run(started, data_dir, capsys
 def test_a_rejected_transcription_counts_every_attempt(started, data_dir):
     _, create, _ = started
     lesson_id = scanned(create, pages=1)
-    run(data_dir, lesson_id, LoggingModel(scanned_script(1, {Transcription: [{"markdown": None}, transcribed]})))
+    run(data_dir, lesson_id, LoggingModel(scanned_script(1, {Transcription: [{"markdown": None}, THREE_PARAGRAPHS]})))
     assert logged(data_dir, lesson_id).count(("ingest", "transcribe")) == 2
     assert groups(run_log.read(data_dir)[0])[0] == ("ingest", "transcribe", OPUS, 2)
 
@@ -123,7 +128,9 @@ def test_a_ready_run_records_what_it_made_and_what_it_took(new_lesson, data_dir)
     # The second solve disagreed on one of the three parts; the checkpoint was verified.
     assert record["lesson"] == {
         "id": new_lesson, "title": "Projectiles", "subject": "physics",
-        "sections": 2, "blocks": 5, "problems": 2, "parts": 3, "verifiable": 4, "verified": 3,
+        "sections": 2, "blocks": 8, "problems": 2, "parts": 3, "verifiable": 4, "verified": 3,
+        # Three one-passage units of two words each, and the two explanations, Components. and Range.
+        "source_words": 6, "added_words": 2, "units": 3, "skipped_passages": 0, "diagrams": 0,
     }
     assert groups(record) == [
         ("extract", "generate", SONNET, 1),
@@ -160,14 +167,15 @@ def test_a_run_that_fails_in_stage_1_has_no_pages_and_no_lesson(started, data_di
     assert record["lesson"] == {
         "id": lesson_id, "title": "New lesson", "subject": "physics",
         "sections": None, "blocks": None, "problems": None, "parts": None, "verifiable": None, "verified": None,
+        "source_words": None, "added_words": None, "units": None, "skipped_passages": None, "diagrams": None,
     }
     # Each rejected reply is billed, so it is counted.
     assert groups(record) == [("ingest", "transcribe", OPUS, 3)]
 
 
 def test_a_run_that_fails_in_stage_2_keeps_its_pages(new_lesson, data_dir):
-    bad = {"concepts": [], "problems": []}
-    run(data_dir, new_lesson, LoggingModel(happy_script({ProblemsAndConcepts: [bad, bad, bad]})))
+    bad = {"units": [], "skipped": [], "problems": []}
+    run(data_dir, new_lesson, LoggingModel(happy_script({ProblemsAndUnits: [bad, bad, bad]})))
     [record] = run_log.read(data_dir)
     assert (record["outcome"], record["failed_stage"]) == ("failed", "extract")
     assert record["error"].startswith("Extraction failed after 3 attempts")

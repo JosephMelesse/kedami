@@ -300,7 +300,7 @@ def test_new_plans_are_decoded():
         {
             "title": "Thermo \\u0394",
             "sections": [
-                {"title": "First law", "goal": "Find \\u0394U.", "concepts": ["first-law"], "simulation": "Vary \\u03b3."}
+                {"title": "First law", "goal": "Find \\u0394U.", "units": ["first-law"], "simulation": "Vary \\u03b3."}
             ],
         }
     )

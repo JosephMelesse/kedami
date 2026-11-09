@@ -6,7 +6,7 @@ import subprocess
 import pytest
 
 from kedami_server import run_log, run_report
-from kedami_server.generation.schemas import ProblemsAndConcepts
+from kedami_server.generation.schemas import ProblemsAndUnits
 
 from .test_pipeline import happy_script, run
 from .test_usage_log import LoggingModel
@@ -146,8 +146,8 @@ def test_calls_with_no_listed_price_are_counted_not_costed(data_dir):
 def test_the_report_of_real_runs(started, data_dir):
     _, create, _ = started
     lesson_id = create().json()["id"]
-    bad = {"concepts": [], "problems": []}
-    run(data_dir, lesson_id, LoggingModel(happy_script({ProblemsAndConcepts: [bad, bad, bad]})))
+    bad = {"units": [], "skipped": [], "problems": []}
+    run(data_dir, lesson_id, LoggingModel(happy_script({ProblemsAndUnits: [bad, bad, bad]})))
     run(data_dir, lesson_id, LoggingModel(happy_script()))
     text = run_report.report(data_dir)
     rows = [line.split(" | ") for line in text.splitlines() if line.startswith(("| 1 |", "| 2 |"))]
@@ -156,7 +156,8 @@ def test_the_report_of_real_runs(started, data_dir):
     ]
     assert "- Outcome: failed in extract, run from stage 1" in text
     assert "    Extraction failed after 3 attempts." in text
-    assert "- Made: 2 sections, 5 blocks, 2 problems (3 parts), 3 of 4 answers verified" in text
+    assert "- Made: 2 sections, 8 blocks, 2 problems (3 parts), 3 of 4 answers verified" in text
+    assert "- Built: 6 words of source text and 2 added, 3 units, 0 passages skipped, 0 diagrams drawn" in text
     assert "| second_solve | claude-opus-5-5 | 2 | 4s | $0.012 | 36.4% |" in text
     # 10 calls of 100 output tokens: 6 on Sonnet at 10.00, 2 on Haiku at 5.00, 2 on Opus at 20.00.
     assert "| Output | 1,000 | $0.011 | 33.3% |" in text

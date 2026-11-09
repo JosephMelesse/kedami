@@ -199,6 +199,45 @@ describe('LessonView edge cases', () => {
   })
 })
 
+describe('Source and added content', () => {
+  function withSource(firstPage: number, lastPage: number): Lesson {
+    const value = structuredClone(lesson)
+    value.sections[0].blocks.unshift({
+      type: 'source',
+      id: 'components-block-1',
+      body: 'A vector has **components** $v_x$ and $v_y$.',
+      file: 'Chap34mine.pdf',
+      first_page: firstPage,
+      last_page: lastPage
+    })
+    return value
+  }
+
+  it('shows reference text with no card, under a line naming its file and pages', () => {
+    const source = render(withSource(5, 6)).querySelector<HTMLElement>('.source')!
+    expect(source.querySelector('.source-label')?.textContent).toBe('Chap34mine.pdf, pp. 5-6')
+    expect(source.querySelector('strong')?.textContent).toBe('components')
+    expect(source.querySelector('.katex')).not.toBeNull()
+    expect(source.closest('.card')).toBeNull()
+  })
+
+  it('names a single page as p.', () => {
+    expect(render(withSource(3, 3)).querySelector('.source-label')?.textContent).toBe('Chap34mine.pdf, p. 3')
+  })
+
+  it('labels explanations and diagrams as added in a lesson with source blocks', () => {
+    const root = render(withSource(1, 1))
+    const labels = [...root.querySelectorAll('.eyebrow')].filter((e) => e.textContent === 'Added')
+    // Two explanations and one diagram in the sample lesson.
+    expect(labels).toHaveLength(3)
+    expect(root.querySelector('figure.card > .eyebrow')?.textContent).toBe('Added')
+  })
+
+  it('labels nothing as added in a lesson from before dissection', () => {
+    expect(text(render(lesson))).not.toContain('Added')
+  })
+})
+
 describe('sanitizeSvg', () => {
   it('keeps drawing elements', () => {
     const clean = sanitizeSvg('<svg viewBox="0 0 10 10"><line x1="0" y1="0" x2="10" y2="10" stroke="currentColor"/></svg>')

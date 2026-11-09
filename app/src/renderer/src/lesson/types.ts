@@ -12,18 +12,24 @@ export type Sections = [Section, ...Section[]];
 export type Id1 = string;
 export type Title1 = string;
 export type Goal = string;
-export type Type = "explanation";
+export type Type = "source";
 export type Id2 = string;
 export type Body = string;
-export type Type1 = "worked_example";
+export type File = string;
+export type FirstPage = number;
+export type LastPage = number;
+export type Type1 = "explanation";
 export type Id3 = string;
+export type Body1 = string;
+export type Type2 = "worked_example";
+export type Id4 = string;
 export type Prompt = string;
 /**
  * @minItems 1
  */
 export type Steps = [string, ...string[]];
-export type Type2 = "plot";
-export type Id4 = string;
+export type Type3 = "plot";
+export type Id5 = string;
 /**
  * @minItems 1
  */
@@ -42,17 +48,17 @@ export type Parameters = PlotParameter[];
 export type XDomain = [number, number];
 export type YDomain = [number, number] | null;
 export type Caption = string;
-export type Type3 = "diagram";
-export type Id5 = string;
+export type Type4 = "diagram";
+export type Id6 = string;
 export type Svg = string;
 export type Caption1 = string;
-export type Type4 = "simulation";
-export type Id6 = string;
+export type Type5 = "simulation";
+export type Id7 = string;
 export type Code = string;
 export type Caption2 = string;
 export type Brief = string | null;
-export type Type5 = "checkpoint";
-export type Id7 = string;
+export type Type6 = "checkpoint";
+export type Id8 = string;
 export type Prompt1 = string;
 export type Answer = NumericAnswer | ExpressionAnswer | SelfCheckAnswer | ChoiceAnswer | MultiChoiceAnswer;
 export type Kind = "numeric";
@@ -83,15 +89,15 @@ export type CorrectIndexes = [number, ...number[]];
  */
 export type Hints = [] | [string] | [string, string] | [string, string, string];
 export type Verified = boolean;
-export type Type6 = "problem";
-export type Id8 = string;
+export type Type7 = "problem";
+export type Id9 = string;
 export type SourceRef = string;
 export type Prompt2 = string;
 /**
  * @minItems 1
  */
 export type Parts = [Part, ...Part[]];
-export type Id9 = string;
+export type Id10 = string;
 export type Label1 = string;
 export type Prompt3 = string;
 export type Answer1 = NumericAnswer | ExpressionAnswer | SelfCheckAnswer | ChoiceAnswer | MultiChoiceAnswer;
@@ -101,7 +107,14 @@ export type Answer1 = NumericAnswer | ExpressionAnswer | SelfCheckAnswer | Choic
 export type Hints1 = [] | [string] | [string, string] | [string, string, string];
 export type Verified1 = boolean;
 export type Blocks = (
-  ExplanationBlock | WorkedExampleBlock | PlotBlock | DiagramBlock | SimulationBlock | CheckpointBlock | ProblemBlock
+  | SourceBlock
+  | ExplanationBlock
+  | WorkedExampleBlock
+  | PlotBlock
+  | DiagramBlock
+  | SimulationBlock
+  | CheckpointBlock
+  | ProblemBlock
 )[];
 
 export interface Lesson {
@@ -123,21 +136,35 @@ export interface Section {
   blocks: Blocks;
 }
 /**
+ * Reference text, word for word. Only the server writes one, from the reference's passages.
+ *
+ * This interface was referenced by `Lesson`'s JSON-Schema
+ * via the `definition` "SourceBlock".
+ */
+export interface SourceBlock {
+  type: Type;
+  id: Id2;
+  body: Body;
+  file: File;
+  first_page: FirstPage;
+  last_page: LastPage;
+}
+/**
  * This interface was referenced by `Lesson`'s JSON-Schema
  * via the `definition` "ExplanationBlock".
  */
 export interface ExplanationBlock {
-  type: Type;
-  id: Id2;
-  body: Body;
+  type: Type1;
+  id: Id3;
+  body: Body1;
 }
 /**
  * This interface was referenced by `Lesson`'s JSON-Schema
  * via the `definition` "WorkedExampleBlock".
  */
 export interface WorkedExampleBlock {
-  type: Type1;
-  id: Id3;
+  type: Type2;
+  id: Id4;
   prompt: Prompt;
   steps: Steps;
 }
@@ -146,8 +173,8 @@ export interface WorkedExampleBlock {
  * via the `definition` "PlotBlock".
  */
 export interface PlotBlock {
-  type: Type2;
-  id: Id4;
+  type: Type3;
+  id: Id5;
   functions: Functions;
   parameters: Parameters;
   x_domain: XDomain;
@@ -177,8 +204,8 @@ export interface PlotParameter {
  * via the `definition` "DiagramBlock".
  */
 export interface DiagramBlock {
-  type: Type3;
-  id: Id5;
+  type: Type4;
+  id: Id6;
   svg: Svg;
   caption: Caption1;
 }
@@ -187,8 +214,8 @@ export interface DiagramBlock {
  * via the `definition` "SimulationBlock".
  */
 export interface SimulationBlock {
-  type: Type4;
-  id: Id6;
+  type: Type5;
+  id: Id7;
   code: Code;
   caption: Caption2;
   brief: Brief;
@@ -198,8 +225,8 @@ export interface SimulationBlock {
  * via the `definition` "CheckpointBlock".
  */
 export interface CheckpointBlock {
-  type: Type5;
-  id: Id7;
+  type: Type6;
+  id: Id8;
   prompt: Prompt1;
   answer: Answer;
   hints: Hints;
@@ -254,8 +281,8 @@ export interface MultiChoiceAnswer {
  * via the `definition` "ProblemBlock".
  */
 export interface ProblemBlock {
-  type: Type6;
-  id: Id8;
+  type: Type7;
+  id: Id9;
   source_ref: SourceRef;
   prompt: Prompt2;
   parts: Parts;
@@ -265,7 +292,7 @@ export interface ProblemBlock {
  * via the `definition` "Part".
  */
 export interface Part {
-  id: Id9;
+  id: Id10;
   label: Label1;
   prompt: Prompt3;
   answer: Answer1;

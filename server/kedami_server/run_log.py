@@ -15,8 +15,11 @@ from pathlib import Path
 from . import db, library, usage
 from .generation.formatting import FAILED_WORD_CHECK, FORMATTED
 from .generation.ingest import KEEP, TRANSCRIBE
+from .generation.passages import load_passages
+from .generation.schemas import Extraction
+from .generation.units import skipped_passages
 from .generation.verify import NOT_VERIFIED
-from .lesson import CheckpointBlock, Lesson, ProblemBlock
+from .lesson import CheckpointBlock, DiagramBlock, ExplanationBlock, Lesson, ProblemBlock, SourceBlock
 from .storage import load_lesson
 from .usage import Recording
 
@@ -89,7 +92,13 @@ def write(
             "error": error,
             "commit": code.commit,
             "dirty": code.dirty,
-            "lesson": {"id": lesson_id, "title": row.title if row else None, "subject": subject, **_made(lesson)},
+            "lesson": {
+                "id": lesson_id,
+                "title": row.title if row else None,
+                "subject": subject,
+                **_made(lesson),
+                **_built(lesson, work),
+            },
             "material": {
                 "files": [
                     {"filename": m.filename, "role": m.role, "force_transcription": m.force_transcription}
@@ -142,6 +151,31 @@ def _made(lesson: Lesson | None) -> dict:
         "verifiable": len(verifiable),
         "verified": sum(item.verified for item in verifiable),
     }
+
+
+def _built(lesson: Lesson | None, work: Path) -> dict:
+    """How a lesson was built from its material: how much is the reference's text and how much the model wrote.
+    Nothing for a run that made no lesson. Units and skipped passages come from the stage outputs on disk."""
+    keys = ("source_words", "added_words", "units", "skipped_passages", "diagrams")
+    if lesson is None:
+        return dict.fromkeys(keys)
+    blocks = [block for section in lesson.sections for block in section.blocks]
+    built = {
+        "source_words": sum(len(b.body.split()) for b in blocks if isinstance(b, SourceBlock)),
+        "added_words": sum(len(b.body.split()) for b in blocks if isinstance(b, ExplanationBlock)),
+        "units": None,
+        "skipped_passages": None,
+        "diagrams": sum(isinstance(b, DiagramBlock) for b in blocks),
+    }
+    passages = load_passages(work / "passages.json")
+    try:
+        extraction = Extraction.model_validate_json((work / "extraction.json").read_text())
+    except (OSError, ValueError):
+        return built
+    built["units"] = len(extraction.units)
+    if passages is not None:
+        built["skipped_passages"] = skipped_passages(extraction, passages)
+    return built
 
 
 def _read(work: Path) -> dict:

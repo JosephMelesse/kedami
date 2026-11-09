@@ -65,6 +65,13 @@ def _run(number: int, run: dict) -> str:
             f"{_n(lesson['problems'], 'problem')} ({_n(lesson['parts'], 'part')}), "
             f"{lesson['verified']} of {lesson['verifiable']} answers verified"
         )
+    # A run from before dissection has no record of how its lesson was built.
+    if lesson.get("source_words") is not None:
+        facts.append(
+            f"Built: {lesson['source_words']:,} words of source text and {lesson['added_words']:,} added, "
+            f"{_n(lesson['units'] or 0, 'unit')}, {_n(lesson['skipped_passages'] or 0, 'passage')} skipped, "
+            f"{_n(lesson['diagrams'], 'diagram')} drawn"
+        )
     facts.append(
         f"Took: {_n(total['calls'], 'call')}, {usage.duration(run['wall_ms'] / 1000)} wall time, "
         f"{usage.duration(total['latency_ms'] / 1000)} model time, {_cost(total)}"

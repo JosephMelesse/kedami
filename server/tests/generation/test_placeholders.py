@@ -7,11 +7,11 @@ from kedami_server import db, library
 from kedami_server.app import create_app
 from kedami_server.config import Settings
 
-from .conftest import AUTH
+from .conftest import AUTH, REFERENCE_TEXT
 from .test_pipeline import FakeModel, happy_script, run
 
 TODAY = "2026-11-10"
-FILES = [("problem-set.md", b"PS1\n1. A ball...", "problem_set"), ("reference.md", b"Notes on projectiles.", "reference")]
+FILES = [("problem-set.md", b"PS1\n1. A ball...", "problem_set"), ("reference.md", REFERENCE_TEXT, "reference")]
 
 
 @pytest.fixture

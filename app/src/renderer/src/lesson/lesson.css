@@ -84,6 +84,16 @@
   gap: 16px;
 }
 
+.source,
+.added {
+  display: grid;
+  gap: 8px;
+}
+
+.source-label {
+  font-size: 14px;
+}
+
 .eyebrow {
   font-size: 14px;
   font-weight: 500;

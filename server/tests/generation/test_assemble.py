@@ -2,21 +2,28 @@ import pytest
 
 from kedami_server.generation.assemble import SectionError, assemble_lesson, assemble_section
 from kedami_server.generation.plan import place_problems
-from kedami_server.generation.schemas import SectionDraft
+from kedami_server.generation.schemas import Extraction, SectionDraft
 
-from .factories import extraction, plan
+from kedami_server.generation.passages import NOTE, TEXT, Passage
+
+from .factories import PASSAGES, UNITS, extraction, plan
 
 NUMERIC = {"kind": "numeric", "value": 8.66, "rel_tolerance": 0.01, "unit": "m/s"}
 
 
 @pytest.fixture
 def section_plan():
-    [section] = place_problems(plan(("Projectiles", ["vectors", "gravity", "range"])), extraction())
+    [section] = place_problems(plan(("Projectiles", ["vectors", "gravity", "range"])), extraction(), PASSAGES)
     return section
 
 
-def draft(*blocks):
-    return SectionDraft.model_validate({"blocks": list(blocks)})
+def draft(*blocks, units=UNITS):
+    """The blocks, then a source marker for each unit, so the blocks keep their place."""
+    return SectionDraft.model_validate({"blocks": [*blocks, *({"type": "source", "unit": u} for u in units)]})
+
+
+def assemble(section_plan, section_draft, **options):
+    return assemble_section(section_plan, section_draft, PASSAGES, **options)
 
 
 def problem1(**overrides):
@@ -36,18 +43,75 @@ EXPLANATION = {"type": "explanation", "body": "Split $v$ into parts."}
 
 
 def test_blocks_keep_the_model_order_and_get_ids(section_plan):
-    section = assemble_section(section_plan, draft(EXPLANATION, problem1(), EXPLANATION, problem2()))
+    section = assemble(section_plan, draft(EXPLANATION, problem1(), EXPLANATION, problem2()))
     assert [(b.type, b.id) for b in section.blocks] == [
         ("explanation", "projectiles-block-1"),
         ("problem", "ps1-1"),
         ("explanation", "projectiles-block-3"),
         ("problem", "ps1-2"),
+        ("source", "projectiles-block-5"),
+        ("source", "projectiles-block-6"),
+        ("source", "projectiles-block-7"),
     ]
     assert (section.id, section.title, section.goal) == ("projectiles", "Projectiles", "Learn Projectiles.")
 
 
+# Units of the reference
+
+
+def source(unit):
+    return {"type": "source", "unit": unit}
+
+
+def test_a_unit_is_placed_as_its_passages_word_for_word(section_plan):
+    blocks = [source("vectors"), EXPLANATION, source("gravity"), source("range"), problem1(), problem2()]
+    section = assemble(section_plan, draft(*blocks, units=()))
+    first = section.blocks[0]
+    assert (first.type, first.id, first.body, first.file, first.first_page, first.last_page) == (
+        "source", "projectiles-block-1", "About vectors.", "reference.md", 1, 1,
+    )
+    assert [b.type for b in section.blocks] == ["source", "explanation", "source", "source", "problem", "problem"]
+
+
+def test_a_unit_over_several_pages_names_them_and_leaves_out_its_notes():
+    shown = [
+        Passage(1, TEXT, "lenses.pdf", 3, "Lenses bend light."),
+        Passage(2, NOTE, "lenses.pdf", 3, "[Figure: a ray diagram]"),
+        Passage(3, TEXT, "lenses.pdf", 4, "The focal length is $f$."),
+    ]
+    data = Extraction.model_validate(
+        {"units": [{"id": "lenses", "title": "Lenses", "summary": "s", "first": 1, "last": 3}], "skipped": [],
+         "problems": [{"source_ref": "Q1", "prompt": "", "parts": [{"label": "1", "prompt": "x"}], "units": ["lenses"]}]}
+    )
+    [section_plan] = place_problems(plan(("Lenses", ["lenses"])), data, shown)
+    answer = {"type": "problem", "source_ref": "Q1", "parts": [{"label": "1", "answer": NUMERIC}]}
+    block = assemble_section(section_plan, draft(source("lenses"), answer, units=()), shown).blocks[0]
+    assert block.body == "Lenses bend light.\n\nThe focal length is $f$."
+    assert (block.file, block.first_page, block.last_page) == ("lenses.pdf", 3, 4)
+
+
+@pytest.mark.parametrize(
+    "units, message",
+    [
+        (["vectors", "gravity"], "missing from the section: range"),
+        (["vectors", "gravity", "range", "range"], "repeated: range"),
+        (["vectors", "gravity", "range", "optics"], "don't belong in this section: optics"),
+        (["gravity", "vectors", "range"], "place the units in this order: vectors, gravity, range; got: gravity, vectors"),
+    ],
+)
+def test_unit_placement_errors(section_plan, units, message):
+    with pytest.raises(SectionError, match=message):
+        assemble(section_plan, draft(problem1(), problem2(), units=units))
+
+
+def test_text_the_model_gives_a_source_marker_is_ignored(section_plan):
+    written = {"type": "source", "unit": "vectors", "body": "My own words."}
+    section = assemble(section_plan, draft(written, source("gravity"), source("range"), problem1(), problem2(), units=()))
+    assert section.blocks[0].body == "About vectors."
+
+
 def test_problem_text_comes_from_extraction(section_plan):
-    section = assemble_section(section_plan, draft(problem1(), problem2()))
+    section = assemble(section_plan, draft(problem1(), problem2()))
     block = section.blocks[0]
     assert block.prompt == "A ball is thrown at $10$ m/s."
     assert [(p.id, p.label, p.prompt) for p in block.parts] == [("a", "(a)", "Find $v_x$."), ("b", "(b)", "Find $v_y$.")]
@@ -56,13 +120,13 @@ def test_problem_text_comes_from_extraction(section_plan):
 
 def test_part_answers_are_matched_by_label_not_order(section_plan):
     reordered = problem1(parts=[{"label": "(b)", "answer": {**NUMERIC, "value": 5}}, {"label": "a", "answer": NUMERIC}])
-    block = assemble_section(section_plan, draft(reordered, problem2())).blocks[0]
+    block = assemble(section_plan, draft(reordered, problem2())).blocks[0]
     assert [p.answer.value for p in block.parts] == [8.66, 5]
 
 
 def test_nothing_is_verified_and_there_are_no_hints_yet(section_plan):
     checkpoint = {"type": "checkpoint", "prompt": "Find $v$.", "answer": NUMERIC}
-    section = assemble_section(section_plan, draft(checkpoint, problem1(), problem2()))
+    section = assemble(section_plan, draft(checkpoint, problem1(), problem2()))
     assert section.blocks[0].verified is False and section.blocks[0].hints == []
     assert all(not p.verified and p.hints == [] for p in section.blocks[1].parts)
 
@@ -80,13 +144,13 @@ def test_nothing_is_verified_and_there_are_no_hints_yet(section_plan):
 )
 def test_problem_placement_errors(section_plan, blocks, message):
     with pytest.raises(SectionError, match=message):
-        assemble_section(section_plan, draft(*blocks))
+        assemble(section_plan, draft(*blocks))
 
 
 def test_invalid_plot_is_a_section_error(section_plan):
     bad_plot = {"type": "plot", "functions": [{"expression": "t**2", "label": "y"}], "x_domain": [0, 1], "caption": "c"}
     with pytest.raises(SectionError, match="unknown name 't'"):
-        assemble_section(section_plan, draft(bad_plot, problem1(), problem2()))
+        assemble(section_plan, draft(bad_plot, problem1(), problem2()))
 
 
 def diagram(x):
@@ -97,7 +161,7 @@ def diagram(x):
 def test_every_badly_laid_out_diagram_is_named_in_one_error(section_plan):
     blocks = [diagram(80), EXPLANATION, diagram(5), diagram(-10), problem1(), problem2()]
     with pytest.raises(SectionError) as error:
-        assemble_section(section_plan, draft(*blocks))
+        assemble(section_plan, draft(*blocks))
     message = str(error.value)
     assert "0.6 x its font-size wide" in message
     assert '- block 1: text "label" runs past the viewBox' in message
@@ -107,8 +171,8 @@ def test_every_badly_laid_out_diagram_is_named_in_one_error(section_plan):
 
 def test_on_the_last_attempt_bad_diagrams_are_dropped_and_ids_keep_their_place(section_plan):
     blocks = [diagram(80), EXPLANATION, diagram(5), problem1(), problem2()]
-    section = assemble_section(section_plan, draft(*blocks), drop_bad_diagrams=True)
-    assert [(b.type, b.id) for b in section.blocks] == [
+    section = assemble(section_plan, draft(*blocks), drop_bad_diagrams=True)
+    assert [(b.type, b.id) for b in section.blocks][:4] == [
         ("explanation", "projectiles-block-2"),
         ("diagram", "projectiles-block-3"),
         ("problem", "ps1-1"),
@@ -117,7 +181,7 @@ def test_on_the_last_attempt_bad_diagrams_are_dropped_and_ids_keep_their_place(s
 
 
 def test_lesson_assembly_validates(section_plan):
-    section = assemble_section(section_plan, draft(EXPLANATION, problem1(), problem2()))
+    section = assemble(section_plan, draft(EXPLANATION, problem1(), problem2()))
     lesson = assemble_lesson("abc-123", "Projectiles", "physics", ["problem-set.md"], [section])
     assert lesson.find_block("ps1-2").parts[0].id == "2"
 
@@ -136,16 +200,16 @@ def options_plan():
             "source_ref": "Review #1",
             "prompt": "",
             "parts": [{"label": "1", "prompt": "SRAM does not need refreshing.", "options": ["true", "false"]}],
-            "concepts": ["vectors"],
+            "units": ["vectors"],
         },
         {
             "source_ref": "Review #2",
             "prompt": "",
             "parts": [{"label": "2", "prompt": "Which are buses?", "options": ["Data bus", "Clock", "Address bus"]}],
-            "concepts": ["vectors"],
+            "units": ["vectors"],
         },
     ]
-    [section] = place_problems(plan(("Memory", ["vectors"])), extraction(problems, concepts=("vectors",)))
+    [section] = place_problems(plan(("Memory", ["vectors"])), extraction(problems, units=("vectors",)), PASSAGES)
     return section
 
 
@@ -154,13 +218,14 @@ def review(first, second=None):
     return draft(
         {"type": "problem", "source_ref": "Review #1", "parts": [{"label": "1", "answer": first}]},
         {"type": "problem", "source_ref": "Review #2", "parts": [{"label": "2", "answer": second}]},
+        units=("vectors",),
     )
 
 
 def test_listed_options_are_shown_once_as_written(options_plan):
     reworded = choice(["data", "clk", "addr"], (0, 2), "multi_choice")
-    section = assemble_section(options_plan, review(choice(["True", "False"]), reworded))
-    first, second = (block.parts[0] for block in section.blocks)
+    section = assemble(options_plan, review(choice(["True", "False"]), reworded))
+    first, second = (block.parts[0] for block in section.blocks if block.type == "problem")
     assert first.prompt == "SRAM does not need refreshing."
     assert (first.answer.options, first.answer.correct_index) == (["true", "false"], 0)
     assert (second.answer.options, second.answer.correct_indexes) == (["Data bus", "Clock", "Address bus"], [0, 2])
@@ -175,22 +240,22 @@ def test_listed_options_are_shown_once_as_written(options_plan):
 )
 def test_a_part_with_options_needs_a_choice_with_as_many(options_plan, answer, message):
     with pytest.raises(SectionError, match=message):
-        assemble_section(options_plan, review(answer))
+        assemble(options_plan, review(answer))
 
 
 def test_options_are_checked_like_lesson_text():
     part = {"label": "1", "prompt": "Q", "options": ["$\\\\Delta U = 0$", "$Q = 0$"]}
-    problems = [{"source_ref": "R #1", "prompt": "", "parts": [part], "concepts": ["vectors"]}]
-    [section_plan] = place_problems(plan(("Heat", ["vectors"])), extraction(problems, concepts=("vectors",)))
+    problems = [{"source_ref": "R #1", "prompt": "", "parts": [part], "units": ["vectors"]}]
+    [section_plan] = place_problems(plan(("Heat", ["vectors"])), extraction(problems, units=("vectors",)), PASSAGES)
     answer = {"type": "problem", "source_ref": "R #1", "parts": [{"label": "1", "answer": choice(["a", "b"])}]}
-    part = assemble_section(section_plan, draft(answer)).blocks[0].parts[0]
+    part = assemble(section_plan, draft(answer, units=("vectors",))).blocks[0].parts[0]
     assert part.answer.options == ["$\\Delta U = 0$", "$Q = 0$"]
 
 
 def test_a_part_offers_at_least_two_options():
     with pytest.raises(ValueError, match="at least 2"):
         part = {"label": "1", "prompt": "Q", "options": ["yes"]}
-        extraction([{"source_ref": "R #1", "prompt": "", "parts": [part], "concepts": []}])
+        extraction([{"source_ref": "R #1", "prompt": "", "parts": [part], "units": []}])
 
 
 def test_the_section_request_shows_the_options(options_plan):

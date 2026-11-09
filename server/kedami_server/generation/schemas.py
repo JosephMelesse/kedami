@@ -5,7 +5,7 @@ server derives IDs, copies problem text verbatim from extraction, generates hint
 later call, and sets verified only in the verification pass.
 """
 
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, PrivateAttr, TypeAdapter, ValidationError, field_validator, model_validator
 
@@ -49,10 +49,19 @@ class FormattedPages(Model):
 # Stage 2: extraction
 
 
-class Concept(Model):
-    id: str = Field(description="Short unique identifier, such as 'projectile-components'.")
-    name: str
-    summary: str = Field(description="One or two sentences on what the concept covers.")
+class PassageRange(Model):
+    first: int = Field(description="The number of the first passage, such as 12 for [p12].")
+    last: int = Field(description="The number of the last passage. The same as `first` for one passage.")
+
+
+class Unit(PassageRange):
+    id: str = Field(description="Short unique identifier, such as 'thin-lens-equation'.")
+    title: PlainText
+    summary: PlainText = Field(description="One line on the idea this unit teaches.")
+
+
+class SkippedRange(PassageRange):
+    reason: str = Field(description="Why this material doesn't teach, such as 'table of contents'.")
 
 
 class ExtractedPart(Model):
@@ -69,42 +78,35 @@ class ExtractedProblem(Model):
     source_ref: str = Field(description="Where the problem comes from, such as 'PS3 #4'.")
     prompt: str = Field(description="Text shared by all parts, verbatim. Empty if there is none.")
     parts: Annotated[list[ExtractedPart], Field(min_length=1)]
-    concepts: list[str] = Field(description="IDs of the concepts a student needs to solve this problem.")
+    units: list[str] = Field(description="IDs of the units a student needs to solve this problem.")
 
 
-class ProblemsAndConcepts(Model):
-    """What the extraction call returns."""
+class ProblemsAndUnits(Model):
+    """What the extraction call returns. How the units fit the passages is checked in units.py."""
 
-    concepts: list[Concept]
+    units: Annotated[list[Unit], Field(min_length=1)]
+    skipped: list[SkippedRange]
     problems: Annotated[list[ExtractedProblem], Field(min_length=1)]
 
     @model_validator(mode="after")
-    def references_are_consistent(self) -> "ProblemsAndConcepts":
-        concept_ids = [c.id for c in self.concepts]
-        _require_unique(concept_ids, "concept ids")
+    def references_are_consistent(self) -> "ProblemsAndUnits":
+        unit_ids = [u.id for u in self.units]
+        _require_unique(unit_ids, "unit ids")
         _require_unique([slugify(p.source_ref) for p in self.problems], "problem source references")
         for problem in self.problems:
             _require_unique([slugify(part.label) for part in problem.parts], f"part labels in {problem.source_ref}")
-            unknown = set(problem.concepts) - set(concept_ids)
+            unknown = set(problem.units) - set(unit_ids)
             if unknown:
-                raise ValueError(f"{problem.source_ref} needs unknown concepts: {', '.join(sorted(unknown))}")
+                raise ValueError(f"{problem.source_ref} needs unknown units: {', '.join(sorted(unknown))}")
         return self
 
     def problem(self, problem_id: str) -> ExtractedProblem:
         return next(p for p in self.problems if slugify(p.source_ref) == problem_id)
 
 
-class Extraction(ProblemsAndConcepts):
-    """The stage 2 output saved to disk and used by later stages."""
-
-    @model_validator(mode="before")
-    @classmethod
-    def without_removed_fields(cls, data: Any) -> Any:
-        """Saved outputs from before LeetCode and SQL were removed name the answers the server listed. An empty list
-        changes nothing, so the output can still be rerun from; a lesson that had some can't be."""
-        if not isinstance(data, dict):
-            return data
-        return {key: value for key, value in data.items() if key not in ("answers", "externals") or value}
+class Extraction(ProblemsAndUnits):
+    """The stage 2 output saved to disk and used by later stages. One saved before units existed doesn't load, so
+    that lesson can be rerun only from stage 1."""
 
 
 def _require_unique(values: list[str], what: str) -> None:
@@ -119,20 +121,12 @@ def _require_unique(values: list[str], what: str) -> None:
 class PlannedSection(Model):
     title: PlainText
     goal: PlainText = Field(description="One line: what the student can do after this section.")
-    concepts: list[str] = Field(description="IDs of the concepts this section introduces, in teaching order.")
+    units: list[str] = Field(description="IDs of the units this section teaches, in teaching order.")
     simulation: PlainText | None = Field(
         default=None,
         description="A one-line brief for an interactive simulation, only where one would teach something a static "
         "plot or diagram can't. Otherwise null.",
     )
-
-    @model_validator(mode="before")
-    @classmethod
-    def without_removed_fields(cls, data: Any) -> Any:
-        """Plans saved before SQL lessons were removed have an empty list of SQL features."""
-        if not isinstance(data, dict) or data.get("sql_features"):
-            return data
-        return {key: value for key, value in data.items() if key != "sql_features"}
 
 
 class Plan(Model):
@@ -147,6 +141,13 @@ class Plan(Model):
 # answer one of 5 kinds) compile to a grammar too large for structured output. Each
 # flat object converts to its typed form on validation, so a malformed reply is
 # rejected with the reason and retried.
+
+
+class SourceDraft(Model):
+    """Marks where a unit of the reference goes. Its text is inserted by the server."""
+
+    type: Literal["source"]
+    unit: str
 
 
 class ExplanationDraft(Model):
@@ -201,10 +202,17 @@ class ProblemDraft(Model):
     parts: list[PartAnswer]
 
 
-TypedBlock = Annotated[
-    ExplanationDraft | WorkedExampleDraft | PlotDraft | DiagramDraft | SimulationDraft | CheckpointDraft | ProblemDraft,
-    Field(discriminator="type"),
-]
+DraftBlock = (
+    SourceDraft
+    | ExplanationDraft
+    | WorkedExampleDraft
+    | PlotDraft
+    | DiagramDraft
+    | SimulationDraft
+    | CheckpointDraft
+    | ProblemDraft
+)
+TypedBlock = Annotated[DraftBlock, Field(discriminator="type")]
 _ANSWER = TypeAdapter(Answer)
 _BLOCK = TypeAdapter(TypedBlock)
 
@@ -261,7 +269,8 @@ class PartDraft(Model):
 class BlockDraft(Model):
     """One block, flat. Fill the fields for its type and leave the others null."""
 
-    type: Literal["explanation", "worked_example", "plot", "diagram", "simulation", "checkpoint", "problem"]
+    type: Literal["source", "explanation", "worked_example", "plot", "diagram", "simulation", "checkpoint", "problem"]
+    unit: str | None = Field(default=None, description="source: the unit's ID")
     body: str | None = Field(default=None, description="explanation")
     prompt: str | None = Field(default=None, description="worked_example, checkpoint")
     steps: list[str] | None = Field(default=None, description="worked_example")
@@ -274,13 +283,12 @@ class BlockDraft(Model):
     answer: AnswerDraft | None = Field(default=None, description="checkpoint")
     source_ref: str | None = Field(default=None, description="problem")
     parts: list[PartDraft] | None = Field(default=None, description="problem: an answer for every part")
-    _typed: (
-        ExplanationDraft | WorkedExampleDraft | PlotDraft | DiagramDraft | SimulationDraft | CheckpointDraft | ProblemDraft
-    ) = PrivateAttr()
+    _typed: DraftBlock = PrivateAttr()
 
     @model_validator(mode="after")
     def convert(self) -> "BlockDraft":
         names = {
+            "source": ("unit",),
             "explanation": ("body",),
             "worked_example": ("prompt", "steps"),
             "plot": ("functions", "parameters", "x_domain", "y_domain", "caption"),
@@ -301,9 +309,7 @@ class BlockDraft(Model):
         return self
 
     @property
-    def typed(
-        self,
-    ) -> ExplanationDraft | WorkedExampleDraft | PlotDraft | DiagramDraft | SimulationDraft | CheckpointDraft | ProblemDraft:
+    def typed(self) -> DraftBlock:
         return self._typed
 
 

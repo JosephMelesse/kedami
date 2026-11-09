@@ -84,14 +84,15 @@ The server splits the normalized reference into numbered passages, saved as `pas
 - Each passage records its file and page. Page markers are not passages.
 - A figure passage follows the text of its page, since a text layer doesn't say where on the page its text falls.
 - A paragraph that runs across a page break becomes two passages.
-- In model requests, the reference is the passages, each marked with its number, such as `[p12]`.
+- In model requests, the reference is the passages, each marked with its number, such as `[p12]`, under a line naming its file and page. A lesson from before passages shows its normalized reference instead, in the calls made on request.
 
 ## Stage 2: extraction
 
 - Every problem in the problem set is captured with its source reference (for example, "PS3 #4") and its parts.
 - A part that asks the student to pick from listed options, including True/False, has its options captured separately, as written and in order, and left out of the part's text. The lesson shows them once, as the answer's choices.
 - The same call cuts the reference into units. A unit is a run of consecutive passages that teaches one idea, with an ID, a title, and a one-line summary. The model gives only the first and last passage numbers. The server cuts the text, so a unit can't differ from the reference.
-- Every `text` and `figure` passage belongs to exactly one unit or one skipped range. A gap or an overlap sends the reply back with the numbers. `note` passages can fall anywhere.
+- A unit stays within one file and holds at least one `text` passage. A skipped range may cross files.
+- Every `text` and `figure` passage belongs to exactly one unit or one skipped range. A gap, an overlap, or a range outside the passages sends the reply back with the numbers, every problem in one reply. `note` passages can fall anywhere.
 - A skipped range is material that doesn't teach: course logistics, a table of contents, a bibliography, or a repeated slide. Each has a reason, saved in `extraction.json`. Material no problem needs is not a reason to skip it.
 - Each problem lists the IDs of the units a student needs to solve it.
 
@@ -109,12 +110,12 @@ The server splits the normalized reference into numbered passages, saved as `pas
 
 - One model call per section. A failed or invalid section is retried alone.
 - The model places each of the section's units with a `source` marker naming it, and places each of the section's problems. It gives the problems' answers by part label. The server inserts the unit and the problem and part text verbatim, so the model never restates either.
-- Every unit of the section is placed exactly once, in the plan's order. Otherwise the section is sent back. The server expands a unit into blocks: each run of text passages becomes a `source` block, and each figure a `figure` block.
+- Every unit of the section is placed exactly once, in the plan's order. Otherwise the section is sent back. The server expands a unit into blocks: each run of text passages becomes a `source` block, and each figure a `figure` block. A `note` isn't shown, so it doesn't end a run.
 - Around them, the model writes only what the material doesn't supply: a short `explanation` that connects two units or fills a gap the problems need, worked examples, checkpoints, and plots.
 - A section whose units hold no figure must have one `diagram`, and a section whose units hold one must have none. A diagram with a bad layout is retried with the section, then dropped, so a section can end with no figure, but a figure never fails a lesson.
 - Every section has exactly one `simulation` block. Its code is still written when the student asks for it.
 - A part with extracted options must get a `choice` or `multi_choice` answer with the same number of options, and the server stores the extracted options in place of the model's wording, so the choices read as in the problem set.
-- Teaching block IDs are `{section_id}-block-{n}`.
+- Teaching block IDs are `{section_id}-block-{n}`, where `n` is the block's place in the model's reply, so a dropped diagram doesn't move the others. A unit that becomes more than one block numbers the rest `{section_id}-block-{n}-{k}`, from `k` = 2.
 - Hint checks: the cheap check looks for the answer in the hint (a number within tolerance, the expression, or the correct option). Integer answers below 10 are left to the small model, since they appear in ordinary working. A hint the small model doesn't rule on counts as failing.
 - Each diagram's text layout is checked as the section is assembled, and a bad one is retried with the section, then dropped. See Diagrams in `lesson-format.md`.
 - Hints, simulations, and verification run after the section content exists.

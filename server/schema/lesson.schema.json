@@ -512,11 +512,15 @@
                 "plot": "#/$defs/PlotBlock",
                 "problem": "#/$defs/ProblemBlock",
                 "simulation": "#/$defs/SimulationBlock",
+                "source": "#/$defs/SourceBlock",
                 "worked_example": "#/$defs/WorkedExampleBlock"
               },
               "propertyName": "type"
             },
             "oneOf": [
+              {
+                "$ref": "#/$defs/SourceBlock"
+              },
               {
                 "$ref": "#/$defs/ExplanationBlock"
               },
@@ -616,6 +620,50 @@
         "brief"
       ],
       "title": "SimulationBlock",
+      "type": "object"
+    },
+    "SourceBlock": {
+      "additionalProperties": false,
+      "description": "Reference text, word for word. Only the server writes one, from the reference's passages.",
+      "properties": {
+        "type": {
+          "const": "source",
+          "title": "Type",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "body": {
+          "title": "Body",
+          "type": "string"
+        },
+        "file": {
+          "title": "File",
+          "type": "string"
+        },
+        "first_page": {
+          "minimum": 1,
+          "title": "First Page",
+          "type": "integer"
+        },
+        "last_page": {
+          "minimum": 1,
+          "title": "Last Page",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "body",
+        "file",
+        "first_page",
+        "last_page"
+      ],
+      "title": "SourceBlock",
       "type": "object"
     },
     "WorkedExampleBlock": {

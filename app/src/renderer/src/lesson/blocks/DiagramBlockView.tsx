@@ -12,10 +12,11 @@ export function sanitizeSvg(svg: string): string {
   })
 }
 
-export function DiagramBlockView({ block }: { block: DiagramBlock }) {
+export function DiagramBlockView({ block, added }: { block: DiagramBlock; added: boolean }) {
   const html = useMemo(() => sanitizeSvg(block.svg), [block.svg])
   return (
     <figure className="card">
+      {added && <span className="eyebrow">Added</span>}
       <div className="diagram-svg" dangerouslySetInnerHTML={{ __html: html }} />
       <figcaption>
         <Markdown inline>{block.caption}</Markdown>

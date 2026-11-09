@@ -14,7 +14,7 @@ from kedami_server.lesson import Lesson, ProblemBlock
 from kedami_server.progress import Record, save
 from kedami_server.storage import seed_sample
 
-from .conftest import AUTH
+from .conftest import AUTH, REFERENCE_TEXT
 from .test_pipeline import FakeModel, happy_script, run
 
 TODAY = "2026-11-10"
@@ -38,7 +38,7 @@ def create(client, folder=None):
         data={"subject": "physics", "roles": ["problem_set", "reference"], "force": ["false", "false"]}
         | ({"folder": str(folder)} if folder else {}),
         files=[("files", ("problem-set.md", b"PS1\n1. A ball...", "text/markdown")),
-               ("files", ("reference.md", b"Notes on projectiles.", "text/markdown"))],
+               ("files", ("reference.md", REFERENCE_TEXT, "text/markdown"))],
         headers=AUTH,
     )
     assert response.status_code == 201, response.text

@@ -9,6 +9,9 @@ from kedami_server.config import Settings
 
 AUTH = {"Authorization": "Bearer t"}
 
+# A reference whose three paragraphs are the passages the factory's units cover.
+REFERENCE_TEXT = b"About vectors.\n\nAbout gravity.\n\nAbout range."
+
 
 @pytest.fixture
 def data_dir(tmp_path):
@@ -25,7 +28,7 @@ def started(data_dir):
     def create(files=None, subject="physics"):
         files = files if files is not None else [
             ("problem-set.md", b"PS1\n1. A ball...", "problem_set", False),
-            ("reference.md", b"Notes on projectiles.", "reference", False),
+            ("reference.md", REFERENCE_TEXT, "reference", False),
         ]
         return upload(client, files, subject)
 

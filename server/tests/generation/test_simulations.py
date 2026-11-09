@@ -10,7 +10,7 @@ from kedami_server.lesson import Lesson
 from kedami_server.model import ModelError
 
 from .conftest import AUTH
-from .factories import extraction
+from .factories import PASSAGES, extraction
 from .test_pipeline import FakeModel, happy_script, lesson_status, run, section_one, section_two
 
 GOOD_CODE = "const ctx = canvas.getContext('2d'); ctx.fillStyle = tokens.text; ctx.fillRect(0, 0, 10, 10); ready();"
@@ -18,8 +18,8 @@ GOOD_CODE = "const ctx = canvas.getContext('2d'); ctx.fillStyle = tokens.text; c
 
 def plan_with_simulation():
     return Plan.model_validate({"title": "Projectiles", "sections": [
-        {"title": "Vectors", "goal": "Split vectors.", "concepts": ["vectors"], "simulation": "Drag a vector; watch its components."},
-        {"title": "Flight", "goal": "Find range.", "concepts": ["gravity", "range"], "simulation": None},
+        {"title": "Vectors", "goal": "Split vectors.", "units": ["vectors"], "simulation": "Drag a vector; watch its components."},
+        {"title": "Flight", "goal": "Find range.", "units": ["gravity", "range"], "simulation": None},
     ]})
 
 
@@ -44,15 +44,15 @@ def test_unusable_code_is_rejected(code, message):
 
 
 def test_section_must_have_a_simulation_exactly_when_the_plan_asks():
-    first, second = place_problems(plan_with_simulation(), extraction())
+    first, second = place_problems(plan_with_simulation(), extraction(), PASSAGES)
     assert first.simulation and second.simulation is None
-    section = assemble_section(first, SectionDraft.model_validate(with_simulation(section_one())))
+    section = assemble_section(first, SectionDraft.model_validate(with_simulation(section_one())), PASSAGES)
     block = section.blocks[1]
     assert (block.type, block.id, block.code) == ("simulation", "vectors-block-2", "")
     with pytest.raises(SectionError, match="exactly 1 simulation"):
-        assemble_section(first, SectionDraft.model_validate(section_one()))
+        assemble_section(first, SectionDraft.model_validate(section_one()), PASSAGES)
     with pytest.raises(SectionError, match="exactly 0 simulation"):
-        assemble_section(second, SectionDraft.model_validate(with_simulation(section_two())))
+        assemble_section(second, SectionDraft.model_validate(with_simulation(section_two())), PASSAGES)
 
 
 # Generation and the routes

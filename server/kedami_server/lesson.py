@@ -155,6 +155,23 @@ Subject = Literal["math", "physics", "general"]
 # Blocks
 
 
+class SourceBlock(Model):
+    """Reference text, word for word. Only the server writes one, from the reference's passages."""
+
+    type: Literal["source"]
+    id: Id
+    body: MarkdownText
+    file: str
+    first_page: Annotated[int, Field(ge=1)]
+    last_page: Annotated[int, Field(ge=1)]
+
+    @model_validator(mode="after")
+    def pages_in_order(self) -> "SourceBlock":
+        if self.first_page > self.last_page:
+            raise ValueError("first_page must not come after last_page")
+        return self
+
+
 class ExplanationBlock(Model):
     type: Literal["explanation"]
     id: Id
@@ -294,7 +311,8 @@ class ProblemBlock(Model):
 
 
 Block = Annotated[
-    ExplanationBlock
+    SourceBlock
+    | ExplanationBlock
     | WorkedExampleBlock
     | PlotBlock
     | DiagramBlock

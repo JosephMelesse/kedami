@@ -26,6 +26,8 @@ export function LessonView({ lesson, readingBlock = null, dayStarts = NO_DAYS }:
   useFinishLines(article, dayStarts, opened)
   // The day each finish line ends, by the block that follows it.
   const lineBefore = useMemo(() => new Map(dayStarts.map((blockId, index) => [blockId, index + 1])), [dayStarts])
+  // A lesson from before dissection has no source blocks, and no labels.
+  const labelAdded = lesson.sections.some((section) => section.blocks.some((block) => block.type === 'source'))
 
   return (
     <article className="lesson" ref={article}>
@@ -44,7 +46,7 @@ export function LessonView({ lesson, readingBlock = null, dayStarts = NO_DAYS }:
         return (
           <Fragment key={section.id}>
             {day && <FinishLine day={day} />}
-            <SectionView section={section} lessonId={lesson.id} lineBefore={lineBefore} />
+            <SectionView section={section} lessonId={lesson.id} lineBefore={lineBefore} labelAdded={labelAdded} />
           </Fragment>
         )
       })}

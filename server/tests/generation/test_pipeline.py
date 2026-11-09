@@ -10,7 +10,7 @@ from kedami_server.app import create_app
 from kedami_server.config import Settings
 from kedami_server.generation import pipeline
 from kedami_server.generation.schemas import (
-    ProblemsAndConcepts,
+    ProblemsAndUnits,
     HintDraft,
     HintJudgements,
     HintReplacements,
@@ -21,7 +21,7 @@ from kedami_server.generation.schemas import (
 from kedami_server.lesson import Lesson
 from kedami_server.model import ModelError
 
-from .conftest import AUTH, upload
+from .conftest import AUTH, REFERENCE_TEXT, upload
 from .factories import extraction, plan
 
 NUMERIC = {"kind": "numeric", "value": 8.66, "rel_tolerance": 0.01, "unit": "m/s"}
@@ -50,6 +50,7 @@ def section_one():
         {"type": "checkpoint", "prompt": "A $20$ m/s throw at $60°$: find $v_x$.", "answer": {**NUMERIC, "value": 10}},
         {"type": "problem", "source_ref": "PS1 #1", "parts": [{"label": "(a)", "answer": {**NUMERIC}},
                                                              {"label": "(b)", "answer": {**NUMERIC, "value": 5}}]},
+        {"type": "source", "unit": "vectors"},
     ]}
 
 
@@ -57,6 +58,8 @@ def section_two():
     return {"blocks": [
         {"type": "explanation", "body": "Range."},
         {"type": "problem", "source_ref": "PS1 #2", "parts": [{"label": "2", "answer": {**NUMERIC, "value": 9.2}}]},
+        {"type": "source", "unit": "gravity"},
+        {"type": "source", "unit": "range"},
     ]}
 
 
@@ -79,7 +82,7 @@ SECTION_TWO_SOLVED = solved(**{"ps1-2/2": 9.2})
 
 def happy_script(overrides=None):
     script = {
-        ProblemsAndConcepts: [extraction()],
+        ProblemsAndUnits: [extraction()],
         Plan: [plan(("Vectors", ["vectors"]), ("Flight", ["gravity", "range"]))],
         SectionDraft: [section_one(), section_two()],
         HintDraft: [hints_for("vectors-block-2", "ps1-1/a", "ps1-1/b"), hints_for("ps1-2/2")],
@@ -109,7 +112,7 @@ def test_new_lesson_saves_materials_and_starts_generation(started, data_dir):
     lesson_id = response.json()["id"]
     assert runs == [(data_dir, lesson_id, "physics", 1)]
     assert (data_dir / "materials" / lesson_id / "problem-set.md").read_text() == "PS1\n1. A ball..."
-    assert (data_dir / "materials" / lesson_id / "reference.md").read_text() == "Notes on projectiles."
+    assert (data_dir / "materials" / lesson_id / "reference.md").read_text() == REFERENCE_TEXT.decode()
     status = lesson_status(client, lesson_id)
     assert (status["lesson"], status["status"], status["current_stage"], status["error"]) == (None, "generating", None, None)
     assert [(m["filename"], m["role"], m["force_transcription"]) for m in status["materials"]] == [
@@ -167,11 +170,11 @@ def test_requests_use_the_generate_role_and_open_with_the_cached_material(starte
     lesson_id = create().json()["id"]
     fake = FakeModel(happy_script())
     run(data_dir, lesson_id, fake)
-    for output in (ProblemsAndConcepts, Plan, SectionDraft, HintDraft):
+    for output in (ProblemsAndUnits, Plan, SectionDraft, HintDraft):
         for call in fake.calls[output]:
             assert call["role"] == "generate"
             first = call["prompt"][0]
-            assert "PS1\n1. A ball..." in first["text"] and "Notes on projectiles." in first["text"]
+            assert "PS1\n1. A ball..." in first["text"] and "[p2]\nAbout gravity." in first["text"]
             assert first["cache_control"] == {"type": "ephemeral"}
     assert all(call["role"] == "small_check" for call in fake.calls[HintJudgements])
     assert [call["role"] for call in fake.calls[Solutions]] == ["second_solve", "second_solve"]
@@ -190,19 +193,19 @@ def test_only_general_lessons_get_the_general_section_rules(started, data_dir, s
 def test_rejected_section_is_retried_alone_with_the_reason(started, data_dir):
     _, create, _ = started
     lesson_id = create().json()["id"]
-    missing_problem = {"blocks": [{"type": "explanation", "body": "Components."}]}
+    missing_problem = {"blocks": [{"type": "explanation", "body": "Components."}, {"type": "source", "unit": "vectors"}]}
     fake = FakeModel(happy_script({SectionDraft: [missing_problem, section_one(), section_two()]}))
     run(data_dir, lesson_id, fake)
     prompts = [c["prompt"][-1]["text"] for c in fake.calls[SectionDraft]]
     assert len(prompts) == 3
     assert "missing from the section: PS1 #1" in prompts[1]
     assert "rejected" not in prompts[2]
-    assert len(fake.calls[ProblemsAndConcepts]) == 1 and len(fake.calls[Plan]) == 1
+    assert len(fake.calls[ProblemsAndUnits]) == 1 and len(fake.calls[Plan]) == 1
 
 
 def section_two_with_diagram(svg):
-    explanation, problem = section_two()["blocks"]
-    return {"blocks": [explanation, {"type": "diagram", "svg": svg, "caption": "The range."}, problem]}
+    explanation, problem, *sources = section_two()["blocks"]
+    return {"blocks": [explanation, {"type": "diagram", "svg": svg, "caption": "The range."}, problem, *sources]}
 
 
 GOOD_DIAGRAM = '<svg viewBox="0 0 100 20" font-family="monospace" font-size="10"><text x="5" y="15">range</text></svg>'
@@ -228,7 +231,9 @@ def test_diagram_still_bad_on_the_last_attempt_is_dropped(started, data_dir):
     status = lesson_status(client, lesson_id)
     assert status["status"] == "ready" and status["error"] is None
     blocks = Lesson.model_validate(status["lesson"]).sections[1].blocks
-    assert [(b.type, b.id) for b in blocks] == [("explanation", "flight-block-1"), ("problem", "ps1-2")]
+    assert [(b.type, b.id) for b in blocks] == [
+        ("explanation", "flight-block-1"), ("problem", "ps1-2"), ("source", "flight-block-4"), ("source", "flight-block-5"),
+    ]
     assert len(fake.calls[SectionDraft]) == 4
 
 
@@ -250,14 +255,39 @@ def test_plan_breaking_the_sequencing_rules_is_retried(started, data_dir):
     incomplete = plan(("Vectors", ["vectors"]))
     fake = FakeModel(happy_script({Plan: [incomplete, plan(("Vectors", ["vectors"]), ("Flight", ["gravity", "range"]))]}))
     run(data_dir, lesson_id, fake)
-    assert "never introduced: gravity, range" in fake.calls[Plan][1]["prompt"][-1]["text"]
+    assert "these units are in no section: gravity, range" in fake.calls[Plan][1]["prompt"][-1]["text"]
+
+
+def test_the_reference_reaches_the_model_as_numbered_passages(started, data_dir):
+    _, create, _ = started
+    lesson_id = create().json()["id"]
+    fake = FakeModel(happy_script())
+    run(data_dir, lesson_id, fake)
+    material = fake.calls[ProblemsAndUnits][0]["prompt"][0]["text"]
+    assert "<reference_material>\n[reference.md, page 1]\n\n[p1]\nAbout vectors.\n\n[p2]\nAbout gravity." in material
+    section_two_request = fake.calls[SectionDraft][1]["prompt"][-1]["text"]
+    assert '"id": "gravity"' in section_two_request and '"passages": "p2"' in section_two_request
+
+
+def test_units_that_leave_a_gap_are_sent_back_with_the_numbers(started, data_dir):
+    client, create, _ = started
+    lesson_id = create().json()["id"]
+    # The range unit covers no passage, so p3 is left out.
+    gap = extraction().model_dump()
+    gap["units"][2]["first"] = gap["units"][2]["last"] = 2
+    fake = FakeModel(happy_script({ProblemsAndUnits: [gap, extraction()]}))
+    run(data_dir, lesson_id, fake)
+    assert "these passages are in no unit or skipped range: p3" in fake.calls[ProblemsAndUnits][1]["prompt"][-1]["text"]
+    assert lesson_status(client, lesson_id)["status"] == "ready"
+    saved = json.loads((data_dir / "work" / lesson_id / "extraction.json").read_text())
+    assert [(u["id"], u["first"], u["last"]) for u in saved["units"]] == [("vectors", 1, 1), ("gravity", 2, 2), ("range", 3, 3)]
 
 
 def test_stage_failing_every_attempt_fails_the_lesson(started, data_dir):
     client, create, _ = started
     lesson_id = create().json()["id"]
-    bad = {"concepts": [], "problems": []}
-    fake = FakeModel(happy_script({ProblemsAndConcepts: [bad, bad, bad]}))
+    bad = {"units": [], "skipped": [], "problems": []}
+    fake = FakeModel(happy_script({ProblemsAndUnits: [bad, bad, bad]}))
     run(data_dir, lesson_id, fake)
     status = lesson_status(client, lesson_id)
     assert status["status"] == "failed"
@@ -279,7 +309,7 @@ def test_model_error_fails_the_lesson_without_retrying(started, data_dir):
 def test_unexpected_errors_still_fail_the_lesson(started, data_dir):
     client, create, _ = started
     lesson_id = create().json()["id"]
-    fake = FakeModel(happy_script({ProblemsAndConcepts: [RuntimeError("boom")]}))
+    fake = FakeModel(happy_script({ProblemsAndUnits: [RuntimeError("boom")]}))
     run(data_dir, lesson_id, fake)
     assert lesson_status(client, lesson_id)["error"] == "Unexpected error: boom"
 

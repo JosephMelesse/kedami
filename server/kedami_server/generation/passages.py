@@ -3,9 +3,11 @@
 Passages are the only way later stages refer to the reference, so a split never loses or moves a line.
 """
 
+import json
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
+from pathlib import Path
 
 from .ingest import TRANSCRIBE, RoutedPage
 
@@ -39,6 +41,18 @@ def split_passages(pages: list[RoutedPage]) -> list[Passage]:
         Passage(number=number, kind=kind, file=page.file, page=page.page, text=text)
         for number, (page, kind, text) in enumerate(parts, start=1)
     ]
+
+
+def load_passages(path: Path) -> list[Passage] | None:
+    """Passages saved by stage 1, or None if they are missing or unreadable, as for a lesson from before them."""
+    try:
+        passages = [Passage(**item) for item in json.loads(path.read_text())]
+    except (OSError, ValueError, TypeError):
+        return None
+    # Units and the plan find a passage by its number, so they must run 1, 2, 3, ... with no gaps.
+    if [p.number for p in passages] != list(range(1, len(passages) + 1)):
+        return None
+    return passages
 
 
 def _split_page(markdown: str, notes: bool) -> Iterable[tuple[str, str]]:

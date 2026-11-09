@@ -136,39 +136,59 @@ def test_a_database_with_the_old_columns_and_table_still_works(tmp_path, lesson_
 
 
 def extraction(**extra):
+    """A stage 2 output from before units: problems with the concepts they need."""
     part = {"label": "(a)", "prompt": "Find x.", "options": None}
     problem = {"source_ref": "PS1 #1", "prompt": "", "parts": [part], "concepts": []}
     return {"concepts": [], "problems": [problem], **extra}
 
 
-@pytest.mark.parametrize("saved", [{}, {"answers": {}}, {"externals": {}}])
-def test_an_extraction_with_no_listed_answers_still_loads(saved):
-    assert len(Extraction.model_validate(extraction(**saved)).problems) == 1
-
-
-def test_an_extraction_with_listed_answers_doesnt_load():
+@pytest.mark.parametrize("saved", [{}, {"answers": {}}, {"answers": {"ps1-1": EXTERNAL}}])
+def test_an_extraction_from_before_units_doesnt_load(saved):
     with pytest.raises(ValueError):
-        Extraction.model_validate(extraction(answers={"ps1-1": EXTERNAL}))
+        Extraction.model_validate(extraction(**saved))
 
 
-def test_a_plan_with_no_sql_features_still_loads():
-    section = {"title": "A", "goal": "B", "concepts": [], "simulation": None, "sql_features": []}
-    assert len(Plan.model_validate({"title": "T", "sections": [section]}).sections) == 1
-
-
-def test_a_plan_with_sql_features_doesnt_load():
-    section = {"title": "A", "goal": "B", "concepts": [], "simulation": None, "sql_features": ["joins"]}
+@pytest.mark.parametrize("sql_features", [[], ["joins"]])
+def test_a_plan_from_before_units_doesnt_load(sql_features):
+    section = {"title": "A", "goal": "B", "concepts": [], "simulation": None, "sql_features": sql_features}
     with pytest.raises(ValueError):
         Plan.model_validate({"title": "T", "sections": [section]})
 
 
-def test_a_lesson_with_older_stage_outputs_can_still_be_rerun_from_any_stage(data_dir):
+def older_outputs(data_dir, passages=None):
+    """A lesson's stage outputs from before units, with passages if stage 1 ran after they were added."""
     work = pipeline.work_dir(data_dir, "old")
     (work / pipeline.NORMALIZED).mkdir(parents=True)
     (work / pipeline.NORMALIZED / pipeline.PROBLEM_SET_FILE).write_text("PS1")
     (work / pipeline.NORMALIZED / pipeline.REFERENCE_FILE).write_text("Notes")
-    (work / "extraction.json").write_text(json.dumps(extraction(answers={})))
-    section = {"title": "A", "goal": "B", "concepts": [], "simulation": None, "sql_features": []}
+    if passages is not None:
+        (work / pipeline.PASSAGES_FILE).write_text(json.dumps(passages))
+    (work / "extraction.json").write_text(json.dumps(extraction()))
+    section = {"title": "A", "goal": "B", "concepts": [], "simulation": None}
     (work / "plan.json").write_text(json.dumps({"title": "T", "sections": [section]}))
 
-    assert pipeline.available_stages(data_dir, "old", True) == [1, 2, 3, 4]
+
+def test_a_lesson_from_before_passages_can_be_rerun_only_from_stage_1(data_dir):
+    older_outputs(data_dir)
+    assert pipeline.available_stages(data_dir, "old", True) == [1]
+
+
+def test_a_lesson_with_passages_but_no_units_can_be_rerun_from_stage_2(data_dir):
+    older_outputs(data_dir, [{"number": 1, "kind": "text", "file": "notes.md", "page": 1, "text": "Notes"}])
+    assert pipeline.available_stages(data_dir, "old", True) == [1, 2]
+
+
+@pytest.mark.parametrize(
+    "passages",
+    [
+        "not json",
+        [{"number": 2, "kind": "text", "file": "notes.md", "page": 1, "text": "Notes"}],
+        [{"number": 1, "kind": "text", "file": "notes.md"}],
+        [],
+    ],
+)
+def test_unreadable_or_empty_passages_allow_only_stage_1(data_dir, passages):
+    older_outputs(data_dir)
+    path = pipeline.work_dir(data_dir, "old") / pipeline.PASSAGES_FILE
+    path.write_text(passages if isinstance(passages, str) else json.dumps(passages))
+    assert pipeline.available_stages(data_dir, "old", True) == [1]

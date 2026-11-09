@@ -5,7 +5,7 @@ import pytest
 from kedami_server import db, library
 from kedami_server.generation import pipeline
 from kedami_server.generation.schemas import (
-    ProblemsAndConcepts,
+    ProblemsAndUnits,
     HintDraft,
     HintJudgements,
     Plan,
@@ -19,7 +19,7 @@ from kedami_server.progress import Record, load_all, save
 from kedami_server.storage import seed_sample
 
 from .files import LONG, png, text_pdf
-from .conftest import AUTH, upload
+from .conftest import AUTH, REFERENCE_TEXT, upload
 from .factories import plan
 from .test_pipeline import FakeModel, happy_script, lesson_status, run, section_one, solved
 
@@ -46,7 +46,7 @@ def revision(data_dir, lesson_id):
 # Uploads
 
 
-NOTES = ("notes.md", b"Notes on projectiles.", "reference", False)
+NOTES = ("notes.md", REFERENCE_TEXT, "reference", False)
 
 
 @pytest.mark.parametrize(
@@ -103,7 +103,7 @@ def test_stage_one_routes_uploaded_pdfs_and_images(started, data_dir):
     lesson_id = upload(client, files).json()["id"]
     fake = FakeModel(happy_script({
         TextChecks: [{"pages": [{"page": 1, "clean": True}]}],
-        Transcription: [{"markdown": "TRANSCRIBED"}, {"markdown": "TRANSCRIBED"}],
+        Transcription: [{"markdown": "TRANSCRIBED"}, {"markdown": REFERENCE_TEXT.decode()}],
     }))
     run(data_dir, lesson_id, fake)
     assert lesson_status(client, lesson_id)["status"] == "ready"
@@ -111,7 +111,7 @@ def test_stage_one_routes_uploaded_pdfs_and_images(started, data_dir):
     assert [(p["file"], p["page"], p["route"]) for p in pages] == [
         ("ps.pdf", 1, "keep"), ("ps.pdf", 2, "transcribe"), ("notes.png", 1, "transcribe"),
     ]
-    assert LONG in fake.calls[ProblemsAndConcepts][0]["prompt"][0]["text"]
+    assert LONG in fake.calls[ProblemsAndUnits][0]["prompt"][0]["text"]
 
 
 def test_problem_set_with_no_readable_text_fails(started, data_dir):
@@ -183,7 +183,7 @@ def test_rerun_from_stage_four_reuses_earlier_outputs(generated, data_dir):
     extraction = (data_dir / "work" / lesson_id / "extraction.json").read_text()
     fake = FakeModel(happy_script())
     run(data_dir, lesson_id, fake, start_stage=4)
-    assert ProblemsAndConcepts not in fake.calls and Plan not in fake.calls
+    assert ProblemsAndUnits not in fake.calls and Plan not in fake.calls
     assert len(fake.calls[SectionDraft]) == 2
     assert (data_dir / "work" / lesson_id / "extraction.json").read_text() == extraction
     status = lesson_status(client, lesson_id)
@@ -195,14 +195,15 @@ def test_rerun_from_stage_two_redoes_everything_after_it(generated, data_dir):
     client, lesson_id, _ = generated
     fake = FakeModel(happy_script())
     run(data_dir, lesson_id, fake, start_stage=2)
-    assert len(fake.calls[ProblemsAndConcepts]) == 1 and len(fake.calls[Plan]) == 1
+    assert len(fake.calls[ProblemsAndUnits]) == 1 and len(fake.calls[Plan]) == 1
     assert revision(data_dir, lesson_id) == 2
 
 
 def test_rerun_with_fewer_sections_leaves_no_stale_outputs(generated, data_dir):
     _, lesson_id, _ = generated
     one_section = {"blocks": section_one()["blocks"] + [
-        {"type": "problem", "source_ref": "PS1 #2", "parts": [{"label": "2", "answer": {"kind": "numeric", "value": 9.2}}]}]}
+        {"type": "problem", "source_ref": "PS1 #2", "parts": [{"label": "2", "answer": {"kind": "numeric", "value": 9.2}}]},
+        {"type": "source", "unit": "gravity"}, {"type": "source", "unit": "range"}]}
     fake = FakeModel(happy_script({
         Plan: [plan(("Everything", ["vectors", "gravity", "range"]))],
         SectionDraft: [one_section],

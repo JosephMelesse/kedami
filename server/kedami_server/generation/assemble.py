@@ -1,8 +1,8 @@
 """Builds lesson sections from the model's drafts.
 
-Homework text comes from extraction, never from the section draft, so the problem a
-student sees is the one in their problem set. Every check here raises SectionError,
-which sends the section back to the model with the message.
+Homework text comes from extraction and reference text from the passages, never from the
+section draft, so what a student reads is their course material, word for word. Every
+check here raises SectionError, which sends the section back to the model with the message.
 """
 
 from pydantic import ValidationError
@@ -17,23 +17,28 @@ from ..lesson import (
     Section,
 )
 from .diagrams import layout_problems
+from .passages import Passage
 from .plan import SectionPlan
-from .schemas import DiagramDraft, ProblemDraft, SectionDraft, SimulationDraft
+from .retry import Rejected
+from .schemas import DiagramDraft, ProblemDraft, SectionDraft, SimulationDraft, SourceDraft, Unit
+from .units import source_runs
 
 
-class SectionError(ValueError):
+class SectionError(Rejected):
     pass
 
 
 def assemble_section(
     plan: SectionPlan,
     draft: SectionDraft,
+    passages: list[Passage],
     drop_bad_diagrams: bool = False,
 ) -> Section:
     """Build a section. A diagram with layout problems is a SectionError, unless `drop_bad_diagrams` is set for
     the last attempt, and then it is left out."""
     targets = {slugify(p.source_ref): p for p in plan.problems}
     typed = [block.typed for block in draft.blocks]
+    _check_units([block.unit for block in typed if isinstance(block, SourceDraft)], plan.units)
     placed = [_problem_id(block) for block in typed if isinstance(block, ProblemDraft)]
     _check_problems(placed, targets)
     simulations = sum(isinstance(block, SimulationDraft) for block in typed)
@@ -48,30 +53,62 @@ def assemble_section(
     if bad_diagrams and not drop_bad_diagrams:
         raise SectionError(_diagram_feedback(bad_diagrams))
 
-    blocks = []
+    units = {unit.id: unit for unit in plan.units}
+    blocks: list[dict] = []
     for index, block in enumerate(typed, start=1):
+        # A teaching block's ID is its place in the draft, so dropping a diagram doesn't move the others.
+        block_id = f"{plan.id}-block-{index}"
         if index in bad_diagrams:
             continue
-        if isinstance(block, ProblemDraft):
+        if isinstance(block, SourceDraft):
+            sources = _source_blocks(units[block.unit], passages)
+            # A unit is one block unless something it holds, such as a figure, splits its text.
+            blocks += [{**b, "id": block_id if n == 1 else f"{block_id}-{n}"} for n, b in enumerate(sources, start=1)]
+        elif isinstance(block, ProblemDraft):
             blocks.append(_problem(block, targets[_problem_id(block)]))
         elif isinstance(block, SimulationDraft):
             # The code is written on request, after the lesson is ready.
             blocks.append(
-                {
-                    "type": "simulation",
-                    "id": f"{plan.id}-block-{index}",
-                    "caption": block.caption,
-                    "brief": plan.simulation,
-                    "code": "",
-                }
+                {"type": "simulation", "id": block_id, "caption": block.caption, "brief": plan.simulation, "code": ""}
             )
         else:
-            blocks.append({**block.model_dump(), "id": f"{plan.id}-block-{index}"})
+            blocks.append({**block.model_dump(), "id": block_id})
 
     try:
         return Section.model_validate({"id": plan.id, "title": plan.title, "goal": plan.goal, "blocks": blocks})
     except ValidationError as error:
         raise SectionError(f"the section content is invalid: {error}") from error
+
+
+def _check_units(placed: list[str], wanted: list[Unit]) -> None:
+    """Every unit of the section, once each, in the plan's order."""
+    order = [unit.id for unit in wanted]
+    if placed == order:
+        return
+    unknown = sorted(set(placed) - set(order))
+    if unknown:
+        raise SectionError(f"these units don't belong in this section: {', '.join(unknown)}")
+    repeated = sorted({u for u in placed if placed.count(u) > 1})
+    if repeated:
+        raise SectionError(f"each unit must appear once; repeated: {', '.join(repeated)}")
+    missing = [u for u in order if u not in placed]
+    if missing:
+        raise SectionError(f"these units are missing from the section: {', '.join(missing)}")
+    raise SectionError(f"place the units in this order: {', '.join(order)}; got: {', '.join(placed)}")
+
+
+def _source_blocks(unit: Unit, passages: list[Passage]) -> list[dict]:
+    """A unit's text, word for word: one source block for each run of its text passages."""
+    return [
+        {
+            "type": "source",
+            "body": "\n\n".join(p.text for p in run),
+            "file": run[0].file,
+            "first_page": run[0].page,
+            "last_page": run[-1].page,
+        }
+        for run in source_runs(unit, passages)
+    ]
 
 
 def _diagram_feedback(bad: dict[int, list[str]]) -> str:
