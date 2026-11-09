@@ -26,7 +26,7 @@
 27. Placeholder lessons: planned lessons that Upload fills in
 28. Mandatory reference: refuse an upload without one, and fail a lesson whose reference has no readable text
 29. Reference formatting and passages: the format call, the word check, and the passage split, with no change to lessons yet
-30. Dissection and reconstruction: units, the plan's order rules, source markers, and added labels. Rerun Geometric Optics, compare it side by side with the current lesson, log the cost, and stop for review before going on
+30. Dissection and reconstruction: units, the plan's order rules, source markers, and added labels. Generate a new lesson, review it against its material, log the cost, and stop for review before going on
 31. Cropped figures: finding, describing, serving, and showing them
 32. A figure and a simulation in every section
 
